@@ -15,7 +15,7 @@ of the final energy sectors
 - industry.
 
 
-## How to start
+## Installation
 
 Before we really start, please install the [latest Anaconda package](https://www.anaconda.com/distribution/) and open the **Anaconda Powershell Prompt**.  
 For experts: You can also open a bash shell (Linux) or command prompt (Windows), but then make sure that your local environment variable `PATH` points to your anaconda installation directory.
@@ -32,7 +32,9 @@ and install all required packages. Then activate the environment
 $ activate demandregio
 ```
 
-and start a Jupyter Notebook from there
+## How to start
+
+Once the environment is activated, you can start a Jupyter Notebook from there
 
 ```bash
 (demandregio) $ jupyter notebook
@@ -43,6 +45,12 @@ As soon as the Jupyter Notebook opens in your browser, click on the `01_Introduc
 ![Jupyter_View][img_01]
 
 [img_01]: img/jupyter_notebook.png "Jupyter Notebook View"
+
+## Results
+
+![Jupyter_View][img_02]
+
+[img_02]: img/spatial_elc_by_household_sizes.png "Year Electricity Consumption of Private Households"
 
 ## Acknowledgements
 
