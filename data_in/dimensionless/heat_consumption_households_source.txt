@@ -1,0 +1,20 @@
+Daten zu Kochen und Warmwasser
+******************************
+
+- Datei: Z:\_Projekte\DemandRegio\Daten\Haushalte\RWI und forsa - Energieverbrauch und Anwendungsbilanzen\PB_Anwendungsbilanzen-priv-HH_2016-2017.pdf
+- Seite: 13 (PDF-Seite 16)
+
+Daten zum Heizwärmebedarf pro m²
+********************************
+
+Jahr 2012 aus Tabelle Erdgas 2: "Spezifischer Erdgasverbrauch in kWh/m² nach Gebäudetyp"
+- Datei: Z:\_Projekte\DemandRegio\Daten\Haushalte\RWI und forsa - Energieverbrauch und Anwendungsbilanzen\PB_Energieverbrauch-priv-HH-2011-2013.pdf
+- Seite: 46
+
+Hinweis:
+Die Werte für 2FH wurden zwischen 1FH und MFH linear interpoliert, da eine Steigerung physikalisch nicht sinnvoll erscheint.
+
+Steigerungsfaktor zur Berechnung von Zentralheizung inkl. Warmwasser: 13,29% (= 162 kWh/(m²a) / 143 kWh/(m²a))
+Quelle:
+ - https://www.heizsparer.de/energie/gas/gasverbrauch, Abgerufen: 06.09.2019 16:53
+ - Seitenabbild: Z:\_Projekte\DemandRegio\Daten\Haushalte\BDEW_Wie heizt Deutschland_NUTS-1-Ebene\heizsparer.de-Gasverbrauch.pdf

@@ -1,0 +1,144 @@
+# --- General settings ---
+base_year: 2015
+database_host: "http://opendata.ffe.de:4000/"
+dict_source: database
+# Set the maximum number of cpu threads to be used. Logic:
+# If max_cpu_count exceeds the number of available threads OR
+# if max_cpu_count is under the negative of available threads OR
+# if max_cpu_count equals zero:
+#     => use all available threads.
+# ElseIf max_cpu_count is above zero but below the number of available threads:
+#     => use max_cpu_count
+# ElseIf max_cpu_count is below zero but above the negative of available threads:
+#     => lower the available threads (so: all available threads + max_cpu_count)
+max_cpu_count: -1
+use_nuts_2016: True
+
+# --- Input data config ---
+
+# 1. Dimensionless -
+elc_cons_HH_total:
+    source: database
+    filename: elc_consumption_HH_total.csv
+    table_id: 2
+
+elc_cons_HH_by_size:
+    source: database
+    filename: elc_consumption_by_HH_size.csv
+    table_id: 13
+
+heat_consumption_HH:
+    source: local
+    filename: heat_consumption_households.csv
+    
+gas_consumption_HH:
+    source: database
+    filename: gas_consumption_households.csv
+    table_id: 35
+
+# 2. Spatial
+population:
+    source: database
+    filename: population.csv
+    table_id: 1
+
+demographic_trend:
+    source: database
+    filename: demographic_trend.csv
+    table_id: 8
+
+household_sizes:
+    source: database
+    filename: households.csv
+    table_id: 14
+
+income:
+    source: database
+    filename: income.csv
+    table_id: 45
+    internal_id: 2  # 1=sum of available income; 2=available income per capita
+
+living_space:
+    source: database
+    filename: living_space.csv
+    table_id: 12
+    # If left empty or given value impossible (e.g. -1) -> do not filter.
+    internal_id:
+        0: -1   # building types. 1: 1FH, 2: 2FH, 3: MFH(3-6), 4: MFH(7-12), 5: MFH(>12)
+        1: -1   # building vintage class (1 newest, 11: oldest)
+        2: -1   # heating system or id_et: 9=Steinkohle; 10=Braunkohle; 11=Erdgas; 34=Heizoel; 35=Biomasse (fest); 68=Umgebungswaerme; 69=Solarwaerme; 71=Fernwaerme; 72=Elektrische Energie; 218=Biomasse (außer Holz, Biogas)
+        3: -1   # non empty building. 0/False: building empty, 1/True: building not empty
+
+elc_cons_HH_spatial:
+    source: database
+    filename: elc_consumption_HH_spatial.csv
+    table_id: 4
+
+stove_assumptions:
+    source: local
+    filename: stove_assumptions_nuts1.csv
+
+hotwater_shares:
+    source: local
+    filename: hotwater_shares_nuts1.csv
+
+heating_systems:
+    source: local
+    filename: heating_systems_nuts1.csv
+
+# 3. Temporal
+elc_cons_HH_temporal:
+    source: database
+    table_id: 6
+
+# 4. Spatiotemporal
+slp_H0_1H:
+    source: database
+    table_id: 23
+    freq: 1H
+
+slp_H0_15min:
+    source: database
+    table_id: 24
+    freq: 15T
+
+ambient_T:
+    source: database
+    # table_id: 11=centroid of the region, 12=biggest settlement/area (village, town)
+    table_id: 12
+    internal_id: 1
+    freq: 1H
+
+solar_irradiation:
+    source: database
+    table_id: 17
+    freq: 1H
+
+elc_cons_HH_spatiotemporal:
+    source: database
+    table_id: 7
+    freq: 1H
+    
+# --- Variable Type Configuration ---
+dtypes:
+    ags_lk: str
+    id: int
+    id_temporal: int
+    id_spatial: int
+    id_region_type: int
+    id_region: int
+    year_step: int
+    year_weather: int
+    internal_id: int
+    values: str
+    max: float
+    min: float
+    sum: float
+
+# contains all table_id's of those tables with spatially high data on nuts 3 level
+nuts3_tables: [1, 4, 5, 12, 14, 15, 16, 17, 18, 19, 20, 26, 27, 28, 29, 30, 31, 32, 33, 34, 39, 40, 41, 42, 43, 44, 45]
+
+# load table sectionwise:
+load_sectionwise:
+    spatial: []
+    temporal: []

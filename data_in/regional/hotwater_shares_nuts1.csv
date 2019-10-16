@@ -1,0 +1,17 @@
+natcode_nuts1,name_nuts1,energy_carrier,share_centralised,share_decentralised_elc,share_decentralised_gas,share_decentralised_other
+DE1,Baden-Württemberg,natural gas,0.786,0.125838028,0.079873239,0.008288732
+DE2,Bayern,natural gas,0.787,0.12525,0.0795,0.00825
+DE3,Berlin,natural gas,0.669,0.194637324,0.123542254,0.012820423
+DE4,Brandenburg,natural gas,0.737,0.154651409,0.098161972,0.01018662
+DE5,Bremen,natural gas,0.528,0.277549296,0.176169014,0.01828169
+DE6,Hamburg,natural gas,0.618,0.224626761,0.142577465,0.014795775
+DE7,Hesssen,natural gas,0.748,0.148183099,0.094056338,0.009760563
+DE8,Mecklenburg-Vorpommern,natural gas,0.683,0.18640493,0.118316901,0.012278169
+DE9,Niedersachsen,natural gas,0.723,0.162883803,0.103387324,0.010728873
+DEA,Nordrhein-Westfalen,natural gas,0.614,0.226978873,0.144070423,0.014950704
+DEB,Rheinland-Pfalz,natural gas,0.662,0.198753521,0.12615493,0.013091549
+DEC,Saarland,natural gas,0.635,0.214630282,0.136232394,0.014137324
+DED,Sachsen,natural gas,0.818,0.107021127,0.067929577,0.007049296
+DEE,Sachsen-Anhalt,natural gas,0.759,0.141714789,0.089950704,0.009334507
+DEF,Schleswig-Holstein,natural gas,0.745,0.149947183,0.095176056,0.009876761
+DEG,Thüringen,natural gas,0.772,0.134070423,0.085098592,0.008830986

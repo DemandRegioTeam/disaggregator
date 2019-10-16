@@ -1,0 +1,17 @@
+natcode_nuts1,name_nuts1,stoves_percentage_electric,stoves_percentage_gas,stoves_efficiency_electric,stoves_efficiency_gas
+DE1,Baden-Württemberg,0.947,0.042,0.6167,0.4485
+DE2,Bayern,0.953,0.022,0.6167,0.4485
+DE3,Berlin,0.84,0.153,0.6167,0.4485
+DE4,Brandenburg,0.883,0.103,0.6167,0.4485
+DE5,Bremen,0.873,0.127,0.6167,0.4485
+DE6,Hamburg,0.944,0.056,0.6167,0.4485
+DE7,Hessen,0.966,0.023,0.6167,0.4485
+DE8,Mecklenburg-Vorpommern,0.908,0.072,0.6167,0.4485
+DE9,Niedersachsen,0.943,0.051,0.6167,0.4485
+DEA,Nordrhein-Westfalen,0.933,0.049,0.6167,0.4485
+DEB,Rheinland-Pfalz,0.904,0.069,0.6167,0.4485
+DEC,Saarland,0.897,0.073,0.6167,0.4485
+DED,Sachsen,0.928,0.055,0.6167,0.4485
+DEE,Sachsen-Anhalt,0.858,0.118,0.6167,0.4485
+DEF,Schleswig-Holstein,0.936,0.05,0.6167,0.4485
+DEG,Thüringen,0.926,0.056,0.6167,0.4485
