@@ -123,7 +123,7 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
                         'passed as int and be greater zero. Gathering these '
                         'values now based on the given pd.DataFrame.')
         nrows, ncols, rem = gather_nrows_ncols(len(cols))
-        figsize = kwargs.get('figsize', (4*ncols*1.05, 6*nrows*1.1))
+    figsize = kwargs.get('figsize', (4*ncols*1.05, 6*nrows*1.1))
 
     i, j = [0, 0]
     fig, ax = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False,
