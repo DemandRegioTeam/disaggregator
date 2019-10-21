@@ -94,10 +94,14 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
             lambda x: x.representative_point().coords[:][0])
 
     cols = df.columns
+    unit = '\\%' if unit == '%' else unit
     if relative:  # convert to unit per km²
         DF.loc[:, cols] = DF.loc[:, cols].apply(lambda x: x/DF.fl_km2)
         unit = '1' if unit == '-' else unit
-        unit = '[${} / km²$]'.format(unit)
+        if unit[-2:] == '/a':
+            unit = '[${} / (km² × a)$]'.format(unit[:-2])
+        else:
+            unit = '[${} / km²$]'.format(unit)
     else:
         unit = '[${}$]'.format(unit)
 
