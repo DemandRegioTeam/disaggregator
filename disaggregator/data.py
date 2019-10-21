@@ -147,13 +147,19 @@ def gas_consumption_HH(**kwargs):
 
 
 def zve_percentages_applications():
-    return pd.read_csv(_data_in('temporal', 'percentages_applications.csv'),
-                       index_col='Application', engine='c')
+    df = (pd.read_csv(_data_in('temporal', 'percentages_applications.csv'),
+                      index_col='Application', engine='c')
+            .drop(labels='all', axis=1))
+    df.columns = df.columns.astype(int)
+    return df
 
 
 def zve_percentages_baseload():
-    return pd.read_csv(_data_in('temporal', 'percentages_baseload.csv'),
-                       index_col='Application', engine='c')
+    df = (pd.read_csv(_data_in('temporal', 'percentages_baseload.csv'),
+                      index_col='Application', engine='c')
+            .drop(labels='all', axis=1))
+    df.columns = df.columns.astype(int)
+    return df
 
 
 def zve_application_profiles():
@@ -395,7 +401,7 @@ def living_space(aggregate=True, **kwargs):
 
 def income(**kwargs):
     """
-    Read, transform and return incomes per NUTS-3 area.
+    Read, transform and return incomes in [Euro/cap] per NUTS-3 area.
 
     Returns
     -------
