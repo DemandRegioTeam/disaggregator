@@ -245,7 +245,7 @@ def create_animation(directory=None, extension='mp4', fps=24):
 
     logger.info('Creating animation...')
     if extension == 'mp4':
-        file_name = os.path.join(new_path, 'video.mp4')
+        file_name = os.path.join(new_path, 'video_{}-fps.mp4'.format(fps))
         writer = im.get_writer(file_name, fps=fps)
         for image in images:
             writer.append_data(image)

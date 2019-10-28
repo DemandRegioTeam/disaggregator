@@ -22,8 +22,8 @@ it is NOT a library and should not be imported into other modules.
 
 from disaggregator.config import get_config, _data_out
 from disaggregator.data import (ambient_T, solar_irradiation,
-                                elc_consumption_HH_spatio_temporal)
-from disaggregator.plot import Choropleth_map
+                                elc_consumption_HH_spatiotemporal)
+from disaggregator.plot import choropleth_map
 import matplotlib.pyplot as plt
 import logging
 import os
@@ -49,7 +49,7 @@ def create_plot(input):
         h = int(np.floor(24.0/tspd * (t % tspd)))
         m = int(((t % tspd) % (tspd/24.0)) * 15)
         dto = dt.datetime(y, 1, 1) + dt.timedelta(doy - 1)
-        fig, ax = Choropleth_map(ser,
+        fig, ax = choropleth_map(ser,
                                  axtitle=s.format(y, dto.month, dto.day, h, m),
                                  **choro_kwargs)
         fig.savefig(fn, bbox_inches='tight')
@@ -91,13 +91,19 @@ def invoke_batch_plotting(df, **choro_kwargs):
     return
 
 
+"""
+Please uncomment the sections you don't need and run the entire script in an
+external (!) console.
+"""
 if __name__ == '__main__':
-#    invoke_batch_plotting(ambient_T(),
-#                          relative=False, interval=(-12, 40), cmap='jet',
-#                          unit='Temperature [°C]')
-#    invoke_batch_plotting(solar_irradiation(),
-#                          relative=False, interval=(0, 245), cmap='jet',
-#                          unit='solare Einstrahlung [Wh/m²]', tspd=96)
-    invoke_batch_plotting(elc_consumption_HH_spatio_temporal(),
-                          relative=True, cmap='jet', interval=(0, 1.54),
-                          unit='Last pro Fläche [MW/km²]')
+    invoke_batch_plotting(ambient_T(),
+                          relative=False, interval=(-12, 40), cmap='jet',
+                          unit='°C')
+
+    invoke_batch_plotting(solar_irradiation(),
+                          relative=False, interval=(0, 245), cmap='jet',
+                          unit='Wh/m²', tspd=96)
+
+    invoke_batch_plotting(elc_consumption_HH_spatiotemporal(),
+                          relative=True, interval=(0, 1.54), cmap='jet',
+                          unit='MW')
