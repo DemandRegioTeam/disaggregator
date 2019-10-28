@@ -582,6 +582,7 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg[key]['source'])
     table_id = kwargs.get('table_id', cfg[key]['table_id'])
+    internal_id = kwargs.get('table_id', cfg.get(key).get('internal_id'))
     force_update = kwargs.get('force_update', False)
     if freq is None:
         if key is None:
@@ -593,7 +594,7 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
         raise NotImplementedError('Not here yet!')
     elif source == 'database':
         df = (database_get('temporal', table_id=table_id, year=year,
-                           force_update=force_update)
+                           internal_id=internal_id, force_update=force_update)
               .assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()))
               .set_index('nuts3').sort_index(axis=0)
               .loc[:, 'values']
