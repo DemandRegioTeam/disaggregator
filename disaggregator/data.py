@@ -592,6 +592,8 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
     table_id = kwargs.get('table_id', cfg[key]['table_id'])
     internal_id = kwargs.get('internal_id', cfg.get(key).get('internal_id'))
     force_update = kwargs.get('force_update', False)
+    check_zero = kwargs.get('check_zero', True)
+
     if freq is None:
         if key is None:
             raise ValueError('You must pass either `freq` or `key`!')
@@ -604,6 +606,7 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
         df = (database_get('temporal', table_id=table_id, year=year,
                            internal_id=internal_id, force_update=force_update)
               .assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()))
+              .loc[lambda x: (~(x.nuts3.isna()))]
               .set_index('nuts3').sort_index(axis=0)
               .loc[:, 'values']
               .apply(literal_converter))
@@ -613,6 +616,7 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
     else:
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
+    plausibility_check_nuts3(df_exp, check_zero=check_zero)
     return df_exp
 
 
@@ -753,7 +757,7 @@ def database_shapes():
                .set_index('nuts3').sort_index(axis=0))
 
 
-def plausibility_check_nuts3(df):
+def plausibility_check_nuts3(df, check_zero=True):
     """
     Check a given pd.DataFrame
     - if all nuts3 regions are available and
@@ -772,10 +776,10 @@ def plausibility_check_nuts3(df):
                     'congruent with those in the database. These here are not '
                     'in the database: {}'.format(C_diff))
     if isinstance(df, pd.Series):
-        if df.loc[lambda x: x <= 0.0].any():
+        if check_zero and df.loc[lambda x: x <= 0.0].any():
             logger.warn('There are values less or equal to zero.')
     elif isinstance(df, pd.DataFrame):
-        if df[df <= 0.0].any().any():
+        if check_zero and df[df <= 0.0].any().any():
             logger.warn('There are values less or equal to zero.')
     else:
         raise NotImplementedError('Check for given type! Other than pd.Series '
