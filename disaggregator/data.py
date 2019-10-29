@@ -128,7 +128,7 @@ def gas_consumption_HH(**kwargs):
     key = 'gas_consumption_HH'
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg[key]['source'])
-    table_id = kwargs.get('source', cfg[key]['table_id'])
+    table_id = kwargs.get('table_id', cfg[key]['table_id'])
     force_update = kwargs.get('force_update', False)
 
     if source == 'local':
@@ -181,7 +181,7 @@ def population(**kwargs):
     """
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg['population']['source'])
-    table_id = kwargs.get('source', cfg['population']['table_id'])
+    table_id = kwargs.get('table_id', cfg['population']['table_id'])
     force_update = kwargs.get('force_update', False)
 
     if source == 'local':
@@ -225,7 +225,7 @@ def elc_consumption_HH_spatial(**kwargs):
     """
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg['elc_cons_HH_spatial']['source'])
-    table_id = kwargs.get('source', cfg['elc_cons_HH_spatial']['table_id'])
+    table_id = kwargs.get('table_id', cfg['elc_cons_HH_spatial']['table_id'])
     force_update = kwargs.get('force_update', False)
 
     if source == 'local':
@@ -582,7 +582,7 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg[key]['source'])
     table_id = kwargs.get('table_id', cfg[key]['table_id'])
-    internal_id = kwargs.get('table_id', cfg.get(key).get('internal_id'))
+    internal_id = kwargs.get('internal_id', cfg.get(key).get('internal_id'))
     force_update = kwargs.get('force_update', False)
     if freq is None:
         if key is None:

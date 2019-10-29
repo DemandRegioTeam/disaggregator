@@ -144,7 +144,7 @@ def region_id_to_nuts3(raw=False, nuts3_to_name=False):
     nuts3_to_name : bool, default False
         Determines the dict data to be returned.
         If True,  return <region_id>: <nuts3> e.g. '1001000': 'DEF01'
-        If False, return <nuts3>: <name> e.g. 'DEF01': 'Flensburg, Kreisfre..."
+        If False, return <nuts3>: <name> e.g. 'DEF01': 'Flensburg, Kreisfre...'
 
     Returns
     -------
