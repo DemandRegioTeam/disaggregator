@@ -25,6 +25,7 @@ from disaggregator.data import (ambient_T, solar_irradiation,
                                 elc_consumption_HH_spatiotemporal)
 from disaggregator.plot import choropleth_map
 import matplotlib.pyplot as plt
+import pandas as pd
 import logging
 import os
 logger = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ def invoke_batch_plotting(df, **choro_kwargs):
 
     print('Creating plots with {} CPUs.'.format(threads))
     pool = multiprocessing.Pool(threads)
-    input = zip(list(df.columns),
+    input = zip([int(t) for t in list(df.columns)],
                 [ser for t, ser in df.iteritems()],
                 [choro_kwargs for i in df.columns])
     pool.map(create_plot, input)
@@ -107,3 +108,9 @@ if __name__ == '__main__':
     invoke_batch_plotting(elc_consumption_HH_spatiotemporal(),
                           relative=True, interval=(0, 1.54), cmap='jet',
                           unit='MW')
+
+    df = pd.read_csv(_data_out('custom_disagg.csv'), index_col=0, engine='c')
+    df.columns = [int(r) for r in range(0, 8760)]
+    invoke_batch_plotting(df,
+                          relative=True, interval=(0, 3.25), cmap='jet',
+                          unit='MWh/h')
