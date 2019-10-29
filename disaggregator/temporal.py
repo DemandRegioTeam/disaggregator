@@ -64,11 +64,11 @@ def disagg_temporal(spat, temp, time_indexed=False, **kwargs):
         # Exising time series for all regions
         temp = temp.div(temp.sum(axis=1), axis='index')  # Normalize
         if time_indexed:
-            return temp.multiply(spat, axis=0)
-        else:
             return temp.multiply(spat, axis=0).T
+        else:
+            return temp.multiply(spat, axis=0)
     else:
-        raise ValueError('`spat` must be either a pd.Series or a '
+        raise ValueError('`temp` must be either a pd.Series or a '
                          'one-level-indexed (!) pd.DataFrame.')
 
 
