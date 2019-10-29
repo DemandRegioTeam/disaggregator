@@ -90,12 +90,10 @@ def create_zve_load_profile(nTsLP=96):
     df_HH = households_per_size()
     df_HH[5] = df_HH[5] + df_HH[6]
     df_HH.drop(labels=6, axis=1, inplace=True)
-    xr_HH = df_HH.to_xarray().to_array()
     n_HH = len(df_HH.columns)
 
     # Load Specific electricity consumption by household size
     df_elc_cons_HH = elc_consumption_HH(by_HH_size=True)[0:5] * 1e3
-    xr_elc_cons_HH = df_elc_cons_HH.to_frame().T.to_xarray().to_array()
 
     # Determine percentage of load share of each size
     df_elc_HH = df_HH.multiply(df_elc_cons_HH)
@@ -116,6 +114,8 @@ def create_zve_load_profile(nTsLP=96):
     n_app_activy = 9  # number of activity-based applications
     n_app_all = len(df_perc_baseload)  # number of all applications
     l_app_all = df_perc_baseload.index.tolist()
+    l_app_activity = df_perc_baseload[:-3].index.tolist()
+    l_app_baseload = df_perc_baseload[-3:].index.tolist()
 
     # TODO: Only valid for 2012. Make this dynamic for user-defined years,
     # e.g. by instantiating a class for each time slice!
@@ -139,6 +139,7 @@ def create_zve_load_profile(nTsLP=96):
     DE['coords'] = DE.to_crs({'init': 'epsg:4326'}).geometry.apply(
             lambda x: x.representative_point().coords[:][0])
     #for reg, row in DE.iterrows():
+    reg = 'DE300'
     lat = 7
     lon = 51
     prob_night = probability_light_needed(lat=lat, lon=lon, nTsLP=nTsLP)
@@ -166,20 +167,36 @@ def create_zve_load_profile(nTsLP=96):
                           dims=['Time', 'Application', 'TimeSlice'],
                           coords=[time_idx, l_app_all, time_slices])
 
-    for i_HH_size, HH_size in enumerate(df_elc_HH.columns):
-        logger.info('Derivate load profile for household-size: {}'
-                    .format(HH_size))
+    for i_HH, HH_size in enumerate(df_elc_HH.columns):
+        logger.info('Calc load profile for household-size: {}'.format(HH_size))
 
         # Multiplication of a person's presence (activity_id = 0) with the
         # probability of night, which gives the probability of needed light
         year_sum = 0.0
         for i_ts, ts in enumerate(time_slices):
             j = i_ts % 3
-            LP_15[:, 0, i_ts, i_HH_size] *= prob_night[:, j]
-            year_sum += (LP_15[:, 0, i_ts, i_HH_size].sum(axis=0).item()
+            LP_15[:, 0, i_ts, i_HH] *= prob_night[:, j]
+            year_sum += (LP_15[:, 0, i_ts, i_HH].sum(axis=0).item()
                          * time_slices_to_days[ts])
-        # Light (iAnw=0) needs to be normalized to a daily sum = 1.
-        LP_15[:, 0, :, i_HH_size] *= 366.0 / year_sum
+        # Light (i_app=0) needs to be normalized to a daily sum = 1.
+        LP_15[:, 0, :, i_HH] *= 366.0 / year_sum
+
+        # Normalize something.
+        # TODO: Understand what is intended here - just copy&pasted yet.
+        norm_factor_0 = (nTsLP / 24.) * 1000000. / 366.
+        norm_factor = norm_factor_0 * df_elc_HH_share.loc[reg, HH_size]
+        # Loop over activity-based applications
+        for i_app, app in enumerate(l_app_activity):
+            for i_ts, ts in enumerate(time_slices):
+                LP_tmp = (LP_15[:, i_app, i_ts, i_HH]
+                          * df_activityload.loc[app, HH_size]
+                          + df_baseload.loc[app, HH_size])
+                LP_Fin[:, i_app, i_ts] += LP_tmp.values * norm_factor
+                LP_HHGr[:, i_ts, i_HH] += LP_tmp.values * norm_factor_0
+        # Loop over baseload applications
+        for i_app, app in enumerate(l_app_baseload):
+            LP_Fin[:, i_app, :] += df_baseload.loc[app, HH_size] * norm_factor
+            LP_HHGr[:, :, i_HH] += df_baseload.loc[app, HH_size] * norm_factor_0
 
     return
 
