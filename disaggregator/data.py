@@ -539,10 +539,10 @@ def reshape_temporal(freq=None, key=None, **kwargs):
 # --- Spatiotemporal data -----------------------------------------------------
 
 
-def standard_load_profile(which='H0', freq='1H', **kwargs):
+def standard_load_profile_elc(which='H0', freq='1H', **kwargs):
     """
-    Return the standard load profile H0 in normalized units ('normalized' means
-    here that the sum over all time steps equals one).
+    Return the electric standard load profile H0 in normalized units
+    ('normalized' means here that the sum over all time steps equals one).
     """
     if which == 'H0':
         if freq.lower() == '1h':

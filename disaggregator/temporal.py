@@ -20,7 +20,7 @@ Provides functions for temporal disaggregations.
 """
 
 from .data import (elc_consumption_HH, households_per_size,
-                   standard_load_profile, zve_percentages_applications,
+                   standard_load_profile_elc, zve_percentages_applications,
                    zve_percentages_baseload, zve_application_profiles,
                    database_shapes)
 import numpy as np
@@ -100,7 +100,7 @@ def create_zve_load_profile(nTsLP=96):
     df_elc_HH_share = df_elc_HH.divide(df_elc_HH.sum(axis=1), axis='index')
 
     # standard load profile
-    df_slp = standard_load_profile()
+    df_slp = standard_load_profile_elc()
     # ...
     df_perc_app = zve_percentages_applications()
     # ...
