@@ -182,27 +182,35 @@ def population(**kwargs):
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg['population']['source'])
     table_id = kwargs.get('table_id', cfg['population']['table_id'])
+    internal_id = kwargs.get('internal_id', None)
     force_update = kwargs.get('force_update', False)
 
     if source == 'local':
-        if year > 2015:  # TODO: adapt once there is data until 2018
-            logger.warn('open TODO not yet working correctly!')
+        if year >= 2018:
+            logger.warn('open # TODO not yet working correctly!')
             fn = _data_in('regional', cfg['demographic_trend']['filename'])
             df = read_local(fn, year=year)
         else:
             fn = _data_in('regional', cfg['population']['filename'])
             df = read_local(fn, year=year)
     elif source == 'database':
-        if year > 2015:  # TODO: adapt once there is data until 2018
+        if year >= 2018:
             # In this case take demographic trend data
-            df_spatial = database_get('spatial', description=True, short=False)
-            table_id = kwargs.get('source',
+            df_spatial = database_description('spatial', short=False)
+            table_id = kwargs.get('table_id',
                                   cfg['demographic_trend']['table_id'])
+            internal_id = kwargs.get('internal_id',
+                                     cfg['demographic_trend']['internal_id'])
             # if requested year is not available, take the closest one instead
             years = df_spatial.loc[table_id, 'years']
-            year = min(years, key=lambda x: abs(x-year))
+            year_closest = min(years, key=lambda x: abs(x-year))
+            if year_closest != year:
+                w = ('The requested year {} is not available. The closest '
+                     'year {} is taken instead.')
+                logger.warn(w.format(year, year_closest))
+                year = year_closest
         df = database_get('spatial', table_id=table_id, year=year,
-                          force_update=force_update)
+                          internal_id=internal_id, force_update=force_update)
     else:
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
