@@ -68,7 +68,7 @@ def disagg_households_heat(by, weight_by_income=False):
     Parameters
     ----------
     by : str
-        must be one of ['households', 'population', 'buildings']
+        must be one of ['households', 'buildings']
 
     Returns
     -------
@@ -114,13 +114,15 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
         # Derive distribution keys
         df_ls_gas = living_space(aggregate=True, internal_id_2=11,
                                  internal_id_3=1).sum(axis=1)
+        df_pop = population()
         df_HH = households_per_size().sum(axis=1)
         d_keys_space = df_ls_gas / df_ls_gas.sum()
-        d_keys_HW_cook = df_HH / df_HH.sum()
+        d_keys_hotwater = df_pop / df_pop.sum()
+        d_keys_cook = df_HH / df_HH.sum()
         # Calculate
         df = (pd.DataFrame(index=df_ls_gas.index)
-                .assign(Cooking=d_keys_HW_cook * gas_nuts0['Cooking'],
-                        HotWater=d_keys_HW_cook * gas_nuts0['HotWater'],
+                .assign(Cooking=d_keys_cook * gas_nuts0['Cooking'],
+                        HotWater=d_keys_hotwater * gas_nuts0['HotWater'],
                         SpaceHeating=d_keys_space * gas_nuts0['SpaceHeating']))
     elif how == 'bottom-up':
         # The bottom-up logic requires the heat demand of households
