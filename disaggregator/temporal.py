@@ -201,6 +201,29 @@ def create_zve_load_profile(nTsLP=96):
     return
 
 
+def create_projection(df, target_year, **kwargs):
+    """
+    Create a future projection for a given dataset.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The dataset that is going to be projected; NUTS-3-index'ed
+    target_year : int
+        The future year.
+
+    Returns
+    -------
+    pd.DataFrame
+    """
+    year = kwargs.get('year', cfg['base_year'])
+    if not isinstance(target_year, int):
+        raise ValueError('`target_year` must be an int.')
+
+    keys = population(year=target_year) / population(year=year)
+    return df.multiply(keys, axis='index')
+
+
 # --- Utility functions -------------------------------------------------------
 
 
