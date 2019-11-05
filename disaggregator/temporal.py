@@ -19,7 +19,8 @@
 Provides functions for temporal disaggregations.
 """
 
-from .data import (elc_consumption_HH, households_per_size,
+from .config import get_config, _data_out
+from .data import (elc_consumption_HH, households_per_size, population,
                    standard_load_profile_elc, zve_percentages_applications,
                    zve_percentages_baseload, zve_application_profiles,
                    database_shapes)
@@ -29,11 +30,13 @@ import xarray as xr
 import geopandas as gpd
 import logging
 logger = logging.getLogger(__name__)
+cfg = get_config()
 
 
 def disagg_temporal(spat, temp, time_indexed=False, **kwargs):
     """
-    Disagreggate spatial data temporally through one or a set of time series.
+    Disagreggate spatial data temporally through one or a set of spatial time
+    series.
 
     Parameters
     ----------
@@ -72,9 +75,9 @@ def disagg_temporal(spat, temp, time_indexed=False, **kwargs):
                          'one-level-indexed (!) pd.DataFrame.')
 
 
-def create_zve_load_profile(nTsLP=96):
+def make_zve_load_profiles(return_basic_profile=False, **kwargs):
     """
-    Create load profiles based on the ZVE (German: "Zeitverwendungserhebung").
+    Make load profiles based on the ZVE (German: "Zeitverwendungserhebung").
 
     Parameters
     ----------
@@ -85,7 +88,8 @@ def create_zve_load_profile(nTsLP=96):
     -------
     pd.DataFrame
     """
-    raise NotImplementedError('This function is not ready to use!')
+    year = kwargs.get('year', cfg['base_year'])
+    reg = kwargs.get('reg', None)
     # Load number of households per size
     df_HH = households_per_size()
     df_HH[5] = df_HH[5] + df_HH[6]
@@ -99,19 +103,15 @@ def create_zve_load_profile(nTsLP=96):
     df_elc_HH = df_HH.multiply(df_elc_cons_HH)
     df_elc_HH_share = df_elc_HH.divide(df_elc_HH.sum(axis=1), axis='index')
 
-    # standard load profile
-    df_slp = standard_load_profile_elc()
-    # ...
     df_perc_app = zve_percentages_applications()
-    # ...
     df_app_prof = zve_application_profiles()
-    # ...
     df_perc_baseload = zve_percentages_baseload()
     df_perc_activityload = df_perc_baseload.apply(lambda x: 1-x)
 
-    df_baseload = df_perc_baseload * df_perc_app
+    nTsLP = 96  # number of time steps in load profiles
+    df_baseload = (df_perc_baseload * df_perc_app) / float(nTsLP)
     df_activityload = df_perc_activityload * df_perc_app
-    n_app_activy = 9  # number of activity-based applications
+    n_app_activity = 9  # number of activity-based applications
     n_app_all = len(df_perc_baseload)  # number of all applications
     l_app_all = df_perc_baseload.index.tolist()
     l_app_activity = df_perc_baseload[:-3].index.tolist()
@@ -125,12 +125,12 @@ def create_zve_load_profile(nTsLP=96):
                            'SA_Win': 24,
                            'SA_Tra': 13,
                            'SA_Sum': 17,
-                           'SO_Win': 25,
-                           'SO_Tra': 17,
-                           'SO_Sum': 21}
+                           'SU_Win': 25,
+                           'SU_Tra': 17,
+                           'SU_Sum': 21}
     time_slices = ['WD_Win', 'WD_Tra', 'WD_Sum',
                    'SA_Win', 'SA_Tra', 'SA_Sum',
-                   'SO_Win', 'SO_Tra', 'SO_Sum']
+                   'SU_Win', 'SU_Tra', 'SU_Sum']
     n_ts = len(time_slices_to_days)  # number of time slices
 
     DE = database_shapes()
@@ -138,67 +138,111 @@ def create_zve_load_profile(nTsLP=96):
     # Derive lat/lon tuple as representative point for each shape
     DE['coords'] = DE.to_crs({'init': 'epsg:4326'}).geometry.apply(
             lambda x: x.representative_point().coords[:][0])
-    #for reg, row in DE.iterrows():
-    reg = 'DE300'
-    lat = 7
-    lon = 51
-    prob_night = probability_light_needed(lat=lat, lon=lon, nTsLP=nTsLP)
+    idx = pd.date_range(start='{}-01-01'.format(year),
+                        end='{}-12-31 23:00'.format(year), freq='1H')
+    if reg is not None:
+        DE = DE.loc[reg].to_frame().T
+    DF = pd.DataFrame(index=idx, columns=DE.index)
+    for reg, row in DE.iterrows():
+        logger.info('Creating ZVE-profile for {} ({})'.format(row['gen'], reg))
+        lat = row.coords[1]
+        lon = row.coords[0]
+        prob_night = probability_light_needed(lat=lat, lon=lon, nTsLP=nTsLP)
 
-    time_idx = pd.date_range(start='2012-01-02 00:00:00',
-                             end='2012-01-02 23:45:00', freq='15Min')
-    LP_15 = xr.DataArray(np.zeros((nTsLP, n_app_activy, n_ts, n_HH),
-                                  dtype=float),
-                         dims=['Time', 'Application', 'TimeSlice', 'HH_size'],
-                         coords=[time_idx, df_perc_app.index[0:9],
-                                 time_slices, df_HH.columns])
-    for HH_size, df_HH_size in df_app_prof.groupby('HH_size'):
-        for id_day, df_day in df_HH_size.groupby('Day'):
-            for id_season, df_season in df_day.groupby('Season'):
-                id_ts = (id_day-1)*3 + id_season - 1
-                for id_app, df_app in df_season.groupby('Application'):
-                    LP_15[:, id_app-1, id_ts, HH_size-1] = (
-                            df_app.iloc[0, 4:100])
+        time_idx = pd.date_range(start='2012-01-02 00:00:00',
+                                 end='2012-01-02 23:45:00', freq='15Min')
+        LP_15 = xr.DataArray(np.zeros((nTsLP, n_app_activity, n_ts, n_HH)),
+                             dims=['Time', 'Application',
+                                   'TimeSlice', 'HH_size'],
+                             coords=[time_idx, df_perc_app.index[0:9],
+                                     time_slices, df_HH.columns])
+        for HH_size, df_HH_size in df_app_prof.groupby('HH_size'):
+            for id_day, df_day in df_HH_size.groupby('Day'):
+                for id_season, df_season in df_day.groupby('Season'):
+                    id_ts = (id_day-1)*3 + id_season - 1
+                    for id_app, df_app in df_season.groupby('Application'):
+                        LP_15[:, id_app-1, id_ts, HH_size-1] = (
+                                df_app.iloc[0, 4:100])
 
-    LP_HHGr = xr.DataArray(np.zeros((nTsLP, n_ts, n_HH), dtype=float),
-                           dims=['Time', 'TimeSlice', 'HH_size'],
-                           coords=[time_idx, time_slices, df_HH.columns])
+        LP_Fin = xr.DataArray(np.zeros((nTsLP, n_app_all, n_ts), dtype=float),
+                              dims=['Time', 'Application', 'TimeSlice'],
+                              coords=[time_idx, l_app_all, time_slices])
 
-    LP_Fin = xr.DataArray(np.zeros((nTsLP, n_app_all, n_ts), dtype=float),
-                          dims=['Time', 'Application', 'TimeSlice'],
-                          coords=[time_idx, l_app_all, time_slices])
+        LP_HHGr = xr.DataArray(np.zeros((nTsLP, n_ts, n_HH), dtype=float),
+                               dims=['Time', 'TimeSlice', 'HH_size'],
+                               coords=[time_idx, time_slices, df_HH.columns])
 
-    for i_HH, HH_size in enumerate(df_elc_HH.columns):
-        logger.info('Calc load profile for household-size: {}'.format(HH_size))
+        for i_HH, HH_size in enumerate(df_elc_HH.columns):
+            logger.info('Calc load profile for household-size: {}'
+                        .format(HH_size))
 
-        # Multiplication of a person's presence (activity_id = 0) with the
-        # probability of night, which gives the probability of needed light
-        year_sum = 0.0
-        for i_ts, ts in enumerate(time_slices):
-            j = i_ts % 3
-            LP_15[:, 0, i_ts, i_HH] *= prob_night[:, j]
-            year_sum += (LP_15[:, 0, i_ts, i_HH].sum(axis=0).item()
-                         * time_slices_to_days[ts])
-        # Light (i_app=0) needs to be normalized to a daily sum = 1.
-        LP_15[:, 0, :, i_HH] *= 366.0 / year_sum
-
-        # Normalize something.
-        # TODO: Understand what is intended here - just copy&pasted yet.
-        norm_factor_0 = (nTsLP / 24.) * 1000000. / 366.
-        norm_factor = norm_factor_0 * df_elc_HH_share.loc[reg, HH_size]
-        # Loop over activity-based applications
-        for i_app, app in enumerate(l_app_activity):
+            # Multiplication of a person's presence (activity_id = 0) with the
+            # probability of night, which gives the probability of needed light
+            year_sum = 0.0
             for i_ts, ts in enumerate(time_slices):
-                LP_tmp = (LP_15[:, i_app, i_ts, i_HH]
-                          * df_activityload.loc[app, HH_size]
-                          + df_baseload.loc[app, HH_size])
-                LP_Fin[:, i_app, i_ts] += LP_tmp.values * norm_factor
-                LP_HHGr[:, i_ts, i_HH] += LP_tmp.values * norm_factor_0
-        # Loop over baseload applications
-        for i_app, app in enumerate(l_app_baseload):
-            LP_Fin[:, i_app, :] += df_baseload.loc[app, HH_size] * norm_factor
-            LP_HHGr[:, :, i_HH] += df_baseload.loc[app, HH_size] * norm_factor_0
+                j = i_ts % 3
+                LP_15[:, 0, i_ts, i_HH] *= prob_night[:, j]
+                year_sum += (LP_15[:, 0, i_ts, i_HH].sum(axis=0).item()
+                             * time_slices_to_days[ts])
+            # Light (i_app=0) needs to be normalized to a daily sum = 1.
+            LP_15[:, 0, :, i_HH] *= 366.0 / year_sum
 
-    return
+            # Normalize something.
+            # TODO: Understand what is intended here - just copy&pasted yet.
+            norm_factor_0 = (nTsLP / 24.) * 1000000. / 366.
+            norm_factor = norm_factor_0 * df_elc_HH_share.loc[reg, HH_size]
+            # Loop over activity-based applications
+            for i_app, app in enumerate(l_app_activity):
+                for i_ts, ts in enumerate(time_slices):
+                    LP_tmp = (LP_15[:, i_app, i_ts, i_HH]
+                              * df_activityload.loc[app, HH_size]
+                              + df_baseload.loc[app, HH_size])
+                    LP_Fin[:, i_app, i_ts] += LP_tmp.values * norm_factor
+                    LP_HHGr[:, i_ts, i_HH] += LP_tmp.values * norm_factor_0
+            # Loop over baseload applications
+            for i_app, app in enumerate(l_app_baseload, start=n_app_activity):
+                LP_Fin[:, i_app, :] += (df_baseload.loc[app, HH_size]
+                                        * norm_factor)
+                LP_HHGr[:, :, i_HH] += (df_baseload.loc[app, HH_size]
+                                        * norm_factor_0)
+
+        logger.info('...creating hourly load profile for entire year...')
+        # relevant result
+        df_erg = LP_HHGr.sum('HH_size').to_pandas()
+        if return_basic_profile:
+            return df_erg
+        df_erg.columns = pd.MultiIndex.from_product([['WD', 'SA', 'SU'],
+                                                     ['Win', 'Tra', 'Sum']])
+
+        # Resample to hourly values:
+        df_erg = df_erg.resample('1H').sum().reset_index(drop=True)
+        # Create a 8760-hour time series out of these profiles for given year
+        dic_month_to_season = {1: 'Win', 2: 'Win', 3: 'Win', 4: 'Tra',
+                               5: 'Sum', 6: 'Sum', 7: 'Sum', 8: 'Sum',
+                               9: 'Tra', 10: 'Tra', 11: 'Win', 12: 'Win'}
+        dic_day_to_typeday = {0: 'WD', 1: 'WD', 2: 'WD', 3: 'WD', 4: 'WD',
+                              5: 'SA', 6: 'SU'}
+        df_new = (pd.DataFrame(index=idx)
+                    .assign(Season=lambda x: x.index.month,
+                            TypeDay=lambda x: x.index.dayofweek,
+                            Hour=lambda x: x.index.hour)
+                    .replace(dict(Season=dic_month_to_season))
+                    .replace(dict(TypeDay=dic_day_to_typeday)))
+        # assign values # TODO: this is comparatively slow, make more efficient
+        for i in idx:
+            ind = df_new.loc[i, 'Hour']
+            col = (df_new.loc[i, 'TypeDay'], df_new.loc[i, 'Season'])
+            df_new.loc[i, 'value'] = df_erg.loc[ind, col]
+        # generate distribution keys
+        df_new = df_new['value'] / df_new['value'].sum()
+        DF.loc[:, reg] = df_new
+
+    # Looping over all regions is done. Now save and return
+    if reg is None:
+        reg = 'AllRegions'
+    f = 'ZVE_timeseries_{}_{}.csv'.format(reg, year)
+    DF.to_csv(_data_out(f), encoding='utf-8')
+    return DF
 
 
 def create_projection(df, target_year, **kwargs):
@@ -247,6 +291,10 @@ def getSunsetSunrise(doy, lat, lon, UTC_diff):
         longitude
     UTC_diff : int
         difference to UTC
+
+    Returns
+    -------
+    tuple
     """
     import math
     B = math.pi * lat / 180
