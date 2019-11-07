@@ -195,6 +195,44 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
     return fig, ax
 
 
+def heatmap_timeseries(df, **kwargs):
+    """
+    ToDo DocString
+    """
+    if isinstance(df, pd.Series):
+        df = df.to_frame()
+    if not isinstance(df, pd.DataFrame):
+        raise ValueError("Please pass a DateTimeIndex'ed pd.DataFrame")
+
+    nrows = len(df.columns)
+    clabel = kwargs.get('clabel', '')
+    figsize = kwargs.get('figsize', (12, 3*nrows))
+    cmap = kwargs.get('cmap', 'viridis')
+    hours = 24
+    days = int(len(df) / hours)
+    i, j = [0, 0]
+
+    fig, ax = plt.subplots(figsize=figsize, nrows=nrows, ncols=1, sharex=True,
+                           squeeze=False)
+    for col, ser in df.iteritems():
+        dfs = pd.DataFrame(np.array(ser).reshape(days, hours)).T
+        cax = ax[i, j].imshow(dfs, interpolation='nearest', cmap=cmap)  # , vmin=vmin, vmax=vmax)
+        ax[i, j].set_aspect('auto')
+        ax[i, j].set_title(col)
+        ax[i, j].set_ylabel('Stunde')
+        if i == nrows - 1:
+            ax[i, j].set_xlabel('Tag des Jahres')
+        i += 1
+
+    fig.tight_layout()
+    fig.subplots_adjust(right=0.8)
+    #  Dimensions [left, bottom, width, height] of the new axes
+    ax_cbar = fig.add_axes([0.85, 0.05, 0.03, 0.90])
+    cbar = plt.colorbar(cax, cax=ax_cbar)
+    cbar.set_label(clabel)
+    return fig, ax
+
+
 def create_animation(directory=None, extension='mp4', fps=24):
     """
     Creates an animation for png files in a given directory.
