@@ -208,6 +208,8 @@ def heatmap_timeseries(df, **kwargs):
     clabel = kwargs.get('clabel', '')
     figsize = kwargs.get('figsize', (12, 3*nrows))
     cmap = kwargs.get('cmap', 'viridis')
+    vmin = kwargs.get('vmin', df.min().min())
+    vmax = kwargs.get('vmax', df.max().max())
     hours = 24
     days = int(len(df) / hours)
     i, j = [0, 0]
@@ -216,7 +218,8 @@ def heatmap_timeseries(df, **kwargs):
                            squeeze=False)
     for col, ser in df.iteritems():
         dfs = pd.DataFrame(np.array(ser).reshape(days, hours)).T
-        cax = ax[i, j].imshow(dfs, interpolation='nearest', cmap=cmap)  # , vmin=vmin, vmax=vmax)
+        cax = ax[i, j].imshow(dfs, interpolation='nearest', cmap=cmap,
+                              vmin=vmin, vmax=vmax)
         ax[i, j].set_aspect('auto')
         ax[i, j].set_title(col)
         ax[i, j].set_ylabel('Stunde')
