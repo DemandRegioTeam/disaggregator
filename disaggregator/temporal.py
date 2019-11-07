@@ -75,7 +75,8 @@ def disagg_temporal(spat, temp, time_indexed=False, **kwargs):
                          'one-level-indexed (!) pd.DataFrame.')
 
 
-def make_zve_load_profiles(return_basic_profile=False, **kwargs):
+def make_zve_load_profiles(return_profile_by_typeday=False,
+                           return_profile_by_application=False, **kwargs):
     """
     Make load profiles based on the ZVE (German: "Zeitverwendungserhebung").
 
@@ -209,8 +210,11 @@ def make_zve_load_profiles(return_basic_profile=False, **kwargs):
         logger.info('...creating hourly load profile for entire year...')
         # relevant result
         df_erg = LP_HHGr.sum('HH_size').to_pandas()
-        if return_basic_profile:
+        if return_profile_by_typeday:
             return df_erg
+        if return_profile_by_application:
+            return LP_Fin.loc[:,:,'WD_Win'].to_pandas()
+
         df_erg.columns = pd.MultiIndex.from_product([['WD', 'SA', 'SU'],
                                                      ['Win', 'Tra', 'Sum']])
 
