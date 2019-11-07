@@ -324,7 +324,8 @@ def living_space(aggregate=True, **kwargs):
     pd.DataFrame
         index: NUTS-3 codes
     """
-    building_nr_to_type = {1: '1FH',        # 1-family-house
+    building_nr_to_type = {-1: 'All',       # All building types
+                           1: '1FH',        # 1-family-house
                            2: '2FH',        # 2-family-house
                            3: 'MFH_03_06',  # multi-family-house (3-6)
                            4: 'MFH_07_12',  # multi-family-house (7-12)
@@ -355,9 +356,10 @@ def living_space(aggregate=True, **kwargs):
                      2015: 'N_2015',
                      2016: 'O_2016',
                      2017: 'P_2017',
-                     2018: 'Q_2018'}
+                     2018: 'Q_2018',
+                     2019: 'R_2019'}
 
-    year = kwargs.get('year', None)
+    year = kwargs.get('year', 2011)
     source = kwargs.get('source', cfg['living_space']['source'])
     table_id = kwargs.get('table_id', cfg['living_space']['table_id'])
     force_update = kwargs.get('force_update', False)
@@ -365,13 +367,11 @@ def living_space(aggregate=True, **kwargs):
     vc = kwargs.get('internal_id_1', cfg['living_space']['internal_id'][1])
     hs = kwargs.get('internal_id_2', cfg['living_space']['internal_id'][2])
     ne = kwargs.get('internal_id_3', cfg['living_space']['internal_id'][3])
-    if year is not None:
-        logger.warning('No data for each year available, so passing the '
-                       '`year` argument does not have any effect yet.')
+
     if source == 'local':
         df = read_local(_data_in('regional', cfg['living_space']['filename']))
     elif source == 'database':
-        df = database_get('spatial', table_id=table_id,
+        df = database_get('spatial', table_id=table_id, year=year,
                           force_update=force_update)
     else:
         raise KeyError('Wrong source key given in config.yaml - must be either'
@@ -404,6 +404,8 @@ def living_space(aggregate=True, **kwargs):
         df = df.pivot_table(values='value', index='nuts3',
                             columns='building_type', aggfunc='sum')
         df = plausibility_check_nuts3(df)
+    else:
+        df = df.drop(['id_spatial', 'id_region_type', 'id_region'], axis=1)
     return df
 
 
@@ -480,6 +482,89 @@ def hotwater_shares(**kwargs):
         raise NotImplementedError('Not here yet!')
     else:
         raise KeyError('Wrong source key given in config.yaml!')
+    return df
+
+
+def heat_demand_buildings(**kwargs):
+    """
+    Read, transform and return heat_demand in [kWh/(m2a)] per NUTS-3 area.
+
+    Returns
+    -------
+    pd.Series
+        index: NUTS-3 codes
+    """
+    bt_to_type = {1: '1FH',  # 1-family-house
+                  2: 'TH',   # Terraced house
+                  3: 'MFH',  # multi-family-house (3-6)
+                  4: 'BB'}   # building block
+    hp_to_name = {1: 'net heat demand',
+                  2: 'hot water (final energy)',
+                  3: 'space heating',
+                  4: 'hot water (generation energy)',
+                  5: 'fossil fuels',
+                  6: 'wood/biomass',
+                  7: 'electricity (incl. side energy)',
+                  8: 'electricity generation',
+                  9: 'primary energy consumption (total)',
+                  10: 'primary energy consumption (non-renewable)'}
+    vc_to_yearstr = {1: 'A_<1859',
+                     2: 'B_1860-1918',
+                     3: 'C_1919-1948',
+                     4: 'D_1949-1957',
+                     5: 'E_1958-1968',
+                     6: 'F_1969-1978',
+                     7: 'G_1979-1983',
+                     8: 'H_1984-1994',
+                     9: 'I_1995-2001',
+                     10: 'J_2002-2009'}
+    va_to_variant = {1: 'Status-Quo',
+                     2: 'Modernisation conventional',
+                     3: 'Modernisation future'}
+
+    year = kwargs.get('year', 2014)
+    source = kwargs.get('source', cfg['heat_dem_bld']['source'])
+    table_id = kwargs.get('table_id', cfg['heat_dem_bld']['table_id'])
+    force_update = kwargs.get('force_update', False)
+    bt = kwargs.get('internal_id_0', cfg['heat_dem_bld']['internal_id'][0])
+    vc = kwargs.get('internal_id_1', cfg['heat_dem_bld']['internal_id'][1])
+    hp = kwargs.get('internal_id_2', cfg['heat_dem_bld']['internal_id'][2])
+    va = kwargs.get('internal_id_3', cfg['heat_dem_bld']['internal_id'][3])
+
+    if source == 'local':
+        raise NotImplementedError('Not here yet!')
+    elif source == 'database':
+        df = database_get('spatial', table_id=table_id, year=year,
+                          force_update=force_update)
+    else:
+        raise KeyError('Wrong source key given in config.yaml - must be either'
+                       ' `local` or `database` but is: {}'.format(source))
+
+    df = (df.assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()),
+                    building_type=lambda x: x.internal_id.str[0],
+                    vintage_class=lambda x: x.internal_id.str[1],
+                    heat_parameter=lambda x: x.internal_id.str[2],
+                    variant=lambda x: x.internal_id.str[3])
+          .drop(columns=['year', 'internal_id', 'id_spatial', 'id_region_type',
+                         'id_region'])
+          .dropna(subset=['nuts3'])
+          .loc[lambda x: ~(x.nuts3.isin(['DE915', 'DE919']))])
+    # Filter by possibly given internal_id
+    if bt is not None and 1 <= bt <= 4:
+        df = df.loc[lambda x: x.building_type == bt]
+    if vc is not None and (1 <= vc <= 10):
+        df = df.loc[lambda x: x.vintage_class == vc]
+    if hp is not None and (1 <= hp <= 10):
+        df = df.loc[lambda x: x.heat_parameter == hp]
+    if va is not None and (1 <= va <= 3):
+        df = df.loc[lambda x: x.variant == va]
+    # Replace internal_ids by human readables
+    df = (df.replace(dict(building_type=bt_to_type))
+            .replace(dict(heat_parameter=hp_to_name))
+            .replace(dict(vintage_class=vc_to_yearstr))
+            .replace(dict(variant=va_to_variant)))
+
+#    df = plausibility_check_nuts3(df, check_zero=False)
     return df
 
 
