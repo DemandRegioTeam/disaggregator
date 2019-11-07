@@ -342,12 +342,14 @@ def multireg_generic(df, **kwargs):
         raise ValueError('Wrong print mode given!')
 
     i, j = [0, 0]
-    if multiindexed:
-        # in this case take the number of outer (!) columns
-        nrows, ncols, rem = gather_nrows_ncols(len(df.columns.levels[0]),
-                                               orientation)
-    else:
-        nrows, ncols, rem = gather_nrows_ncols(len(df.columns), orientation)
+    if ncols == 0 and nrows == 0:
+        if multiindexed:
+            # in this case take the number of outer (!) columns
+            nrows, ncols, rem = gather_nrows_ncols(len(df.columns.levels[0]),
+                                                   orientation)
+        else:
+            nrows, ncols, rem = gather_nrows_ncols(len(df.columns),
+                                                   orientation)
     fig, ax = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False,
                            sharex=sharex, sharey=sharey, figsize=figsize,
                            dpi=dpi)
