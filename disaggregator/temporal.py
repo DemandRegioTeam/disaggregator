@@ -21,6 +21,7 @@ Provides functions for temporal disaggregations.
 
 from .config import get_config, _data_out
 from .data import (elc_consumption_HH, households_per_size, population,
+                   living_space,
                    standard_load_profile_elc, zve_percentages_applications,
                    zve_percentages_baseload, zve_application_profiles,
                    database_shapes)
@@ -249,7 +250,7 @@ def make_zve_load_profiles(return_profile_by_typeday=False,
     return DF
 
 
-def create_projection(df, target_year, **kwargs):
+def create_projection(df, target_year, by, **kwargs):
     """
     Create a future projection for a given dataset.
 
@@ -259,6 +260,8 @@ def create_projection(df, target_year, **kwargs):
         The dataset that is going to be projected; NUTS-3-index'ed
     target_year : int
         The future year.
+    by : str
+        The parameter to base the projection on.
 
     Returns
     -------
@@ -268,7 +271,12 @@ def create_projection(df, target_year, **kwargs):
     if not isinstance(target_year, int):
         raise ValueError('`target_year` must be an int.')
 
-    keys = population(year=target_year) / population(year=year)
+    if by == 'population':
+        keys = population(year=target_year) / population(year=year)
+    elif by == 'living_space':
+        keys = living_space(year=target_year) / living_space(year=year)
+    else:
+        raise ValueError("`by` must be in ['population', 'living_space'.")
     return df.multiply(keys, axis='index')
 
 
