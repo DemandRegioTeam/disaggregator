@@ -217,7 +217,7 @@ def population(**kwargs):
 
     df = (df.assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()))
             .set_index('nuts3').sort_index(axis=0))['value']
-    plausibility_check_nuts3(df)
+    df = plausibility_check_nuts3(df)
     return df
 
 
@@ -248,7 +248,7 @@ def elc_consumption_HH_spatial(**kwargs):
 
     df = (df.assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()))
             .set_index('nuts3').sort_index(axis=0))['value']
-    plausibility_check_nuts3(df)
+    df = plausibility_check_nuts3(df)
     return df
 
 
@@ -304,7 +304,7 @@ def households_per_size(original=False, **kwargs):
         df = df_ratio.multiply(population(year=year), axis='index')
         df = (df / df.columns).astype(int)
 
-    plausibility_check_nuts3(df)
+    df = plausibility_check_nuts3(df)
     return df
 
 
@@ -403,7 +403,7 @@ def living_space(aggregate=True, **kwargs):
     if aggregate:
         df = df.pivot_table(values='value', index='nuts3',
                             columns='building_type', aggfunc='sum')
-        plausibility_check_nuts3(df)
+        df = plausibility_check_nuts3(df)
     return df
 
 
@@ -435,7 +435,7 @@ def income(**kwargs):
     df = (df.assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()))
             .set_index('nuts3', drop=True)
             .sort_index())['value']
-    plausibility_check_nuts3(df)
+    df = plausibility_check_nuts3(df)
     return df
 
 
@@ -616,7 +616,7 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
     else:
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
-    plausibility_check_nuts3(df_exp, check_zero=check_zero)
+    df_exp = plausibility_check_nuts3(df_exp, check_zero=check_zero)
     return df_exp
 
 
@@ -768,6 +768,7 @@ def plausibility_check_nuts3(df, check_zero=True):
     df : pd.DataFrame or pd.Series
         Holding the values (required index: NUTS-3 codes)
     """
+    # 1. Check if there are unknown regions
     A_db = set(region_id_to_nuts3().values())
     B_check = set(df.index)
     C_diff = B_check - A_db
@@ -775,6 +776,12 @@ def plausibility_check_nuts3(df, check_zero=True):
         logger.warn('The nuts3-codes of the checked DataFrame are not '
                     'congruent with those in the database. These here are not '
                     'in the database: {}'.format(C_diff))
+    # 2. Check if NUTS-2013 values are contained:
+    nuts_2013 = ['DE915', 'DE919']
+    if (df.index.isin(['DE91C']).any() and df.index.isin(nuts_2013).any()):
+        logger.info('Dropping old NUTS-v2013 regions.')
+        df = df[~(df.index.isin(nuts_2013))]
+    # 3. Check if values below zero
     if isinstance(df, pd.Series):
         if check_zero and df.loc[lambda x: x <= 0.0].any():
             logger.warn('There are values less or equal to zero.')
@@ -784,6 +791,7 @@ def plausibility_check_nuts3(df, check_zero=True):
     else:
         raise NotImplementedError('Check for given type! Other than pd.Series '
                                   'or pd.DataFrame are not yet possible.')
+    return df
 
 
 def read_local(file, internal_id=None, year=None):
