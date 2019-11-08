@@ -51,10 +51,12 @@ def create_plot(input):
         h = int(np.floor(24.0/tspd * (t % tspd)))
         m = int(((t % tspd) % (tspd/24.0)) * 15)
         dto = dt.datetime(y, 1, 1) + dt.timedelta(doy - 1)
+        plt.rcParams['font.size'] = 16
         fig, ax = choropleth_map(ser,
                                  axtitle=s.format(y, dto.month, dto.day, h, m),
                                  **choro_kwargs)
         fig.savefig(fn, bbox_inches='tight')
+        plt.rcParams['font.size'] = 10
         plt.close(fig)
 
 
@@ -111,9 +113,9 @@ if __name__ == '__main__':
                           relative=True, interval=(0, 1.54), cmap='jet',
                           unit='MW')
 
-    invoke_batch_plotting(df,
     df = (pd.read_csv(_data_out('gas_disagg.csv'), index_col=0, engine='c')
-            .pipe(transpone_spatiotemporal)
+            .pipe(transpose_spatiotemporal)
             .reset_index(drop=True))
+    invoke_batch_plotting(df.loc[4344:4511],
                           relative=True, interval=(0, 3.25), cmap='jet',
                           unit='MWh/h')
