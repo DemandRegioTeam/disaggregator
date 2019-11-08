@@ -669,8 +669,8 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
     Returns
     -------
     pd.DataFrame
-        index:   NUTS-3 codes
-        columns: time step
+        index:      time step
+        columns:    NUTS-3 codes
     """
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg[key]['source'])
@@ -702,7 +702,7 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
     df_exp = plausibility_check_nuts3(df_exp, check_zero=check_zero)
-    return df_exp
+    return df_exp.pipe(transpose_spatiotemporal, year=year, freq=freq)
 
 
 # --- Utility functions -------------------------------------------------------
@@ -914,9 +914,9 @@ def append_region_name(df):
                      x.index.map(region_id_to_nuts3(nuts3_to_name=True)))
 
 
-def transpone_spatiotemporal(df, freq='1H', **kwargs):
+def transpose_spatiotemporal(df, freq='1H', **kwargs):
     """
-    Transpone a spatiotemporal pd.DataFrame and set/reset the pd.DateTimeIndex.
+    Transpose a spatiotemporal pd.DataFrame and set/reset the pd.DateTimeIndex.
 
     Parameters
     ----------

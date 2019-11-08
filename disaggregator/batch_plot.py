@@ -22,7 +22,8 @@ it is NOT a library and should not be imported into other modules.
 
 from disaggregator.config import get_config, _data_out
 from disaggregator.data import (ambient_T, solar_irradiation,
-                                elc_consumption_HH_spatiotemporal)
+                                elc_consumption_HH_spatiotemporal,
+                                transpose_spatiotemporal)
 from disaggregator.plot import choropleth_map
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -97,20 +98,22 @@ Please uncomment the sections you don't need and run the entire script in an
 external (!) console.
 """
 if __name__ == '__main__':
-    invoke_batch_plotting(ambient_T(),
+    invoke_batch_plotting(ambient_T().reset_index(drop=True),
                           relative=False, interval=(-12, 40), cmap='jet',
                           unit='°C')
 
-    invoke_batch_plotting(solar_irradiation(),
+    invoke_batch_plotting(solar_irradiation().reset_index(drop=True),
                           relative=False, interval=(0, 245), cmap='jet',
                           unit='Wh/m²', tspd=96)
 
-    invoke_batch_plotting(elc_consumption_HH_spatiotemporal(),
+    invoke_batch_plotting(elc_consumption_HH_spatiotemporal()
+                          .reset_index(drop=True),
                           relative=True, interval=(0, 1.54), cmap='jet',
                           unit='MW')
 
-    df = pd.read_csv(_data_out('custom_disagg.csv'), index_col=0, engine='c')
-    df.columns = [int(r) for r in range(0, 8760)]
     invoke_batch_plotting(df,
+    df = (pd.read_csv(_data_out('gas_disagg.csv'), index_col=0, engine='c')
+            .pipe(transpone_spatiotemporal)
+            .reset_index(drop=True))
                           relative=True, interval=(0, 3.25), cmap='jet',
                           unit='MWh/h')

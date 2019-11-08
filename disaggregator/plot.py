@@ -28,7 +28,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from .config import get_config, _data_out
-from .data import database_shapes
+from .data import database_shapes, transpose_spatiotemporal
 logger = logging.getLogger(__name__)
 ScaMap = plt.cm.ScalarMappable
 cfg = get_config()
@@ -59,9 +59,11 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
     add_percentages : bool, optional
         Flag if to add the percentage share into the axtitle (default True)
     """
-    # Mend the data
+    # Mend and/or transpose the data
     if isinstance(df, pd.Series):
         df = df.to_frame()
+    if isinstance(df.index, pd.DatetimeIndex):
+        df = transpose_spatiotemporal(df)
 
     anf = kwargs.get('anf', '{}')
     ncols = kwargs.get('ncols', 0)
