@@ -87,6 +87,15 @@ heating_systems:
     source: local
     filename: heating_systems_nuts1.csv
 
+heat_dem_bld: # heating demand of buildings
+    source: database
+    table_id: 47
+    internal_id:
+        0: -1   # building types. 1: 1FH, 2: RH, 3: MFH, 4: GMH
+        1: -1   # building vintage class. 1: vor 1859; 2: 1860 bis 1918; 3: 1919 bis 1948; 4: 1949 bis 1957; 5: 1958 bis 1968; 6: 1969 bis 1978; 7: 1979 bis 1983; 8: 1984 bis 1994; 9: 1995 bis 2001; 10: 2002 bis 2009
+        2: 1   # heating system. 1: Netto-Heizwärme, 2: Warmwasser (Nutzwärme), 3: Heizung, 4: Warmwasser (Wärmeerzeugung), 5: fossile Brennstoffe, 6: Holz/Biomasse, 7: Strom (inkl. Hilfsenergie), 8: Stromerzeugung, 9: Primärenergiebedarf (gesamt), 10: Primärenergiebedarf (nicht-erneuerbar)
+        3: -1   # Variante. 1: Ist-Zustand, 2: Modernisierungspaket 1 (""konventionell""), 3: Modernisierungspaket 2 (""zukunftsweisend"")"
+
 # 3. Temporal
 elc_cons_HH_temporal:
     source: database
@@ -113,7 +122,7 @@ ambient_T:
 solar_irradiation:
     source: database
     table_id: 17
-    freq: 1H
+    freq: 15T
 
 elc_cons_HH_spatiotemporal:
     source: database

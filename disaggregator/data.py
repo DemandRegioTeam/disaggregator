@@ -644,6 +644,7 @@ def ambient_T(**kwargs):
     """
     Return the ambient temperature in [°C] per NUTS-3-region and time step.
     """
+    kwargs['check_zero'] = False
     return reshape_spatiotemporal(key='ambient_T', **kwargs)
 
 
