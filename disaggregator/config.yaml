@@ -146,7 +146,7 @@ dtypes:
     sum: float
 
 # contains all table_id's of those tables with spatially high data on nuts 3 level
-nuts3_tables: [1, 4, 5, 12, 14, 15, 16, 17, 18, 19, 20, 26, 27, 28, 29, 30, 31, 32, 33, 34, 39, 40, 41, 42, 43, 44, 45, 48]
+nuts3_tables: [1, 4, 5, 12, 14, 15, 16, 17, 18, 19, 20, 26, 27, 28, 29, 30, 31, 32, 33, 34, 39, 40, 41, 42, 43, 44, 45, 48, 49, 50, 55, 56, 57]
 
 # load table sectionwise:
 load_sectionwise:
