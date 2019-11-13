@@ -214,7 +214,8 @@ def make_zve_load_profiles(return_profile_by_typeday=False,
         if return_profile_by_typeday:
             return df_erg
         if return_profile_by_application:
-            return LP_Fin.loc[:,:,'WD_Win'].to_pandas()
+            app = kwargs.get('app', 'WD_Win')
+            return LP_Fin.loc[:, :, app].to_pandas()
 
         df_erg.columns = pd.MultiIndex.from_product([['WD', 'SA', 'SU'],
                                                      ['Win', 'Tra', 'Sum']])
