@@ -359,7 +359,7 @@ def living_space(aggregate=True, **kwargs):
                      2018: 'Q_2018',
                      2019: 'R_2019'}
 
-    year = kwargs.get('year', 2011)
+    year = kwargs.get('year', 2018)
     source = kwargs.get('source', cfg['living_space']['source'])
     table_id = kwargs.get('table_id', cfg['living_space']['table_id'])
     force_update = kwargs.get('force_update', False)
