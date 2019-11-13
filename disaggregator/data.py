@@ -751,7 +751,7 @@ def database_description(dimension='spatial', short=True, only_active=True,
 
 
 def database_get(dimension, table_id, internal_id=None, year=None,
-                 allow_zero_negative=None, force_update=False):
+                 allow_zero_negative=None, force_update=False, **kwargs):
     """
     Get data from the demandregio database.
 
@@ -774,6 +774,11 @@ def database_get(dimension, table_id, internal_id=None, year=None,
     -------
     pd.DataFrame
     """
+    int_id_1 = kwargs.get('internal_id_1', None)
+    int_id_2 = kwargs.get('internal_id_2', None)
+    int_id_3 = kwargs.get('internal_id_3', None)
+    int_id_4 = kwargs.get('internal_id_4', None)
+    int_id_5 = kwargs.get('internal_id_5', None)
     if dimension in ['spatial', 'temporal']:
         id_name = 'id_' + dimension
         if dimension == 'spatial':
@@ -798,6 +803,17 @@ def database_get(dimension, table_id, internal_id=None, year=None,
         if isinstance(internal_id, list):
             internal_id = ','.join([str(s) for s in internal_id])
         query += '&&' + 'internal_id' + '=eq.{' + str(internal_id) + '}'
+    if table == 'v_demandregio_spatial_lk401':
+        if int_id_1 is not None:
+            query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_1) + '}'
+        if int_id_2 is not None:
+            query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_2) + '}'
+        if int_id_3 is not None:
+            query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_3) + '}'
+        if int_id_4 is not None:
+            query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_4) + '}'
+        if int_id_5 is not None:
+            query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_5) + '}'
     if allow_zero_negative is False:
         if dimension == 'spatial':
             query += '&&value=gt.0.0'
