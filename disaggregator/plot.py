@@ -110,14 +110,16 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
     if len(cols) == 1:
         colorbar_each_subplot = False
     if colorbar_each_subplot:
-        intervals = []
         if isinstance(interval, tuple):
-            logger.warn('When passing `colorbar_each_subplot=True` any passed '
-                        'interval is being ignored and automatically derived '
-                        'for each subplot.')
+            intervals = [interval for c in cols]
+        else:
+            intervals = []
     else:
         if isinstance(interval, str) or (interval is None):
-            interval = (DF[cols].min().min(), DF[cols].max().max())
+            intervals = [(DF[cols].min().min(), DF[cols].max().max())
+                         for c in cols]
+        else:
+            intervals = [interval for c in cols]
 
     if nrows == 0 or ncols == 0:
         if nrows != ncols or ncols < 0 or nrows < 0:
@@ -130,19 +132,18 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
     i, j = [0, 0]
     fig, ax = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False,
                            figsize=figsize)
-    for col in cols:
+    for a, col in enumerate(cols):
         if j == ncols:
             i += 1
             j = 0
         if colorbar_each_subplot:
-            interval = (DF[col].min(), DF[col].max())
-            intervals.append(interval)
+            intervals.append((DF[col].min(), DF[col].max()))
         # First layer with grey'ish countries/regions:
         DE.plot(ax=ax[i, j], color='grey')
         # Second layer: make subplot
         (DF.dropna(subset=[col], axis=0)
            .plot(ax=ax[i, j], column=col, cmap=cmap,
-                 vmin=interval[0], vmax=interval[1]))
+                 vmin=intervals[a][0], vmax=intervals[a][1]))
         if not shape_source_api:
             ax[i, j].set_xlim(5.5, 15.3)
             ax[i, j].set_ylim(47.0, 55.3)
@@ -186,8 +187,8 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
                                 format=mticker.StrMethodFormatter('{x:,g}'))
             cbar.set_label(unit)
     else:
-        sm = ScaMap(cmap=cmap, norm=plt.Normalize(vmin=interval[0],
-                                                  vmax=interval[1]))
+        sm = ScaMap(cmap=cmap, norm=plt.Normalize(vmin=intervals[0][0],
+                                                  vmax=intervals[0][1]))
         sm._A = []
         shr = 1.0 if ncols <= 2 else 0.5
         cbar = fig.colorbar(sm, ax=ax.ravel().tolist(), shrink=shr, pad=0.01,
@@ -204,7 +205,8 @@ def heatmap_timeseries(df, **kwargs):
     if isinstance(df, pd.Series):
         df = df.to_frame()
     if not isinstance(df, pd.DataFrame):
-        raise ValueError("Please pass a DateTimeIndex'ed pd.DataFrame")
+        raise ValueError("Please pass a DateTimeIndex'ed pd.DataFrame or "
+                         "pd.Series.")
 
     nrows = len(df.columns)
     clabel = kwargs.get('clabel', '')
