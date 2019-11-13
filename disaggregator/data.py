@@ -878,10 +878,15 @@ def plausibility_check_nuts3(df, check_zero=True):
         logger.warn('The nuts3-codes of the checked DataFrame are not '
                     'congruent with those in the database. These here are not '
                     'in the database: {}'.format(C_diff))
-    # 2. Check if NUTS-2013 values are contained:
+    # 2. Handle possible NUTS-2013 regions:
     nuts_2013 = ['DE915', 'DE919']
     if (df.index.isin(['DE91C']).any() and df.index.isin(nuts_2013).any()):
         logger.info('Dropping old NUTS-v2013 regions.')
+        df = df[~(df.index.isin(nuts_2013))]
+    elif (not df.index.isin(['DE91C']).any()
+          and df.index.isin(nuts_2013).any()):
+        logger.info('Merging old Göttingen+Osterode to new NUTS-v2016 region.')
+        df.loc['DE91C'] = df.loc[nuts_2013].sum()
         df = df[~(df.index.isin(nuts_2013))]
     # 3. Check if values below zero
     if isinstance(df, pd.Series):
