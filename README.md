@@ -17,19 +17,19 @@ of the final energy sectors
 
 ## Installation
 
-Before we really start, please install the [latest Anaconda package](https://www.anaconda.com/distribution/) and open the **Anaconda Powershell Prompt**.  
+Before we really start, please install `conda` through the latest [Anaconda package](https://www.anaconda.com/distribution/) or via [miniconda](https://docs.conda.io/en/latest/miniconda.html). After successfully installing `conda`, open the **Anaconda Powershell Prompt**.  
 For experts: You can also open a bash shell (Linux) or command prompt (Windows), but then make sure that your local environment variable `PATH` points to your anaconda installation directory.
 
-Now, in the root folder of the project create an environment called `demandregio` to work in
+Now, in the root folder of the project create an environment to work in that will be called `demandregio` via
 
 ```bash
-$ conda create --name demandregio --file environment.yml
+$ conda env create -f environment.yml
 ```
 
-and install all required packages. Then activate the environment
+which installs all required packages. Then activate the environment
 
 ```bash
-$ activate demandregio
+$ conda activate demandregio
 ```
 
 ## How to start
