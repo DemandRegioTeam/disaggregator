@@ -28,7 +28,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.patheffects as PathEffects
-from .config import get_config, _data_out, region_id_to_nuts3
+from .config import get_config, _data_out
 from .data import database_shapes, transpose_spatiotemporal
 logger = logging.getLogger(__name__)
 ScaMap = plt.cm.ScalarMappable
@@ -229,6 +229,8 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
                             orientation='horizontal', anchor=(0.5, 1.0),
                             format=mticker.StrMethodFormatter('{x:,g}'))
         cbar.set_label(unit)
+
+    add_license_to_figure(fig)
     return fig, ax
 
 
@@ -271,6 +273,7 @@ def heatmap_timeseries(df, **kwargs):
     ax_cbar = fig.add_axes([0.85, 0.05, 0.03, 0.90])
     cbar = plt.colorbar(cax, cax=ax_cbar)
     cbar.set_label(clabel)
+    add_license_to_figure(fig)
     return fig, ax
 
 
@@ -438,6 +441,7 @@ def multireg_generic(df, **kwargs):
         for line in leg.get_lines():
             line.set_linewidth(4.0)
         fig.subplots_adjust(bottom=0.07)
+    add_license_to_figure(fig)
     return fig, ax
 
 
@@ -550,3 +554,12 @@ def set_ax_format(ax, axtitle=None, axtitlesize=None, axtitlebold=False,
         ax.set_xticklabels(xticklabels)
     if yticklabels is not None:
         ax.set_yticklabels(yticklabels)
+
+
+def add_license_to_figure(fig, license='CC BY-SA 4.0'):
+    """
+    Add a license text to a passed figure object.
+    """
+    s = 'License: {}'.format(license)
+    fig.text(0.01, 0.01, s, fontsize=6, color='gray', ha='left', va='bottom',
+             alpha=0.5)
