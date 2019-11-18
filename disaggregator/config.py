@@ -51,8 +51,14 @@ def get_config(filename=None, **kwargs):
             "The config file '{}' does not exist yet. "
             "Copy config_example.yaml to config.yaml and fill in details, "
             "as necessary.".format(filename))
-    with open(filename) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    yaml_ver = [int(v) for v in yaml.__version__.split('.')]
+    if (yaml_ver[0] > 5) or (yaml_ver[0] == 5 and yaml_ver[1] >= 1):
+        with open(filename) as f:
+            config = yaml.load(f, Loader=yaml.FullLoader)
+    else:
+        logger.warn("Please update your `PyYAML` package to v5.1 or higher.")
+        with open(filename) as f:
+            config = yaml.load(f)
     return config
 
 
