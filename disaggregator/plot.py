@@ -27,14 +27,15 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-from .config import get_config, _data_out
+import matplotlib.patheffects as PathEffects
+from .config import get_config, _data_out, region_id_to_nuts3
 from .data import database_shapes, transpose_spatiotemporal
 logger = logging.getLogger(__name__)
 ScaMap = plt.cm.ScalarMappable
 cfg = get_config()
 
 
-def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
+def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
                    relative=True, colorbar_each_subplot=False,
                    add_percentages=True, **kwargs):
     """
@@ -49,8 +50,12 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
         matplotlib colormap code
     interval : tuple or str, optional
         if tuple: min/max-range e.g. (0, 1) | if str: find min/max autom.
-    annotate: bool, optional
-        Flag if to annotate values on map (default False)
+    annotate: None, str or list
+        If `str` or `list` used to write annotation on map, valid values are:
+            'nuts3': annonate the nuts3-code
+            `name` or `names`: annonate the name of the region
+            `value` or `values`: annotate the passed values
+            `percentage` or `percentages`: annonate the percentage of values
     relative : bool, optional
         Flag if to use relative values in <unit>/(km²) (default True) or
         to use absolutes values if False.
@@ -64,13 +69,19 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
         df = df.to_frame()
     if isinstance(df.index, pd.DatetimeIndex):
         df = transpose_spatiotemporal(df)
+    if annotate is None or annotate == '':
+        annotate = []
+    if isinstance(annotate, str):
+        annotate = [annotate]
 
-    anf = kwargs.get('anf', '{}')
     ncols = kwargs.get('ncols', 0)
     nrows = kwargs.get('nrows', 0)
     suptitle = kwargs.get('suptitle', None)
     axtitle = kwargs.get('axtitle', '')
     unit = kwargs.get('unit', '-')
+    fontsize = kwargs.get('fontsize', 6)
+    sep = kwargs.get('sep', '\n')
+    color = kwargs.get('color', 'black')
     rem = nrows * ncols - len(df.columns)
     shape_source_api = kwargs.get('shape_source_api', True)
 
@@ -160,11 +171,34 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=False,
                     ax[i, j].set_title('{} {}'.format(axtitle, col))
         ax[i, j].get_xaxis().set_visible(False)
         ax[i, j].get_yaxis().set_visible(False)
-        if annotate:
-            for idx, row in DF.iterrows():
-                s = '' if np.isnan(row[col]) else anf.format(row[col])
-                ax[i, j].annotate(s=s, xy=row['coords'],
-                                  horizontalalignment='center')
+        # Add annotations
+        for idx, row in DF.iterrows():
+            s = ''
+            for a, ann in enumerate(annotate):
+                if a >= 1:
+                    s += sep
+                if ann == 'nuts3':
+                    s += idx
+                if ann in ['name', 'names']:
+                    s += row.gen
+                if ann in ['value', 'values']:
+                    s += ('' if np.isnan(row[col])
+                          else '{:.0f}'.format(row[col]))
+                    if relative:
+                        s += '/km²'
+                if ann in ['percentage', 'percentages']:
+                    if relative:
+                        s += ('' if np.isnan(df.loc[idx, col]) else
+                              '{:.2%}'.format(df.loc[idx, col] /
+                                              float(df[col].sum())))
+                    else:
+                        s += ('' if np.isnan(row[col]) else
+                              '{:.2%}'.format(row[col]/DF[col].sum()))
+            txt = ax[i, j].annotate(s=s, xy=row['coords'], fontsize=fontsize,
+                                    horizontalalignment='center', color=color,
+                                    verticalalignment='center')
+            txt.set_path_effects([PathEffects.withStroke(linewidth=1,
+                                                         foreground='silver')])
         j += 1
 
     # Deactivate possibly remaining axes
