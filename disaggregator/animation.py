@@ -16,18 +16,18 @@
 # You should have received a copy of the GNU General Public License
 # along with disaggregator.  If not, see <https://www.gnu.org/licenses/>.
 """
-This file is an executable script for multi-threaded batch plotting. Therefore
-it is NOT a library and should not be imported into other modules.
+This file is an executable script for multi-threaded creation of animations.
+Therefore it is NOT a library and should not be imported into other modules.
 """
 
 from disaggregator.config import get_config, _data_out
 from disaggregator.data import (ambient_T, solar_irradiation,
-                                elc_consumption_HH_spatiotemporal,
-                                transpose_spatiotemporal)
+                                elc_consumption_HH_spatiotemporal)
 from disaggregator.plot import choropleth_map
 import matplotlib.pyplot as plt
 import pandas as pd
 import logging
+import sys
 import os
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,8 @@ def create_plot(input):
     import numpy as np
     import datetime as dt
     t, ser, choro_kwargs = input
-    fn = _data_out('batch/{:05d}_batch.png'.format(t))
+    fn = os.path.join(choro_kwargs.get('tmpdir'),
+                      '{:05d}_batch.png'.format(t))
     if os.path.isfile(fn):
         print('Skipping: {:04d} | '.format(t), end='')
     else:
@@ -58,9 +59,9 @@ def create_plot(input):
         fig.savefig(fn, bbox_inches='tight')
         plt.rcParams['font.size'] = 10
         plt.close(fig)
+    sys.stdout.flush()
 
 
-def invoke_batch_plotting(df, **choro_kwargs):
 def create_animation(name, dir_in=None, dir_out=None, extension='mp4', fps=24):
     """
     Create an animation from png files in a given directory and save it to
@@ -91,14 +92,6 @@ def create_animation(name, dir_in=None, dir_out=None, extension='mp4', fps=24):
                 for f in os.listdir(dir_in) if f.endswith('.png')]
     logger.info('Found {} pictures.'.format(len(list_png)))
 
-    # Create new folder to put the animation into
-    now = datetime.datetime.now()
-    new_dir = ('{:04d}-{:02d}-{:02d}_{}'
-               .format(now.year, now.month, now.day, name))
-    new_path = os.path.join(dir_out, new_dir)
-    if not os.path.exists(new_path):
-        os.makedirs(new_path)
-
     logger.info('Loading all pictures. This may take a while.')
     images = []
     for i, file in enumerate(list_png):
@@ -117,14 +110,18 @@ def create_animation(name, dir_in=None, dir_out=None, extension='mp4', fps=24):
         images.append(im.imread(file))
 
     logger.info('Creating animation...')
+    now = datetime.datetime.now()
+    fn = ('{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}_{}_{}-fps.{}'
+          .format(now.year, now.month, now.day, now.hour, now.minute,
+                  now.second, name, fps, extension))
     if extension == 'mp4':
-        file_name = os.path.join(new_path, 'video_{}-fps.mp4'.format(fps))
+        file_name = os.path.join(dir_out, fn)
         writer = im.get_writer(file_name, fps=fps)
         for image in images:
             writer.append_data(image)
         writer.close()
     elif extension == 'gif':
-        file_name = os.path.join(new_path, 'animation.gif')
+        file_name = os.path.join(dir_out, fn)
         im.mimsave(file_name, images)
     else:
         raise ValueError("The extension must be one of ['mp4', 'gif'] but "
@@ -132,12 +129,30 @@ def create_animation(name, dir_in=None, dir_out=None, extension='mp4', fps=24):
 
     logger.info('Done! The animation can be found here: {}'.format(file_name))
     return
+
+
+def invoke_batch_creation(df, name, fps, **choro_kwargs):
+    """
+    Invoke a multiprocessed batch creating of the image files and the animation
+    itself.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The container holder the spatiotemporal files.
+    name : str
+        A name for the created animation.
+    fps : int
+        The number of frames per second. Default: 24
     """
     import multiprocessing
+    import tempfile
+    import shutil
 
-    # make sure that output directory exists
-    if not os.path.isdir(_data_out('batch')):
-        os.mkdir(_data_out('batch'))
+    # create temporary output directory
+    choro_kwargs['tmpdir'] = tempfile.mkdtemp()
+    print('Creating plots into this folder:\n{}'
+          .format(choro_kwargs['tmpdir']))
 
     # figure out the maximum number of CPU threads to be used for the job
     max_os_cpus = multiprocessing.cpu_count()
@@ -157,10 +172,14 @@ def create_animation(name, dir_in=None, dir_out=None, extension='mp4', fps=24):
 
     print('Creating plots with {} CPUs.'.format(threads))
     pool = multiprocessing.Pool(threads)
-    input = zip([int(t) for t in list(df.columns)],
-                [ser for t, ser in df.iteritems()],
-                [choro_kwargs for i in df.columns])
+    input = zip([int(t) for t in list(df.index)],
+                [ser for t, ser in df.iterrows()],
+                [choro_kwargs for i in df.index])
     pool.map(create_plot, input)
+    logger.info('...done! Creating animation from the plots.')
+    create_animation(name=name, dir_in=choro_kwargs['tmpdir'], fps=fps)
+    logger.info('...done! Deleting source image files.')
+    shutil.rmtree(choro_kwargs['tmpdir'])
     logger.info('...done!')
     return
 
@@ -170,22 +189,23 @@ Please uncomment the sections you don't need and run the entire script in an
 external (!) console.
 """
 if __name__ == '__main__':
-    invoke_batch_plotting(ambient_T().reset_index(drop=True),
+    invoke_batch_creation(ambient_T().reset_index(drop=True),
+                          name='Ambient_Temperature', fps=6,
                           relative=False, interval=(-12, 40), cmap='jet',
                           unit='°C')
 
-    invoke_batch_plotting(solar_irradiation().reset_index(drop=True),
+    invoke_batch_creation(solar_irradiation().reset_index(drop=True),
+                          name='Solar_Irradiation', fps=24,
                           relative=False, interval=(0, 245), cmap='jet',
                           unit='Wh/m²', tspd=96)
 
-    invoke_batch_plotting(elc_consumption_HH_spatiotemporal()
+    invoke_batch_creation(elc_consumption_HH_spatiotemporal()
                           .reset_index(drop=True),
+                          name='Electricity_Consumption', fps=6,
                           relative=True, interval=(0, 1.54), cmap='jet',
                           unit='MW')
-
-    df = (pd.read_csv(_data_out('gas_disagg.csv'), index_col=0, engine='c')
-            .pipe(transpose_spatiotemporal)
-            .reset_index(drop=True))
-    invoke_batch_plotting(df.loc[4344:4511],
+    # Exemplaric user_generated file:
+    df = pd.read_csv(_data_out('gas_disagg.csv'), index_col=0, engine='c')
+    invoke_batch_creation(df, name='Gas_Consumption',  fps=6,
                           relative=True, interval=(0, 3.25), cmap='jet',
                           unit='MWh/h')
