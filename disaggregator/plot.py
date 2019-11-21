@@ -277,72 +277,6 @@ def heatmap_timeseries(df, **kwargs):
     return fig, ax
 
 
-def create_animation(directory=None, extension='mp4', fps=24):
-    """
-    Creates an animation for png files in a given directory.
-
-    Parameters
-    ----------
-    directory : str
-        A path to the directory. If None, it will look in _data_out/batch/
-    extension : str
-        Either 'mp4' or 'gif'
-    fps : int
-        The number of frames per second. Default: 24
-    """
-    import datetime
-    import imageio as im
-
-    if directory is None:
-        directory = _data_out('batch')
-
-    list_png = [os.path.join(directory, f)
-                for f in os.listdir(directory) if f.endswith('.png')]
-    logger.info('Found {} pictures.'.format(len(list_png)))
-
-    # Create new folder to put the animation into
-    now = datetime.datetime.now()
-    new_dir = ('{:04d}-{:02d}-{:02d}_{:02d}-{:02d}'
-               .format(now.year, now.month, now.day, now.hour, now.minute))
-    new_path = os.path.join(directory, new_dir)
-    if not os.path.exists(new_path):
-        os.makedirs(new_path)
-
-    logger.info('Loading all pictures. This may take a while.')
-    images = []
-    for i, file in enumerate(list_png):
-        # Loading bar
-        tmp_per = int(round(i/len(list_png) * 25))
-        if i == 1:
-            print("Working:")
-            print("[#" + "-"*24 + "]", end="\r")
-        elif i == len(list_png):
-            print(" ", end="\r")
-            print("[" + "#"*25 + "]")
-        else:
-            print(" ", end="\r")
-            print("[" + "#"*tmp_per + "-"*(25-tmp_per) + "]", end="\r")
-        # Appending
-        images.append(im.imread(file))
-
-    logger.info('Creating animation...')
-    if extension == 'mp4':
-        file_name = os.path.join(new_path, 'video_{}-fps.mp4'.format(fps))
-        writer = im.get_writer(file_name, fps=fps)
-        for image in images:
-            writer.append_data(image)
-        writer.close()
-    elif extension == 'gif':
-        file_name = os.path.join(new_path, 'animation.gif')
-        im.mimsave(file_name, images)
-    else:
-        raise ValueError("The extension must be one of ['mp4', 'gif'] but "
-                         "given was: {}".format(extension))
-
-    logger.info('Done! The animation can be found here: {}'.format(file_name))
-    return
-
-
 def multireg_generic(df, **kwargs):
     """
     Plot a generic pd.DataFrame with regions in columns and e.g. DateTimeIndex
@@ -450,8 +384,8 @@ def multireg_generic(df, **kwargs):
 
 def gather_nrows_ncols(x, orientation='landscape'):
     """
-    Derives [nrows, ncols, rem] based on x plots, in such a way that a subplot
-    looks nicely.
+    Derive the number of rows and columns and a possible remainder based on a
+    given number of plots, in such a way that a subplot looks nicely.
 
     Parameters
     ----------

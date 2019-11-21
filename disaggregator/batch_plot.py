@@ -61,7 +61,77 @@ def create_plot(input):
 
 
 def invoke_batch_plotting(df, **choro_kwargs):
+def create_animation(name, dir_in=None, dir_out=None, extension='mp4', fps=24):
     """
+    Create an animation from png files in a given directory and save it to
+    another directory.
+
+    Parameters
+    ----------
+    name : str
+        A name for the created animation.
+    dir_in : str
+        A path to the directory. If None, it will look in _data_out/batch/
+    dir_out : str
+        A path to the directory. If None, it will save to _data_out/
+    extension : str
+        Either 'mp4' or 'gif'
+    fps : int
+        The number of frames per second. Default: 24
+    """
+    import datetime
+    import imageio as im
+
+    if dir_in is None:
+        dir_in = _data_out('batch')
+    if dir_out is None:
+        dir_out = _data_out()
+
+    list_png = [os.path.join(dir_in, f)
+                for f in os.listdir(dir_in) if f.endswith('.png')]
+    logger.info('Found {} pictures.'.format(len(list_png)))
+
+    # Create new folder to put the animation into
+    now = datetime.datetime.now()
+    new_dir = ('{:04d}-{:02d}-{:02d}_{}'
+               .format(now.year, now.month, now.day, name))
+    new_path = os.path.join(dir_out, new_dir)
+    if not os.path.exists(new_path):
+        os.makedirs(new_path)
+
+    logger.info('Loading all pictures. This may take a while.')
+    images = []
+    for i, file in enumerate(list_png):
+        # Loading bar
+        tmp_per = int(round(i/len(list_png) * 25))
+        if i == 1:
+            print("Working:")
+            print("[#" + "-"*24 + "]", end="\r")
+        elif i == len(list_png):
+            print(" ", end="\r")
+            print("[" + "#"*25 + "]")
+        else:
+            print(" ", end="\r")
+            print("[" + "#"*tmp_per + "-"*(25-tmp_per) + "]", end="\r")
+        # Appending
+        images.append(im.imread(file))
+
+    logger.info('Creating animation...')
+    if extension == 'mp4':
+        file_name = os.path.join(new_path, 'video_{}-fps.mp4'.format(fps))
+        writer = im.get_writer(file_name, fps=fps)
+        for image in images:
+            writer.append_data(image)
+        writer.close()
+    elif extension == 'gif':
+        file_name = os.path.join(new_path, 'animation.gif')
+        im.mimsave(file_name, images)
+    else:
+        raise ValueError("The extension must be one of ['mp4', 'gif'] but "
+                         "given was: {}".format(extension))
+
+    logger.info('Done! The animation can be found here: {}'.format(file_name))
+    return
     """
     import multiprocessing
 
