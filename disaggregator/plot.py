@@ -283,7 +283,10 @@ def multireg_generic(df, **kwargs):
     as index. Each column/region will get its own subplot.
     """
     from matplotlib.offsetbox import AnchoredText
-    plt.rcParams.update({'font.size': kwargs.get('fontsize', 20)})
+    # Mend and/or transpose the data
+    if isinstance(df, pd.Series):
+        df = df.to_frame()
+    # Handle keyword-arguments
     multiindexed = (df.columns.nlevels > 1)
     sharex = kwargs.get('sharex', True)
     sharey = kwargs.get('sharey', False)
@@ -304,6 +307,9 @@ def multireg_generic(df, **kwargs):
     show_means = kwargs.get('show_means', False)
     means_loc = kwargs.get('means_loc', 1)
     unit = kwargs.get('unit', '')
+    if kwargs.get('fontsize'):
+        orig_size = plt.rcParams['font.size']
+        plt.rcParams.update({'font.size': kwargs.get('fontsize')})
 
     if mode == 'screen':
         # Figsize close to FullHD Resolution
@@ -375,6 +381,9 @@ def multireg_generic(df, **kwargs):
         for line in leg.get_lines():
             line.set_linewidth(4.0)
         fig.subplots_adjust(bottom=0.07)
+    # reset rcParams:
+    if kwargs.get('fontsize'):
+        plt.rcParams.update({'font.size': orig_size})
     add_license_to_figure(fig)
     return fig, ax
 
