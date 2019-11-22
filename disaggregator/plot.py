@@ -230,7 +230,7 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
                             format=mticker.StrMethodFormatter('{x:,g}'))
         cbar.set_label(unit)
 
-    add_license_to_figure(fig)
+    add_license_to_figure(fig, geotag=True)
     return fig, ax
 
 
@@ -273,7 +273,7 @@ def heatmap_timeseries(df, **kwargs):
     ax_cbar = fig.add_axes([0.85, 0.05, 0.03, 0.90])
     cbar = plt.colorbar(cax, cax=ax_cbar)
     cbar.set_label(clabel)
-    add_license_to_figure(fig)
+    add_license_to_figure(fig, into_ax=False)
     return fig, ax
 
 
@@ -499,10 +499,23 @@ def set_ax_format(ax, axtitle=None, axtitlesize=None, axtitlebold=False,
         ax.set_yticklabels(yticklabels)
 
 
-def add_license_to_figure(fig, license='CC BY-SA 4.0'):
+def add_license_to_figure(fig, license='CC BY 4.0', geotag=False,
+                          into_ax=True, **kwargs):
     """
-    Add a license text to a passed figure object.
+    Add a license (and possibly geotag) text to a passed figure object.
     """
+    # Create the string to put into the figure
     s = 'License: {}'.format(license)
-    fig.text(0.01, 0.01, s, fontsize=6, color='gray', ha='left', va='bottom',
-             alpha=0.5)
+    if geotag:
+        s += ('\nAdministrative boundaries: © GeoBasis-DE / BKG 2017; '
+              'Generalization: FfE e.V.')
+    # Set position
+    if into_ax:
+        # Get the position of the very first AxesSubplot
+        pos = fig.get_axes()[0].get_position()
+        x, y = (pos.x0 * 1.01, pos.y0 * 1.01)
+    else:
+        x, y = (kwargs.get('x', 0.05), kwargs.get('y', 0.05))
+
+    fig.text(x, y, s, fontsize=6, color='gray',
+             ha='left', va='bottom', alpha=0.5)
