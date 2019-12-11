@@ -25,6 +25,6 @@ setup(
         'PyYAML >= 5.1.1',
         'requests >= 2.22.0',
         'geopandas==0.4.1',
-        'xarray == 0.14.1',
+        'xarray >= 0.13.0',
         'matplotlib >= 3.1.2'
     ])
