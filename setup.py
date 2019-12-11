@@ -22,9 +22,9 @@ setup(
  #         'dev': ['nose', 'sphinx', 'sphinx_rtd_theme', 'requests']},
     install_requires=[
         'pandas >= 0.17.0',
-        'PyYAML >= 5.1.1',
-        'requests >= 2.22.0',
-        'geopandas==0.4.1',
-        'xarray >= 0.13.0',
-        'matplotlib >= 3.1.2'
+        'PyYAML',
+        'requests',
+        'geopandas',
+        'xarray',
+        'matplotlib'
     ])
