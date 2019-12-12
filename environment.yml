@@ -1,8 +1,8 @@
-name: demandregio
+name: disaggregator
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python=3.7
   - pip
   
   - numpy
@@ -16,7 +16,8 @@ dependencies:
   - xarray
   
   - matplotlib
-
-  - ipython
-  - jupyter
+  
+  # Jupyter Environment
   - jupyterlab
+  - notebook
+  - ipython
