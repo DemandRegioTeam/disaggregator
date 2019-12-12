@@ -20,7 +20,7 @@ of the final energy sectors
 Before we really start, please install `conda` through the latest [Anaconda package](https://www.anaconda.com/distribution/) or via [miniconda](https://docs.conda.io/en/latest/miniconda.html). After successfully installing `conda`, open the **Anaconda Powershell Prompt**.  
 For experts: You can also open a bash shell (Linux) or command prompt (Windows), but then make sure that your local environment variable `PATH` points to your anaconda installation directory.
 
-Now, in the root folder of the project create an environment to work in that will be called `demandregio` via
+Now, in the root folder of the project create an environment to work in that will be called `disaggregator` via
 
 ```bash
 $ conda env create -f environment.yml
@@ -29,7 +29,7 @@ $ conda env create -f environment.yml
 which installs all required packages. Then activate the environment
 
 ```bash
-$ conda activate demandregio
+$ conda activate disaggregator
 ```
 
 ## How to start
@@ -37,7 +37,7 @@ $ conda activate demandregio
 Once the environment is activated, you can start a Jupyter Notebook from there
 
 ```bash
-(demandregio) $ jupyter notebook
+(disaggregator) $ jupyter notebook
 ```
 
 As soon as the Jupyter Notebook opens in your browser, click on the `01_Introduction_data.ipynb` file to start with a demonstration:
