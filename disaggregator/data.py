@@ -800,8 +800,8 @@ def reshape_temporal(freq=None, key=None, **kwargs):
 #        df = read_local(fn, year=year)
     elif source == 'database':
         values = literal_converter(
-                database_get('temporal', table_id=table_id, year=year,
-                             force_update=force_update).loc[0, 'values'])
+            database_get('temporal', table_id=table_id, year=year,
+                         force_update=force_update).loc[0, 'values'])
         idx = pd.date_range(start=str(year), periods=len(values), freq=freq)
         df_exp = pd.Series(values, index=idx).astype(float)
     else:
