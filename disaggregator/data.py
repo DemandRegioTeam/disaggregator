@@ -20,9 +20,10 @@ Provides functions to import all relevant data.
 """
 
 import pandas as pd
+import numpy as np
 import logging
 from .config import (get_config, _data_in, database_raw, region_id_to_nuts3,
-                     literal_converter)
+                     literal_converter, wz_dict)
 logger = logging.getLogger(__name__)
 cfg = get_config()
 
@@ -165,6 +166,194 @@ def zve_percentages_baseload():
 def zve_application_profiles():
     return pd.read_csv(_data_in('temporal', 'application_profiles.csv'),
                        engine='c')
+
+
+def generate_specific_consumption_per_branch():
+    """
+    DocString - beschreiben was hier gemacht wird
+    """
+    # Umweltökonomische Gesamtrechnung: Verbrauch je WZ je ET
+    vb_wz_real = database_get('spatial', table_id=38, year=2015)
+    vb_wz_real['WZ'] = [x[0] for x in vb_wz_real['internal_id']]
+    vb_wz_real['ET'] = [x[1] for x in vb_wz_real['internal_id']]
+
+    vb_wz_real = (vb_wz_real
+                  .loc[lambda x: x['ET'].isin([12, 18])]  # ET 12=Gase,18=Strom
+                  .loc[:, ['value', 'WZ', 'ET']]
+                  .loc[vb_wz_real['WZ'].isin(list(wz_dict().keys()))]
+                  .replace({'WZ': wz_dict()})
+                  .assign(value=lambda x: x['value']*1e3/3.6))  # TJ in MWh
+
+    # Strom- bzw Gasverbrauch je WZ in einzelnen DFs aspeichern
+    sv_wz_real = ((vb_wz_real
+                   .loc[lambda x: x['ET'] == 18]
+                   .loc[:, ['WZ', 'value']]
+                   .groupby(by='WZ'))[['value']]
+                  .sum().rename(columns={'value': 'SV WZ [MWh]'}))
+
+    gv_wz_real = ((vb_wz_real
+                   .loc[lambda x: x['ET'] == 12]
+                   .loc[:, ['WZ', 'value']]
+                   .groupby(by='WZ'))[['value']]
+                  .sum()
+                  .rename(columns={'value': 'GV WZ [MWh]'}))
+
+    # Tabelle 2 enthält: Anzahl BZE je WZ und LK
+    bze_je_LK_WZ = (database_get('spatial', table_id=18, year=2015)
+                    .assign(id_region=lambda x: x['id_region'].astype(str))
+                    .assign(ags=lambda x: [int(x[:-3]) for x in x.id_region]))
+
+    # Beibehalten der relevanten Zeilen und Spalten
+    bool_list = np.array(bze_je_LK_WZ['id_region'])
+    for i in range(0,len(bze_je_LK_WZ)):
+        bool_list[i]= (bze_je_LK_WZ['internal_id'][i][0]==9)
+    bze_je_LK_WZ = bze_je_LK_WZ[bool_list]
+    bze_je_LK_WZ = bze_je_LK_WZ[['ags','internal_id','value']]
+    # Spalten umbenennen
+    bze_je_LK_WZ.rename(columns={'value':'BZE'}, inplace = True)
+    # aus internal_id den WZ Zweisteller herauslesen und in neuer Spalte im DataFrame einfügen
+    list_wz = [x[1] for x in bze_je_LK_WZ['internal_id']]
+    bze_je_LK_WZ['WZ'] = list_wz
+    bze_je_LK_WZ.drop(columns=['internal_id'], inplace = True)
+    bze_je_LK_WZ = bze_je_LK_WZ[bze_je_LK_WZ['WZ']>0]
+    bze_je_lk_wz = pd.pivot_table(bze_je_LK_WZ, values='BZE', index='WZ', columns='ags', fill_value=0,dropna=False)
+    bze_lk_wz = pd.DataFrame(index= bze_je_lk_wz.columns,columns=['1', '2', '3', '5', '6', '7-9', '10-12', '13-15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31-32', '33', '35', '36', '37', '38-39', '41-42', '43', '45', '46', '47', '49', '50', '51', '52', '53', '55-56', '58-63', '64-66', '68', '69-75', '77-82', '84', '85', '86-88', '90-99'])
+    bze_lk_wz[:] = 0.0
+    # Zusammenzählen der Beschäftigten in WZen, für die Verbrauch in
+    # ök. Gesamtrechnung nur gesammelt angegeben ist
+    for i in [1, 2, 3, 5, 6]:
+        bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i]
+    WZe = [7,8,9]
+    for i in WZe:
+        bze_lk_wz['7-9']= bze_lk_wz['7-9']+bze_je_lk_wz.transpose()[i]
+    WZe = [10,11,12]
+    for i in WZe:
+        bze_lk_wz['10-12']= bze_lk_wz['10-12']+bze_je_lk_wz.transpose()[i]
+    WZe = [13,14,15]
+    for i in WZe:
+        bze_lk_wz['13-15']= bze_lk_wz['13-15']+bze_je_lk_wz.transpose()[i]
+    WZe = [16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+    for i in WZe:
+        bze_lk_wz[str(i)]= bze_je_lk_wz.transpose()[i]
+    WZe = [31,32]
+    for i in WZe:
+        bze_lk_wz['31-32']= bze_lk_wz['31-32']+bze_je_lk_wz.transpose()[i]
+    WZe = [33,35,36,37]
+    for i in WZe:
+        bze_lk_wz[str(i)]= bze_je_lk_wz.transpose()[i]
+    bze_lk_wz['38-39']= bze_je_lk_wz.transpose()[38]+bze_je_lk_wz.transpose()[39]  
+    WZe = [41,42]
+    for i in WZe:
+        bze_lk_wz['41-42']= bze_lk_wz['41-42']+bze_je_lk_wz.transpose()[i]   
+    WZe = [43,45,46,47,49,50,51,52,53]
+    for i in WZe:
+        bze_lk_wz[str(i)]= bze_je_lk_wz.transpose()[i]
+    WZe = [55,56]
+    for i in WZe:
+        bze_lk_wz['55-56']= bze_lk_wz['55-56']+bze_je_lk_wz.transpose()[i]  
+    WZe = [58,59,60,61,62,63]
+    for i in WZe:
+        bze_lk_wz['58-63']= bze_lk_wz['58-63']+bze_je_lk_wz.transpose()[i]
+    WZe = [64,65,66]
+    for i in WZe:
+        bze_lk_wz['64-66']= bze_lk_wz['64-66']+bze_je_lk_wz.transpose()[i]
+    WZe = [68]
+    for i in WZe:
+        bze_lk_wz[str(i)]= bze_je_lk_wz.transpose()[i]
+    WZe = [69,70,71,72,73,74,75]
+    for i in WZe:
+        bze_lk_wz['69-75']= bze_lk_wz['69-75']+bze_je_lk_wz.transpose()[i]
+    WZe = [77,78,79,80,81,82]
+    for i in WZe:
+        bze_lk_wz['77-82']= bze_lk_wz['77-82']+bze_je_lk_wz.transpose()[i]
+    WZe = [84,85]
+    for i in WZe:
+        bze_lk_wz[str(i)]= bze_je_lk_wz.transpose()[i]
+    WZe = [86,87,88]
+    for i in WZe:
+        bze_lk_wz['86-88']= bze_lk_wz['86-88']+bze_je_lk_wz.transpose()[i]
+    WZe = [90,91,92,93,94,95,96,97,98,99]
+    for i in WZe:
+        bze_lk_wz['90-99']= bze_lk_wz['90-99']+bze_je_lk_wz.transpose()[i]
+    
+    # Berechnen der spezifischen Verbräuche aus Gesamtverbrauch in WZ/ Anzahl Beschäftigte in WZ
+    # Gasverbrauch
+    spez_gv = (pd.DataFrame(bze_lk_wz.transpose()
+                                     .drop_duplicates()
+                                     .sum(axis=1))
+                 .merge(gv_wz_real, left_index=True, right_index=True))
+    spez_gv['spez. GV'] = spez_gv['GV WZ [MWh]']/spez_gv[0]
+    spez_gv = spez_gv[['spez. GV']].transpose()
+    # Stromverbrauch
+    spez_sv = pd.DataFrame(bze_lk_wz.transpose().drop_duplicates().sum(axis=1)).merge(sv_wz_real, left_index=True, right_index=True)
+    spez_sv['spez. SV'] = spez_sv['SV WZ [MWh]']/spez_sv[0]
+    spez_sv = spez_sv[['spez. SV']].transpose()
+    # Vorher zusammengerechnete WZe jetzt wieder als eigene Zeile im DF abspeichern
+    WZe = [7,8,9]
+    for i in WZe:
+        spez_gv[i] = spez_gv['7-9']
+        spez_sv[i] = spez_sv['7-9']
+    WZe = [10,11,12]
+    for i in WZe:
+        spez_gv[i] = spez_gv['10-12']
+        spez_sv[i] = spez_sv['10-12']
+    WZe = [13,14,15]
+    for i in WZe:
+        spez_gv[i] = spez_gv['13-15']
+        spez_sv[i] = spez_sv['13-15']
+    WZe = [31,32]
+    for i in WZe:
+        spez_gv[i] = spez_gv['31-32']
+        spez_sv[i] = spez_sv['31-32']
+    WZe = [38,39]
+    for i in WZe:
+        spez_gv[i] = spez_gv['38-39']
+        spez_sv[i] = spez_sv['38-39']
+    WZe = [41,42]
+    for i in WZe:
+        spez_gv[i] = spez_gv['41-42']
+        spez_sv[i] = spez_sv['41-42']
+    WZe = [55,56]
+    for i in WZe:
+        spez_gv[i] = spez_gv['55-56']
+        spez_sv[i] = spez_sv['55-56']
+    WZe = [58,59,60,61,62,63]
+    for i in WZe:
+        spez_gv[i] = spez_gv['58-63']
+        spez_sv[i] = spez_sv['58-63']
+    WZe = [64,65,66]
+    for i in WZe:
+        spez_gv[i] = spez_gv['64-66']
+        spez_sv[i] = spez_sv['64-66']
+    WZe = [69,70,71,72,73,74,75]
+    for i in WZe:
+        spez_gv[i] = spez_gv['69-75']
+        spez_sv[i] = spez_sv['69-75']
+    WZe = [77,78,79,80,81,82]
+    for i in WZe:
+        spez_gv[i] = spez_gv['77-82']
+        spez_sv[i] = spez_sv['77-82']
+    WZe = [86,87,88]
+    for i in WZe:
+        spez_gv[i] = spez_gv['86-88']
+        spez_sv[i] = spez_sv['86-88']
+    WZe = [90,91,92,93,94,95,96,97,98,99]
+    for i in WZe:
+        spez_gv[i] = spez_gv['90-99']
+        spez_sv[i] = spez_sv['90-99']
+
+    spez_gv = (spez_gv.drop(columns=['7-9', '10-12', '13-15', '31-32', '38-39',
+                                     '41-42', '55-56', '58-63', '64-66',
+                                     '69-75', '77-82', '86-88', '90-99'])
+                      .transpose())
+    spez_gv.index = spez_gv.index.astype(int)
+    spez_gv = spez_gv.sort_index()
+    
+    spez_sv= spez_sv.drop(columns=['7-9','10-12','13-15','31-32','38-39','41-42','55-56','58-63','64-66','69-75','77-82','86-88','90-99']).transpose()
+    spez_sv.index = spez_sv.index.astype(int)
+    spez_sv=spez_sv.sort_index()
+    
+    return spez_sv, spez_gv, bze_je_lk_wz
 
 
 # --- Spatial data ------------------------------------------------------------
