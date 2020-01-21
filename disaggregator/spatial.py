@@ -245,6 +245,95 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
 
     return df
 
+def disagg_households_heatload(year, weight_by_income=False):
+    """
+    Perform spatial disaggregation of gas demand and possibly adjust
+    by income.
+
+    Parameters
+    ----------
+    adjust_by_income : bool, optional
+        Flag if to weight the results by the regional income (default False)
+
+    Returns
+    -------
+    pd.DataFrame or pd.Series
+    """
+    # Derive distribution keys
+    df_ls = living_space(aggregate=True, internal_id_3=1).sum(axis=1)
+    df_pop = population()
+    df_HH = households_per_size().sum(axis=1)
+    d_keys_hotwater = df_pop / df_pop.sum()
+    d_keys_cook = df_HH / df_HH.sum()
+
+    logger.info('Calculating regional gas demands bottom-up.')
+    # uniform non-matching vintage sections
+    new_m2_vintages = {'A_<1900': 'A_<1948',
+                       'B_1900-1945': 'A_<1948',
+                       'C_1946-1960': 'B_1949-1968',
+                       'D_1961-1970': 'B_1949-1968',
+                       'E_1971-1980': 'C_1969-1985',
+                       'F_1981-1985': 'C_1969-1985',
+                       'G_1986-1995': 'D_1986-1995',
+                       'H_1996-2000': 'E_1996-2000',
+                       'I_2001-2005': 'F_>2000',
+                       'J_2006-2011': 'F_>2000',
+                       'K_2012': 'F_>2000',
+                       'L_2013': 'F_>2000',
+                       'M_2014': 'F_>2000',
+                       'N_2015': 'F_>2000',
+                       'O_2016': 'F_>2000',
+                       'P_2017': 'F_>2000',
+                       'Q_2018': 'F_>2000',
+                       'R_2019': 'F_>2000'}
+    new_dem_vintages = {'A_<1859': 'A_<1948',
+                        'B_1860-1918': 'A_<1948',
+                        'C_1919-1948': 'A_<1948',
+                        'D_1949-1957': 'B_1949-1968',
+                        'E_1958-1968': 'B_1949-1968',
+                        'F_1969-1978': 'C_1969-1985',
+                        'G_1979-1983': 'C_1969-1985',
+                        'H_1984-1994': 'D_1986-1995',
+                        'I_1995-2001': 'E_1996-2000',
+                        'J_2002-2009': 'F_>2000'}
+
+    # load the to-be-heated m² in spatial resolution
+    df_ls = (living_space(aggregate=False, internal_id_3=1, year=year)
+                 .drop(['heating_system', 'non_empty_building'],
+                       axis=1)
+                 .replace(dict(vintage_class=new_m2_vintages)))
+
+    # load the specific heating demands
+    # df1 = not refurbished buildings
+    df1 = (heat_demand_buildings(table_id=56, year=year,
+                                 internal_id_2=1, internal_id_3=1)
+           .replace(dict(vintage_class=new_dem_vintages))
+           .loc[lambda x: x.vintage_class != 'A_<1948'])
+    # df2 = refurbished buildings
+    df2 = (heat_demand_buildings(table_id=56, year=year,
+                                 internal_id_2=1, internal_id_3=2)
+           .replace(dict(vintage_class=new_dem_vintages))
+           .loc[lambda x: x.vintage_class == 'A_<1948'])
+    df_heat_dem = pd.concat([df1, df2])
+
+    piv_dem = df_heat_dem.pivot_table(values='value', index='nuts3',
+                                      columns='vintage_class',
+                                      aggfunc='mean') / 1e3  # kWh -> MWh
+    piv_m2 = df_ls.pivot_table(values='value', index='nuts3',
+                                   columns='vintage_class',
+                                   aggfunc='sum')
+    df_erg = piv_dem.multiply(piv_m2) / 0.99  # eta-boiler assumption
+    df_spaceheat = df_erg.sum(axis=1)
+    # Calculate
+    df = (pd.DataFrame(index=df_spaceheat.index)
+            .assign(Cooking=d_keys_cook * gas_nuts0['Cooking'],
+                    HotWater=d_keys_hotwater * gas_nuts0['HotWater'],
+                    SpaceHeating=df_spaceheat))
+
+    if weight_by_income:
+        df = adjust_by_income(df=df)
+
+    return df
 
 def disagg_CTS():
     raise NotImplementedError('Not here yet, to be done by TU Berlin.')
