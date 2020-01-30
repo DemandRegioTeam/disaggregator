@@ -139,7 +139,7 @@ def make_zve_load_profiles(return_profile_by_typeday=False,
     assert(isinstance(DE, gpd.GeoDataFrame))
     # Derive lat/lon tuple as representative point for each shape
     DE['coords'] = DE.to_crs({'init': 'epsg:4326'}).geometry.apply(
-            lambda x: x.representative_point().coords[:][0])
+        lambda x: x.representative_point().coords[:][0])
     idx = pd.date_range(start='{}-01-01'.format(year),
                         end='{}-12-31 23:00'.format(year), freq='1H')
     if reg is not None:
@@ -164,7 +164,7 @@ def make_zve_load_profiles(return_profile_by_typeday=False,
                     id_ts = (id_day-1)*3 + id_season - 1
                     for id_app, df_app in df_season.groupby('Application'):
                         LP_15[:, id_app-1, id_ts, HH_size-1] = (
-                                df_app.iloc[0, 4:100])
+                            df_app.iloc[0, 4:100])
 
         LP_Fin = xr.DataArray(np.zeros((nTsLP, n_app_all, n_ts), dtype=float),
                               dims=['Time', 'Application', 'TimeSlice'],
@@ -323,13 +323,13 @@ def getSunsetSunrise(doy, lat, lon, UTC_diff):
     # Transform into radiants
     sunset_h = light_h/(180/math.pi)
     # time difference
-    time_diff_arg = ((math.sin(sunset_h)-math.sin(B) *
-                      math.sin(declination_sun)) /
-                     (math.cos(B)*math.cos(declination_sun)))
+    time_diff_arg = ((math.sin(sunset_h)
+                      - math.sin(B) * math.sin(declination_sun))
+                     / (math.cos(B) * math.cos(declination_sun)))
     time_diff_arg = min(time_diff_arg, 1.)
     time_diff = 12 * math.acos(time_diff_arg) / math.pi
-    time_equation = (-0.171 * math.sin(0.0337*doy+0.465) - 0.1299 *
-                     math.sin(0.01787*doy-0.168))
+    time_equation = (-0.171 * math.sin(0.0337*doy + 0.465)
+                     - 0.1299 * math.sin(0.01787*doy - 0.168))
     # Sunrise / sunset at central local time (MOZ)
     sunset_MOZ = 12 + time_diff - time_equation
     sunrise_MOZ = 12 - time_diff - time_equation

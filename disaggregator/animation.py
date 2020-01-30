@@ -206,6 +206,6 @@ if __name__ == '__main__':
                           unit='MW')
     # Exemplaric user_generated file:
     df = pd.read_csv(_data_out('gas_disagg.csv'), index_col=0, engine='c')
-    invoke_batch_creation(df, name='Gas_Consumption',  fps=6,
+    invoke_batch_creation(df, name='Gas_Consumption', fps=6,
                           relative=True, interval=(0, 3.25), cmap='jet',
                           unit='MWh/h')
