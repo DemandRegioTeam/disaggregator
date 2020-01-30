@@ -19,7 +19,6 @@
 Provides functions for plotting
 """
 
-import os
 import math
 import logging
 import numpy as np
@@ -28,7 +27,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.patheffects as PathEffects
-from .config import get_config, _data_out
+from .config import get_config
 from .data import database_shapes, transpose_spatiotemporal
 logger = logging.getLogger(__name__)
 ScaMap = plt.cm.ScalarMappable
