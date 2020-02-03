@@ -216,7 +216,6 @@ def t_allo(**kwargs):
 
 def h_value(slp, districts):
     """
-    Moin
     Returns h-values depending on allocation temperature  for every district
 
     Parameter
@@ -251,44 +250,45 @@ def h_value(slp, districts):
         df[landkreis] = df[landkreis] / summe
     return df
 
+
 def generate_specific_consumption_per_branch():
     """
-    Returns specific power and gas consumption per branch. Also returns total 
-    power and gas consumption per branch and also the amount of workers per 
+    Returns specific power and gas consumption per branch. Also returns total
+    power and gas consumption per branch and also the amount of workers per
     branch and district.
-    
+
     Returns
     ------------
     Tuple that contains four pd.DataFrames
     """
-    vb_wz = database_get('spatial', table_id = 38, year = 2015)
-    vb_wz = (vb_wz.assign(WZ = [x[0] for x in vb_wz['internal_id']],
-                          ET = [x[1] for x in vb_wz['internal_id']]))              
-    vb_wz = (vb_wz[(vb_wz['ET'] == 12) | (vb_wz['ET'] == 18) & 
-            (vb_wz['WZ'].isin(list(wz_dict().keys())))]
-            [['value', 'WZ', 'ET']].replace({'WZ': wz_dict()}))
-    vb_wz['value'] = vb_wz['value'] * 1000 / 3.6 
+    vb_wz = database_get('spatial', table_id=38, year=2015)
+    vb_wz = (vb_wz.assign(WZ=[x[0] for x in vb_wz['internal_id']],
+                          ET=[x[1] for x in vb_wz['internal_id']]))
+    vb_wz = (vb_wz[(vb_wz['ET'] == 12)
+                   | (vb_wz['ET'] == 18)
+                   & (vb_wz['WZ'].isin(list(wz_dict().keys())))]
+             [['value', 'WZ', 'ET']].replace({'WZ': wz_dict()}))
+    vb_wz['value'] = vb_wz['value'] * 1000 / 3.6
     sv_wz_real = (vb_wz.loc[vb_wz['ET'] == 18][['WZ', 'value']]
-                       .groupby(by = 'WZ')[['value']].sum()
-                       .rename(columns = {'value': 'SV WZ [MWh]'}))
+                       .groupby(by='WZ')[['value']].sum()
+                       .rename(columns={'value': 'SV WZ [MWh]'}))
     gv_wz_real = (vb_wz.loc[vb_wz['ET'] == 12][['WZ', 'value']]
-                       .groupby(by = 'WZ')[['value']].sum()
-                       .rename(columns = {'value': 'GV WZ [MWh]'}))
-    df = database_get('spatial', table_id = 18, year = 2015)
-    df = (df.assign(ags = [int(x[:-3]) for x in 
-                            df['id_region'].astype(str)],
-                    WZ= [x[1] for x in df['internal_id']]))
+                       .groupby(by='WZ')[['value']].sum()
+                       .rename(columns={'value': 'GV WZ [MWh]'}))
+    df = database_get('spatial', table_id=18, year=2015)
+    df = (df.assign(ags=[int(x[:-3]) for x in df['id_region'].astype(str)],
+                    WZ=[x[1] for x in df['internal_id']]))
     bool_list = np.array(df['id_region'].astype(str))
     for i in range(0, len(df)):
         bool_list[i] = (df['internal_id'][i][0] == 9)
     df = (df[((bool_list) & (df['WZ'] > 0))][['ags', 'value', 'WZ']]
-            .rename(columns = {'value': 'BZE'}))
-    bze_je_lk_wz = (pd.pivot_table(df, values = 'BZE', index = 'WZ', 
-                    columns = 'ags', fill_value = 0, dropna = False))
-    bze_lk_wz = (pd.DataFrame(0.0 , index = bze_je_lk_wz.columns,
-                             columns = wz_dict().values()))
+          .rename(columns={'value': 'BZE'}))
+    bze_je_lk_wz = (pd.pivot_table(df, values='BZE', index='WZ',
+                    columns='ags', fill_value=0, dropna=False))
+    bze_lk_wz = (pd.DataFrame(0.0, index=bze_je_lk_wz.columns,
+                              columns=wz_dict().values()))
     for i in [1, 2, 3, 5, 6]:
-        bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i] 
+        bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i]
     for i in [7, 8, 9]:
         bze_lk_wz['7-9'] = bze_lk_wz['7-9'] + bze_je_lk_wz.transpose()[i]
     for i in [10, 11, 12]:
@@ -296,19 +296,19 @@ def generate_specific_consumption_per_branch():
     for i in [13, 14, 15]:
         bze_lk_wz['13-15'] = bze_lk_wz['13-15'] + bze_je_lk_wz.transpose()[i]
     for i in [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]:
-        bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i] 
-    bze_lk_wz['31-32'] = (bze_je_lk_wz.transpose()[31] + 
-                          bze_je_lk_wz.transpose()[32])
+        bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i]
+    bze_lk_wz['31-32'] = (bze_je_lk_wz.transpose()[31]
+                          + bze_je_lk_wz.transpose()[32])
     for i in [33, 35, 36, 37]:
         bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i]
-    bze_lk_wz['38-39'] = (bze_je_lk_wz.transpose()[38] +
-                          bze_je_lk_wz.transpose()[39]) 
-    bze_lk_wz['41-42'] = (bze_je_lk_wz.transpose()[41] +
-                          bze_je_lk_wz.transpose()[42])    
+    bze_lk_wz['38-39'] = (bze_je_lk_wz.transpose()[38]
+                          + bze_je_lk_wz.transpose()[39])
+    bze_lk_wz['41-42'] = (bze_je_lk_wz.transpose()[41]
+                          + bze_je_lk_wz.transpose()[42])
     for i in [43, 45, 46, 47, 49, 50, 51, 52, 53]:
         bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i]
-    bze_lk_wz['55-56'] = (bze_je_lk_wz.transpose()[55] +
-                         bze_je_lk_wz.transpose()[56])
+    bze_lk_wz['55-56'] = (bze_je_lk_wz.transpose()[55]
+                          + bze_je_lk_wz.transpose()[56])
     for i in [58, 59, 60, 61, 62, 63]:
         bze_lk_wz['58-63'] = bze_lk_wz['58-63'] + bze_je_lk_wz.transpose()[i]
     for i in [64, 65, 66]:
@@ -320,40 +320,43 @@ def generate_specific_consumption_per_branch():
         bze_lk_wz['77-82'] = bze_lk_wz['77-82'] + bze_je_lk_wz.transpose()[i]
     for i in [84, 85]:
         bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i]
-    bze_lk_wz['86-88'] = (bze_je_lk_wz.transpose()[86] + 
-                          bze_je_lk_wz.transpose()[87] + 
-                          bze_je_lk_wz.transpose()[88]) 
+    bze_lk_wz['86-88'] = (bze_je_lk_wz.transpose()[86]
+                          + bze_je_lk_wz.transpose()[87]
+                          + bze_je_lk_wz.transpose()[88])
     for i in [90, 91, 92, 93, 94, 95, 96, 97, 98, 99]:
         bze_lk_wz['90-99'] = bze_lk_wz['90-99'] + bze_je_lk_wz.transpose()[i]
     spez_gv = (pd.DataFrame(bze_lk_wz.transpose().drop_duplicates()
-                 .sum(axis = 1)).merge(gv_wz_real, left_index = True, 
-                                                   right_index = True))
+                            .sum(axis=1))
+                 .merge(gv_wz_real, left_index=True, right_index=True))
+
     # Anpassung Gasverbrauch Lennys Tabelle
-    #### spez_gv['GV WZ [MWh]'] * DF
-    
+    # spez_gv['GV WZ [MWh]'] * DF
+
     spez_gv['spez. GV'] = (spez_gv['GV WZ [MWh]'] / spez_gv[0]).transpose()
     spez_gv = spez_gv[['spez. GV']].transpose()
     spez_sv = (pd.DataFrame(bze_lk_wz.transpose().drop_duplicates()
-                 .sum(axis = 1)).merge(sv_wz_real, left_index = True, 
-                                                   right_index = True))
+                            .sum(axis=1))
+                 .merge(sv_wz_real, left_index=True, right_index=True))
     spez_sv['spez. SV'] = spez_sv['SV WZ [MWh]'] / spez_sv[0]
     spez_sv = spez_sv[['spez. SV']].transpose()
-    for item in [[7,8,9], [10,11,12], [13,14,15], [31,32], [38,39], [41,42], 
-                 [55,56], [58,59,60,61,62,63], [64,65,66], 
-                 [69,70,71,72,73,74,75], [77,78,79,80,81,82], [86,87,88],
-                 [90,91,92,93,94,95,96,97,98,99]]:
+    for item in [[7, 8, 9], [10, 11, 12], [13, 14, 15], [31, 32], [38, 39],
+                 [41, 42], [55, 56], [58, 59, 60, 61, 62, 63], [64, 65, 66],
+                 [69, 70, 71, 72, 73, 74, 75], [77, 78, 79, 80, 81, 82],
+                 [86, 87, 88], [90, 91, 92, 93, 94, 95, 96, 97, 98, 99]]:
         for i in item:
             spez_gv[i] = spez_gv[str(item[0]) + "-" + str(item[-1])]
             spez_sv[i] = spez_sv[str(item[0]) + "-" + str(item[-1])]
-    spez_gv = spez_gv.drop(columns= ['7-9', '10-12', '13-15', '31-32', '38-39',
-                                   '41-42', '55-56', '58-63', '64-66', '69-75',
-                                   '77-82', '86-88', '90-99']).transpose()
+    spez_gv = spez_gv.drop(columns=['7-9', '10-12', '13-15', '31-32', '38-39',
+                                    '41-42', '55-56', '58-63', '64-66',
+                                    '69-75', '77-82', '86-88',
+                                    '90-99']).transpose()
     spez_gv.index = spez_gv.index.astype(int)
-    spez_sv = spez_sv.drop(columns= ['7-9', '10-12', '13-15', '31-32', '38-39',
-                                   '41-42', '55-56', '58-63', '64-66', '69-75',
-                                   '77-82', '86-88', '90-99']).transpose()
+    spez_sv = spez_sv.drop(columns=['7-9', '10-12', '13-15', '31-32', '38-39',
+                                    '41-42', '55-56', '58-63', '64-66',
+                                    '69-75', '77-82', '86-88',
+                                    '90-99']).transpose()
     spez_sv.index = spez_sv.index.astype(int)
-    
+
     return spez_sv.sort_index(), spez_gv.sort_index(), vb_wz, bze_je_lk_wz
 
 def generate_specific_consumption_per_branch_and_district(iterations_power,
