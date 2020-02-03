@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Written by Fabian P. Gotzens, 2019.
+# Written by Fabian P. Gotzens, Paul Verwiebe, Maike Held 2019/2020.
 
 # This file is part of disaggregator.
 
@@ -22,8 +22,12 @@ Provides functions to import all relevant data.
 import pandas as pd
 import numpy as np
 import logging
+import holidays
+import datetime 
 from .config import (get_config, _data_in, database_raw, region_id_to_nuts3,
-                     literal_converter, wz_dict)
+                     literal_converter, wz_dict, hist_weather_year, bl_dict,
+                     slp_branch_cts_gas, slp_branch_cts_power,
+                     shift_profile_industry, gas_load_profile_parameters_dict)
 logger = logging.getLogger(__name__)
 cfg = get_config()
 
@@ -167,195 +171,492 @@ def zve_application_profiles():
     return pd.read_csv(_data_in('temporal', 'application_profiles.csv'),
                        engine='c')
 
+def t_allo(**kwargs):
+    """
+    Returns allocation temperature from weather data for (historical) year
+    
+    Returns
+    -------
+    pd.DataFrame
+    """
+    year = kwargs.get('year', cfg['base_year'])
+    hist_year = hist_weather_year().get(year)
+    dic_nuts3 = (region_id_to_nuts3(raw = True)[['natcode_nuts3','ags_lk']]
+                    .set_index('natcode_nuts3'))
+    dic_nuts3['ags_lk'] = dic_nuts3['ags_lk'].astype(str).str.zfill(5)
+    if ((hist_year % 4 == 0) & (hist_year % 100 != 0) | (hist_year % 4 == 0) 
+        & (hist_year % 100 == 0) & (hist_year % 400 == 0)):
+        periods = 35136
+    else:
+        periods = 35040       
+    df = ambient_T(year = hist_year, internal_id = 2)
+    df = (df.assign(date = pd.date_range((str(hist_year) + '-01-01'), 
+                    periods = periods / 4 , freq = 'H',
+                    tz = 'Europe/Berlin'))
+            .set_index('date').resample('D').mean())
+    df = (pd.merge(df.transpose(), dic_nuts3, how = 'right',
+                      left_index = True, right_index = True)
+                     .set_index('ags_lk').transpose())
+    df['03159'] = (df['03152'] + df['03156']) / 2
+    df.drop(columns = ['03152','03156'], inplace = True)
+    df.columns = df.columns.astype(int).astype(str)    
+    for district in df.columns:
+        te = df[district].values
+        for i in range(len(te)-1, -1, -1):
+            if (i >= 3):
+                te[i] = ((te[i] + 0.5 * te[i - 1] + 0.25 * te[i - 2] + 
+                          te[i - 3] * 0.125) / 1.875)
+        df[district] = te 
+    return df
+
+def h_value(slp, districts):
+    """
+    Returns h-values depending on allocation temperature  for every district
+    
+    Parameter
+    -------
+    slp : str
+        Must be one of ['BA', 'BD', 'BH', 'GA', 'GB', 'HA',
+                        'KO', 'MF', 'MK', 'PD', 'WA']
+    districts : list of district keys in state e.g. ['11000'] for Berlin
+    
+    Returns
+    -------
+    pd.DataFrame
+    """
+    temp_df = t_allo()
+    par = pd.DataFrame.from_dict(gas_load_profile_parameters_dict())
+    df = temp_df[[x for x in districts]]
+    par_slp = par.loc[(par.index == slp)].reset_index()
+    A = par_slp['A'][0]
+    B = par_slp['B'][0]
+    C = par_slp['C'][0]
+    D = par_slp['D'][0]
+    mH = par_slp['mH'][0]
+    bH = par_slp['bH'][0]
+    mW = par_slp['mW'][0]
+    bW = par_slp['bW'][0]
+    for landkreis in districts:        
+        te = temp_df[landkreis].values
+        for i in range(len(te)):
+            df[landkreis][i] = ((A / (1 + pow(B / (te[i] - 40), C)) + D) + 
+                                 max(mH * te[i] + bH, mW * te[i] + bW))
+        summe = df[landkreis].sum()
+        df[landkreis] = df[landkreis] / summe
+    return df
 
 def generate_specific_consumption_per_branch():
     """
-    DocString - beschreiben was hier gemacht wird
+    Returns specific power and gas consumption per branch. Also returns total 
+    power and gas consumption per branch and also the amount of workers per 
+    branch and district.
+    
+    Returns
+    ------------
+    Tuple that contains four pd.DataFrames
     """
-    # Umweltökonomische Gesamtrechnung: Verbrauch je WZ je ET
-    vb_wz_real = database_get('spatial', table_id=38, year=2015)
-    vb_wz_real['WZ'] = [x[0] for x in vb_wz_real['internal_id']]
-    vb_wz_real['ET'] = [x[1] for x in vb_wz_real['internal_id']]
-
-    vb_wz_real = (vb_wz_real
-                  .loc[lambda x: x['ET'].isin([12, 18])]  # ET 12=Gase,18=Strom
-                  .loc[:, ['value', 'WZ', 'ET']]
-                  .loc[vb_wz_real['WZ'].isin(list(wz_dict().keys()))]
-                  .replace({'WZ': wz_dict()})
-                  .assign(value=lambda x: x['value']*1e3/3.6))  # TJ in MWh
-
-    # Strom- bzw Gasverbrauch je WZ in einzelnen DFs aspeichern
-    sv_wz_real = ((vb_wz_real
-                   .loc[lambda x: x['ET'] == 18]
-                   .loc[:, ['WZ', 'value']]
-                   .groupby(by='WZ'))[['value']]
-                  .sum().rename(columns={'value': 'SV WZ [MWh]'}))
-
-    gv_wz_real = ((vb_wz_real
-                   .loc[lambda x: x['ET'] == 12]
-                   .loc[:, ['WZ', 'value']]
-                   .groupby(by='WZ'))[['value']]
-                  .sum()
-                  .rename(columns={'value': 'GV WZ [MWh]'}))
-
-    # Tabelle 2 enthält: Anzahl BZE je WZ und LK
-    bze_je_LK_WZ = (database_get('spatial', table_id=18, year=2015)
-                    .assign(id_region=lambda x: x['id_region'].astype(str))
-                    .assign(ags=lambda x: [int(x[:-3]) for x in x.id_region]))
-
-    # Beibehalten der relevanten Zeilen und Spalten
-    bool_list = np.array(bze_je_LK_WZ['id_region'])
-    for i in range(0, len(bze_je_LK_WZ)):
-        bool_list[i]= (bze_je_LK_WZ['internal_id'][i][0]==9)
-    bze_je_LK_WZ = bze_je_LK_WZ[bool_list]
-    bze_je_LK_WZ = bze_je_LK_WZ[['ags','internal_id','value']]
-    # Spalten umbenennen
-    bze_je_LK_WZ.rename(columns={'value':'BZE'}, inplace = True)
-    # aus internal_id den WZ Zweisteller herauslesen und in neuer Spalte im DataFrame einfügen
-    list_wz = [x[1] for x in bze_je_LK_WZ['internal_id']]
-    bze_je_LK_WZ['WZ'] = list_wz
-    bze_je_LK_WZ.drop(columns=['internal_id'], inplace = True)
-    bze_je_LK_WZ = bze_je_LK_WZ[bze_je_LK_WZ['WZ']>0]
-    bze_je_lk_wz = pd.pivot_table(bze_je_LK_WZ, values='BZE', index='WZ', columns='ags', fill_value=0,dropna=False)
-    bze_lk_wz = pd.DataFrame(index= bze_je_lk_wz.columns,columns=['1', '2', '3', '5', '6', '7-9', '10-12', '13-15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31-32', '33', '35', '36', '37', '38-39', '41-42', '43', '45', '46', '47', '49', '50', '51', '52', '53', '55-56', '58-63', '64-66', '68', '69-75', '77-82', '84', '85', '86-88', '90-99'])
-    bze_lk_wz[:] = 0.0
-    # Zusammenzählen der Beschäftigten in WZen, für die Verbrauch in
-    # ök. Gesamtrechnung nur gesammelt angegeben ist
+    vb_wz = database_get('spatial', table_id = 38, year = 2015)
+    vb_wz = (vb_wz.assign(WZ = [x[0] for x in vb_wz['internal_id']],
+                          ET = [x[1] for x in vb_wz['internal_id']]))              
+    vb_wz = (vb_wz[(vb_wz['ET'] == 12) | (vb_wz['ET'] == 18) & 
+            (vb_wz['WZ'].isin(list(wz_dict().keys())))]
+            [['value', 'WZ', 'ET']].replace({'WZ': wz_dict()}))
+    vb_wz['value'] = vb_wz['value'] * 1000 / 3.6 
+    sv_wz_real = (vb_wz.loc[vb_wz['ET'] == 18][['WZ', 'value']]
+                       .groupby(by = 'WZ')[['value']].sum()
+                       .rename(columns = {'value': 'SV WZ [MWh]'}))
+    gv_wz_real = (vb_wz.loc[vb_wz['ET'] == 12][['WZ', 'value']]
+                       .groupby(by = 'WZ')[['value']].sum()
+                       .rename(columns = {'value': 'GV WZ [MWh]'}))
+    df = database_get('spatial', table_id = 18, year = 2015)
+    df = (df.assign(ags = [int(x[:-3]) for x in 
+                            df['id_region'].astype(str)],
+                    WZ= [x[1] for x in df['internal_id']]))
+    bool_list = np.array(df['id_region'].astype(str))
+    for i in range(0, len(df)):
+        bool_list[i] = (df['internal_id'][i][0] == 9)
+    df = (df[((bool_list) & (df['WZ'] > 0))][['ags', 'value', 'WZ']]
+            .rename(columns = {'value': 'BZE'}))
+    bze_je_lk_wz = (pd.pivot_table(df, values = 'BZE', index = 'WZ', 
+                    columns = 'ags', fill_value = 0, dropna = False))
+    bze_lk_wz = (pd.DataFrame(0.0 , index = bze_je_lk_wz.columns,
+                             columns = wz_dict().values()))
     for i in [1, 2, 3, 5, 6]:
+        bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i] 
+    for i in [7, 8, 9]:
+        bze_lk_wz['7-9'] = bze_lk_wz['7-9'] + bze_je_lk_wz.transpose()[i]
+    for i in [10, 11, 12]:
+        bze_lk_wz['10-12'] = bze_lk_wz['10-12'] + bze_je_lk_wz.transpose()[i]
+    for i in [13, 14, 15]:
+        bze_lk_wz['13-15'] = bze_lk_wz['13-15'] + bze_je_lk_wz.transpose()[i]
+    for i in [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]:
+        bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i] 
+    bze_lk_wz['31-32'] = (bze_je_lk_wz.transpose()[31] + 
+                          bze_je_lk_wz.transpose()[32])
+    for i in [33, 35, 36, 37]:
         bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i]
-    WZe = [7,8,9]
-    for i in WZe:
-        bze_lk_wz['7-9']= bze_lk_wz['7-9']+bze_je_lk_wz.transpose()[i]
-    WZe = [10,11,12]
-    for i in WZe:
-        bze_lk_wz['10-12']= bze_lk_wz['10-12']+bze_je_lk_wz.transpose()[i]
-    WZe = [13,14,15]
-    for i in WZe:
-        bze_lk_wz['13-15']= bze_lk_wz['13-15']+bze_je_lk_wz.transpose()[i]
-    WZe = [16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
-    for i in WZe:
-        bze_lk_wz[str(i)]= bze_je_lk_wz.transpose()[i]
-    WZe = [31,32]
-    for i in WZe:
-        bze_lk_wz['31-32']= bze_lk_wz['31-32']+bze_je_lk_wz.transpose()[i]
-    WZe = [33,35,36,37]
-    for i in WZe:
-        bze_lk_wz[str(i)]= bze_je_lk_wz.transpose()[i]
-    bze_lk_wz['38-39']= bze_je_lk_wz.transpose()[38]+bze_je_lk_wz.transpose()[39]  
-    WZe = [41,42]
-    for i in WZe:
-        bze_lk_wz['41-42']= bze_lk_wz['41-42']+bze_je_lk_wz.transpose()[i]   
-    WZe = [43,45,46,47,49,50,51,52,53]
-    for i in WZe:
-        bze_lk_wz[str(i)]= bze_je_lk_wz.transpose()[i]
-    WZe = [55,56]
-    for i in WZe:
-        bze_lk_wz['55-56']= bze_lk_wz['55-56']+bze_je_lk_wz.transpose()[i]  
-    WZe = [58,59,60,61,62,63]
-    for i in WZe:
-        bze_lk_wz['58-63']= bze_lk_wz['58-63']+bze_je_lk_wz.transpose()[i]
-    WZe = [64,65,66]
-    for i in WZe:
-        bze_lk_wz['64-66']= bze_lk_wz['64-66']+bze_je_lk_wz.transpose()[i]
-    WZe = [68]
-    for i in WZe:
-        bze_lk_wz[str(i)]= bze_je_lk_wz.transpose()[i]
-    WZe = [69,70,71,72,73,74,75]
-    for i in WZe:
-        bze_lk_wz['69-75']= bze_lk_wz['69-75']+bze_je_lk_wz.transpose()[i]
-    WZe = [77,78,79,80,81,82]
-    for i in WZe:
-        bze_lk_wz['77-82']= bze_lk_wz['77-82']+bze_je_lk_wz.transpose()[i]
-    WZe = [84,85]
-    for i in WZe:
-        bze_lk_wz[str(i)]= bze_je_lk_wz.transpose()[i]
-    WZe = [86,87,88]
-    for i in WZe:
-        bze_lk_wz['86-88']= bze_lk_wz['86-88']+bze_je_lk_wz.transpose()[i]
-    WZe = [90,91,92,93,94,95,96,97,98,99]
-    for i in WZe:
-        bze_lk_wz['90-99']= bze_lk_wz['90-99']+bze_je_lk_wz.transpose()[i]
+    bze_lk_wz['38-39'] = (bze_je_lk_wz.transpose()[38] +
+                          bze_je_lk_wz.transpose()[39]) 
+    bze_lk_wz['41-42'] = (bze_je_lk_wz.transpose()[41] +
+                          bze_je_lk_wz.transpose()[42])    
+    for i in [43, 45, 46, 47, 49, 50, 51, 52, 53]:
+        bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i]
+    bze_lk_wz['55-56'] = (bze_je_lk_wz.transpose()[55] +
+                         bze_je_lk_wz.transpose()[56])
+    for i in [58, 59, 60, 61, 62, 63]:
+        bze_lk_wz['58-63'] = bze_lk_wz['58-63'] + bze_je_lk_wz.transpose()[i]
+    for i in [64, 65, 66]:
+        bze_lk_wz['64-66'] = bze_lk_wz['64-66'] + bze_je_lk_wz.transpose()[i]
+    bze_lk_wz[str(68)] = bze_je_lk_wz.transpose()[68]
+    for i in [69, 70, 71, 72, 73, 74, 75]:
+        bze_lk_wz['69-75'] = bze_lk_wz['69-75'] + bze_je_lk_wz.transpose()[i]
+    for i in [77, 78, 79, 80, 81, 82]:
+        bze_lk_wz['77-82'] = bze_lk_wz['77-82'] + bze_je_lk_wz.transpose()[i]
+    for i in [84, 85]:
+        bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i]
+    bze_lk_wz['86-88'] = (bze_je_lk_wz.transpose()[86] + 
+                          bze_je_lk_wz.transpose()[87] + 
+                          bze_je_lk_wz.transpose()[88]) 
+    for i in [90, 91, 92, 93, 94, 95, 96, 97, 98, 99]:
+        bze_lk_wz['90-99'] = bze_lk_wz['90-99'] + bze_je_lk_wz.transpose()[i]
+    spez_gv = (pd.DataFrame(bze_lk_wz.transpose().drop_duplicates()
+                 .sum(axis = 1)).merge(gv_wz_real, left_index = True, 
+                                                   right_index = True))
+    # Anpassung Gasverbrauch Lennys Tabelle
+    #### spez_gv['GV WZ [MWh]'] * DF
     
-    # Berechnen der spezifischen Verbräuche aus Gesamtverbrauch in WZ/ Anzahl Beschäftigte in WZ
-    # Gasverbrauch
-    spez_gv = (pd.DataFrame(bze_lk_wz.transpose()
-                                     .drop_duplicates()
-                                     .sum(axis=1))
-                 .merge(gv_wz_real, left_index=True, right_index=True))
-    spez_gv['spez. GV'] = spez_gv['GV WZ [MWh]']/spez_gv[0]
+    spez_gv['spez. GV'] = (spez_gv['GV WZ [MWh]'] / spez_gv[0]).transpose()
     spez_gv = spez_gv[['spez. GV']].transpose()
-    # Stromverbrauch
-    spez_sv = pd.DataFrame(bze_lk_wz.transpose().drop_duplicates().sum(axis=1)).merge(sv_wz_real, left_index=True, right_index=True)
-    spez_sv['spez. SV'] = spez_sv['SV WZ [MWh]']/spez_sv[0]
+    spez_sv = (pd.DataFrame(bze_lk_wz.transpose().drop_duplicates()
+                 .sum(axis = 1)).merge(sv_wz_real, left_index = True, 
+                                                   right_index = True))
+    spez_sv['spez. SV'] = spez_sv['SV WZ [MWh]'] / spez_sv[0]
     spez_sv = spez_sv[['spez. SV']].transpose()
-    # Vorher zusammengerechnete WZe jetzt wieder als eigene Zeile im DF abspeichern
-    WZe = [7,8,9]
-    for i in WZe:
-        spez_gv[i] = spez_gv['7-9']
-        spez_sv[i] = spez_sv['7-9']
-    WZe = [10,11,12]
-    for i in WZe:
-        spez_gv[i] = spez_gv['10-12']
-        spez_sv[i] = spez_sv['10-12']
-    WZe = [13,14,15]
-    for i in WZe:
-        spez_gv[i] = spez_gv['13-15']
-        spez_sv[i] = spez_sv['13-15']
-    WZe = [31,32]
-    for i in WZe:
-        spez_gv[i] = spez_gv['31-32']
-        spez_sv[i] = spez_sv['31-32']
-    WZe = [38,39]
-    for i in WZe:
-        spez_gv[i] = spez_gv['38-39']
-        spez_sv[i] = spez_sv['38-39']
-    WZe = [41,42]
-    for i in WZe:
-        spez_gv[i] = spez_gv['41-42']
-        spez_sv[i] = spez_sv['41-42']
-    WZe = [55,56]
-    for i in WZe:
-        spez_gv[i] = spez_gv['55-56']
-        spez_sv[i] = spez_sv['55-56']
-    WZe = [58,59,60,61,62,63]
-    for i in WZe:
-        spez_gv[i] = spez_gv['58-63']
-        spez_sv[i] = spez_sv['58-63']
-    WZe = [64,65,66]
-    for i in WZe:
-        spez_gv[i] = spez_gv['64-66']
-        spez_sv[i] = spez_sv['64-66']
-    WZe = [69,70,71,72,73,74,75]
-    for i in WZe:
-        spez_gv[i] = spez_gv['69-75']
-        spez_sv[i] = spez_sv['69-75']
-    WZe = [77,78,79,80,81,82]
-    for i in WZe:
-        spez_gv[i] = spez_gv['77-82']
-        spez_sv[i] = spez_sv['77-82']
-    WZe = [86,87,88]
-    for i in WZe:
-        spez_gv[i] = spez_gv['86-88']
-        spez_sv[i] = spez_sv['86-88']
-    WZe = [90,91,92,93,94,95,96,97,98,99]
-    for i in WZe:
-        spez_gv[i] = spez_gv['90-99']
-        spez_sv[i] = spez_sv['90-99']
-
-    spez_gv = (spez_gv.drop(columns=['7-9', '10-12', '13-15', '31-32', '38-39',
-                                     '41-42', '55-56', '58-63', '64-66',
-                                     '69-75', '77-82', '86-88', '90-99'])
-                      .transpose())
+    for item in [[7,8,9], [10,11,12], [13,14,15], [31,32], [38,39], [41,42], 
+                 [55,56], [58,59,60,61,62,63], [64,65,66], 
+                 [69,70,71,72,73,74,75], [77,78,79,80,81,82], [86,87,88],
+                 [90,91,92,93,94,95,96,97,98,99]]:
+        for i in item:
+            spez_gv[i] = spez_gv[str(item[0]) + "-" + str(item[-1])]
+            spez_sv[i] = spez_sv[str(item[0]) + "-" + str(item[-1])]
+    spez_gv = spez_gv.drop(columns= ['7-9', '10-12', '13-15', '31-32', '38-39',
+                                   '41-42', '55-56', '58-63', '64-66', '69-75',
+                                   '77-82', '86-88', '90-99']).transpose()
     spez_gv.index = spez_gv.index.astype(int)
-    spez_gv = spez_gv.sort_index()
-    
-    spez_sv= spez_sv.drop(columns=['7-9','10-12','13-15','31-32','38-39','41-42','55-56','58-63','64-66','69-75','77-82','86-88','90-99']).transpose()
+    spez_sv = spez_sv.drop(columns= ['7-9', '10-12', '13-15', '31-32', '38-39',
+                                   '41-42', '55-56', '58-63', '64-66', '69-75',
+                                   '77-82', '86-88', '90-99']).transpose()
     spez_sv.index = spez_sv.index.astype(int)
-    spez_sv=spez_sv.sort_index()
     
-    return spez_sv, spez_gv, bze_je_lk_wz
+    return spez_sv.sort_index(), spez_gv.sort_index(), vb_wz, bze_je_lk_wz
 
-
+def generate_specific_consumption_per_branch_and_district(iterations_power,
+                                                          iterations_gas):
+    """
+    Returns specific power and gas consumption per branch and district.
+    
+    Parameters
+    ----------
+    iteration_power: int
+        The amount of iterations to generate specific power consumption per 
+        branch and district
+    iteration_gas: int
+        The amount of iterations to generate specific gas consumption per 
+        branch and district
+    
+    Returns
+    ------------
+    Tuple that contains two pd.DataFrames
+    """
+    spez_vb = generate_specific_consumption_per_branch()
+    spez_sv = spez_vb[0]
+    spez_gv = spez_vb[1]
+    vb_wz = spez_vb[2]
+    bze_je_lk_wz = spez_vb[3]
+    vb_LK = database_get('spatial', table_id = 15, year = 2015)
+    vb_LK['Verbrauch in MWh'] = vb_LK['value'] / 3.6
+    vb_LK['id_region'] = vb_LK['id_region'].astype(str)
+    vb_LK = (vb_LK.assign(ags = [int(x[:-3]) for x in vb_LK['id_region']],
+                                    ET = [x[0] for x in vb_LK['internal_id']]))
+    vb_LK = (vb_LK.loc[((vb_LK['ET'] == 2) | (vb_LK['ET'] == 4))]
+                             [['ags', 'Verbrauch in MWh', 'ET']]
+                            .replace(to_replace = [3152, 3156], value = 3159))
+    sv_LK_real = (vb_LK.loc[vb_LK['ET'] == 2].groupby(by = ['ags'])
+                           [['Verbrauch in MWh']].sum())
+    gv_LK_real = (vb_LK.loc[vb_LK['ET'] == 4].groupby(by = ['ags'])
+                           [['Verbrauch in MWh']].sum())
+    lk_ags = (vb_LK.groupby(by = ['ags', 'ET'])[['Verbrauch in MWh']].sum()
+                            .reset_index()['ags'].unique())
+    spez_gv_lk = pd.DataFrame(index = spez_gv.index, columns = lk_ags)
+    spez_sv_lk = pd.DataFrame(index = spez_sv.index, columns = lk_ags)
+    for lk in lk_ags:
+        spez_gv_lk[lk] = spez_gv['spez. GV']
+        spez_sv_lk[lk] = spez_sv['spez. SV']
+    sv_lk_wz = bze_je_lk_wz * spez_sv_lk
+    gv_lk_wz = bze_je_lk_wz * spez_gv_lk
+    
+    sv_wz_e_int = (vb_wz.loc[(vb_wz['WZ'].isin(['5','6','7-9','10-12',
+                                               '13-15','16','17','18',
+                                               '19','20','22','23','24',
+                                               '25','27','28','29','33'])
+                             &(vb_wz['ET'] == 18))].drop(columns = ['ET'])
+                         .set_index('WZ'))
+    gv_wz_e_int = (vb_wz.loc[(vb_wz['WZ'].isin(['5','6','7-9','10-12',
+                                               '13-15','16','17','18',
+                                               '19','20','21','22','23',
+                                               '24','25','30']) & 
+                             (vb_wz['ET'] == 12))].drop(columns = ['ET'])
+                         .set_index('WZ'))
+    sv_lk_wz_e_int = sv_lk_wz.loc[[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                                   17, 18, 19, 20, 22, 23, 24, 25, 27, 28, 29,
+                                   33]]
+    gv_lk_wz_e_int = gv_lk_wz.loc[[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                                  17, 18, 19, 20, 21, 22, 23, 24, 25, 30]]
+    bze_sv_e_int = bze_je_lk_wz.loc[[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                                   17, 18, 19, 20, 22, 23, 24, 25, 27, 28, 29,
+                                   33]]
+    bze_gv_e_int = bze_je_lk_wz.loc[[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                                     17, 18, 19, 20, 21, 22, 23, 24, 25, 30]]
+    sv_LK_real['Verbrauch e-arme WZ'] = (sv_lk_wz.loc[[21, 26, 30, 31, 32]]
+                                                 .sum())
+    sv_LK_real['Verbrauch e-int WZ'] = (sv_LK_real['Verbrauch in MWh'] -
+                                        sv_LK_real['Verbrauch e-arme WZ'])
+    gv_LK_real['Verbrauch e-arme WZ'] = (gv_lk_wz.loc[[26, 27, 28, 31, 32, 33]]
+                                                 .sum())
+    gv_LK_real['Verbrauch e-int WZ'] = (gv_LK_real['Verbrauch in MWh'] -
+                                        gv_LK_real['Verbrauch e-arme WZ'])
+    spez_sv_e_int = spez_sv_lk.loc[[5,6,7,8,9,10,11,12,13,14,15,16,17,
+                                    18,19,20,22,23,24,25,27,28,29,33]]
+    spez_gv_e_int = spez_gv_lk.loc[[5,6,7,8,9,10,11,12,13,14,15,16,
+                                    17,18,19,20,21,22,23,24,25,30]]
+    ET=[2,4]
+    for et in ET:
+        if (et == 2):
+            sv_LK = sv_LK_real[['Verbrauch e-int WZ']]
+            mean_value = sv_LK['Verbrauch e-int WZ'].sum() / len(sv_LK)
+            spez_sv_angepasst = spez_sv_e_int.copy()
+            spez_sv_angepasst.columns = spez_sv_angepasst.columns
+            x = True
+            while(x):
+                iterations_power = iterations_power - 1
+                if(iterations_power == 0):
+                    break
+                y = True
+                i = 0
+                while(y):
+                    i = i+1
+                    sv_LK['SV Modell e-int [MWh]'] = sv_lk_wz_e_int.sum()
+                    sv_LK['Normierter relativer Fehler'] = (
+                    (sv_LK['Verbrauch e-int WZ'] - 
+                     sv_LK['SV Modell e-int [MWh]'])/mean_value)
+                    sv_LK['Anpassungsfaktor'] = 1
+                    (sv_LK['Anpassungsfaktor']
+                    [((sv_LK['Normierter relativer Fehler']>0.1)|
+                    (sv_LK['Normierter relativer Fehler']<-0.1))]) = (
+                    sv_LK['Verbrauch e-int WZ']/sv_LK['SV Modell e-int [MWh]'])
+                    if(sv_LK['Anpassungsfaktor'].sum() == 401):
+                        y = False     
+                    elif(i < 10):
+                        spez_sv_angepasst = (spez_sv_angepasst * 
+                                             sv_LK['Anpassungsfaktor']
+                                             .transpose())
+                        spez_sv_angepasst[spez_sv_angepasst<10] = 10
+                        spez_sv_angepasst = (spez_sv_angepasst *
+                                             sv_LK['Verbrauch e-int WZ'].sum()/
+                                             sv_LK['SV Modell e-int [MWh]']
+                                             .sum())
+                        sv_lk_wz_e_int = bze_sv_e_int * spez_sv_angepasst
+                    else:
+                        y = False   
+                sv_wz = (pd.DataFrame(sv_lk_wz_e_int.sum(axis = 1),
+                                      columns = ['SV WZ Modell [MWh]']))
+                k = 0
+                z = True
+                while(z):
+                    k = k + 1
+                    sv_wz_t51 = (pd.DataFrame(index= ['5','6','7-9','10-12',
+                                                     '13-15','16','17','18',
+                                                     '19','20','22','23','24',
+                                                     '25','27','28','29','33'],
+                                             columns=['SV WZ Modell [MWh]']))
+                    sv_wz_t51['SV WZ Modell [MWh]'] = 0.0
+                    WZe = [7, 8, 9]
+                    for i in WZe:
+                        sv_wz_t51['SV WZ Modell [MWh]']['7-9'] = (
+                                sv_wz_t51['SV WZ Modell [MWh]']['7-9'] +
+                                sv_wz['SV WZ Modell [MWh]'][i])
+                    WZe = [10, 11, 12]
+                    for i in WZe:
+                        sv_wz_t51['SV WZ Modell [MWh]']['10-12'] = (
+                                sv_wz_t51['SV WZ Modell [MWh]']['10-12'] +
+                                sv_wz['SV WZ Modell [MWh]'][i])
+                    WZe = [13, 14, 15]
+                    for i in WZe:
+                        sv_wz_t51['SV WZ Modell [MWh]']['13-15'] = (
+                                sv_wz_t51['SV WZ Modell [MWh]']['13-15'] +
+                                sv_wz['SV WZ Modell [MWh]'][i])
+                    WZe = [5, 6, 16, 17, 18, 19, 20, 22, 23, 24, 25, 27, 28, 
+                           29, 33]
+                    for i in WZe:
+                        sv_wz_t51['SV WZ Modell [MWh]'][str(i)] = (
+                                                sv_wz['SV WZ Modell [MWh]'][i])
+                    sv_wz_t51 = (sv_wz_t51.merge(sv_wz_e_int,left_index=True, 
+                                                 right_index=True))
+                    mean_value2 = sv_wz_t51['value'].sum()/len(sv_wz_t51)
+                    sv_wz_t51['Normierter relativer Fehler'] = (
+                            (sv_wz_t51['value'] - 
+                             sv_wz_t51['SV WZ Modell [MWh]'])/mean_value2)
+                    sv_wz_t51['Anpassungsfaktor'] = 1
+                    (sv_wz_t51['Anpassungsfaktor']
+                    [((sv_wz_t51['Normierter relativer Fehler']>0.01) | 
+                    (sv_wz_t51['Normierter relativer Fehler']<-0.01))]) = (
+                    sv_wz_t51['value']/sv_wz_t51['SV WZ Modell [MWh]'])
+                    sv_wz['Anpassungsfaktor'] = 0.0
+                    for wz in sv_wz.index:
+                        if((wz == 7) | (wz == 8) | (wz == 9)):
+                            sv_wz['Anpassungsfaktor'][wz] = (
+                                    sv_wz_t51['Anpassungsfaktor']['7-9'])
+                        elif((wz == 10) | (wz == 11) | (wz == 12)):
+                            sv_wz['Anpassungsfaktor'][wz] = (
+                                    sv_wz_t51['Anpassungsfaktor']['10-12'])
+                        elif((wz == 13) | (wz == 14) | (wz == 15)):
+                            sv_wz['Anpassungsfaktor'][wz] = (
+                                    sv_wz_t51['Anpassungsfaktor']['13-15'])
+                        elif((wz == 31) | (wz == 32)):
+                            sv_wz['Anpassungsfaktor'][wz] = (
+                                    sv_wz_t51['Anpassungsfaktor']['31-32'])
+                        else:
+                            sv_wz['Anpassungsfaktor'][wz] = (
+                                    sv_wz_t51['Anpassungsfaktor'][str(wz)]) 
+                    if(sv_wz['Anpassungsfaktor'].sum() == len(sv_wz)):
+                        z = False
+                    elif(k < 10):
+                        spez_sv_angepasst = (spez_sv_angepasst
+                                             .multiply(sv_wz
+                                                       ['Anpassungsfaktor'],
+                                                       axis=0))
+                        spez_sv_angepasst[spez_sv_angepasst < 10] = 10
+                        sv_lk_wz_e_int = bze_sv_e_int * spez_sv_angepasst
+                        sv_wz = pd.DataFrame(sv_lk_wz_e_int.sum(axis = 1),
+                                             columns = ['SV WZ Modell [MWh]'])
+                    else:
+                        z = False
+        elif (et == 4):
+            gv_LK = gv_LK_real[['Verbrauch e-int WZ']]
+            mean_value = gv_LK['Verbrauch e-int WZ'].sum() / len(gv_LK)
+            spez_gv_angepasst = spez_gv_e_int.copy()
+            x = True
+            while(x):
+                iterations_gas = iterations_gas - 1
+                if(iterations_gas == 0):
+                    break
+                y = True
+                i = 0
+                while(y):
+                    i = i + 1
+                    gv_LK['GV Modell e-int [MWh]'] = gv_lk_wz_e_int.sum()
+                    gv_LK['Normierter relativer Fehler'] = (
+                            (gv_LK['Verbrauch e-int WZ'] - 
+                             gv_LK['GV Modell e-int [MWh]']) / mean_value)
+                    gv_LK['Anpassungsfaktor'] = 1
+                    (gv_LK['Anpassungsfaktor']
+                    [((gv_LK['Normierter relativer Fehler']>0.1) | 
+                    (gv_LK['Normierter relativer Fehler']<-0.1))]) = (
+                                gv_LK['Verbrauch e-int WZ'] / 
+                                gv_LK['GV Modell e-int [MWh]'])
+                    if(gv_LK['Anpassungsfaktor'].sum() == 400):
+                        y = False     
+                    elif(i < 10):
+                        spez_gv_angepasst = (spez_gv_angepasst * 
+                                             gv_LK['Anpassungsfaktor']
+                                             .transpose())
+                        spez_gv_angepasst[spez_gv_angepasst<10] = 10
+                        spez_gv_angepasst = (spez_gv_angepasst *
+                                             gv_LK['Verbrauch e-int WZ'].sum()
+                                             / gv_LK['GV Modell e-int [MWh]']
+                                             .sum())
+                        gv_lk_wz_e_int = bze_gv_e_int * spez_gv_angepasst
+                    else:
+                        y = False
+                gv_wz = pd.DataFrame(gv_lk_wz_e_int.sum(axis = 1),
+                                     columns = ['GV WZ Modell [MWh]'])
+                k = 0
+                z = True
+                while(z):
+                    k = k + 1
+                    gv_wz_t51 = (pd.DataFrame(index = ['5', '6', '7-9', 
+                                                       '10-12', '13-15', '16', 
+                                                       '17', '18', '19', '20',
+                                                       '21', '22', '23', '24', 
+                                                       '25', '30'],
+                                              columns=['GV WZ Modell [MWh]']))
+                    gv_wz_t51['GV WZ Modell [MWh]'] = 0.0
+                    WZe = [7, 8, 9]
+                    for i in WZe:
+                        gv_wz_t51['GV WZ Modell [MWh]']['7-9'] = (
+                                gv_wz_t51['GV WZ Modell [MWh]']['7-9'] +
+                                gv_wz['GV WZ Modell [MWh]'][i])
+                    WZe = [10, 11, 12]
+                    for i in WZe:
+                        gv_wz_t51['GV WZ Modell [MWh]']['10-12'] = (
+                                gv_wz_t51['GV WZ Modell [MWh]']['10-12'] + 
+                                gv_wz['GV WZ Modell [MWh]'][i])
+                    WZe = [13, 14, 15]
+                    for i in WZe:
+                        gv_wz_t51['GV WZ Modell [MWh]']['13-15'] = (
+                                gv_wz_t51['GV WZ Modell [MWh]']['13-15'] + 
+                                gv_wz['GV WZ Modell [MWh]'][i])
+                    WZe = [5, 6, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 30]
+                    for i in WZe:
+                        gv_wz_t51['GV WZ Modell [MWh]'][str(i)] = (
+                                gv_wz['GV WZ Modell [MWh]'][i])
+                    gv_wz_t51 = gv_wz_t51.merge(gv_wz_e_int, left_index = True, 
+                                                right_index = True)
+                    mean_value2 = gv_wz_t51['value'].sum() / len(gv_wz_t51)
+                    gv_wz_t51['Normierter relativer Fehler'] = (
+                            (gv_wz_t51['value'] - 
+                             gv_wz_t51['GV WZ Modell [MWh]'])/mean_value2)
+                    gv_wz_t51['Anpassungsfaktor'] = 1
+                    (gv_wz_t51['Anpassungsfaktor']
+                    [((gv_wz_t51['Normierter relativer Fehler']>0.01) | 
+                    (gv_wz_t51['Normierter relativer Fehler']<-0.01))]) = (
+                        gv_wz_t51['value'] / gv_wz_t51['GV WZ Modell [MWh]'])
+                    gv_wz['Anpassungsfaktor'] = 0.0
+                    for wz in gv_wz.index:
+                        if((wz == 7) | (wz == 8) | (wz == 9)):
+                            gv_wz['Anpassungsfaktor'][wz] = (
+                                    gv_wz_t51['Anpassungsfaktor']['7-9'])
+                        elif((wz == 10) | (wz == 11) | (wz == 12)):
+                            gv_wz['Anpassungsfaktor'][wz] = (
+                                    gv_wz_t51['Anpassungsfaktor']['10-12'])
+                        elif((wz == 13) | (wz == 14) | (wz == 15)):
+                            gv_wz['Anpassungsfaktor'][wz] = (
+                                    gv_wz_t51['Anpassungsfaktor']['13-15'])
+                        else:
+                            gv_wz['Anpassungsfaktor'][wz] = (
+                                    gv_wz_t51['Anpassungsfaktor'][str(wz)])
+                    if(gv_wz['Anpassungsfaktor'].sum() == len(gv_wz)):
+                        z = False
+                    elif(k < 10):
+                        spez_gv_angepasst = (spez_gv_angepasst
+                                             .multiply(
+                                                     gv_wz['Anpassungsfaktor'],
+                                                     axis=0))
+                        spez_gv_angepasst[spez_gv_angepasst<10] = 10
+                        gv_lk_wz_e_int = bze_gv_e_int * spez_gv_angepasst
+                        gv_wz = pd.DataFrame(gv_lk_wz_e_int.sum(axis = 1),
+                                             columns=['GV WZ Modell [MWh]'])
+                    else:
+                        z = False
+    spez_sv_lk.loc[list(spez_sv_angepasst.index)] = spez_sv_angepasst.values
+    spez_gv_lk.loc[list(spez_gv_angepasst.index)] = spez_gv_angepasst.values
+    spez_gv_lk[3103] = spez_gv['spez. GV']
+    spez_sv_lk.sort_index(axis = 1).to_csv(
+            './data_in/regional/specific_power_consumption.csv')
+    spez_gv_lk.sort_index(axis = 1).to_csv(
+            './data_in/regional/specific_gas_consumption.csv')
+    return spez_sv_lk.sort_index(axis = 1), spez_gv_lk.sort_index(axis = 1)
+    
 # --- Spatial data ------------------------------------------------------------
 
 
@@ -427,16 +728,16 @@ def elc_consumption_HH_spatial(**kwargs):
 
     if source == 'local':
         fn = _data_in('regional', cfg['elc_cons_HH_spatial']['filename'])
-        df = read_local(fn, year=year)
+        df = read_local(fn, year = year)
     elif source == 'database':
-        df = database_get('spatial', table_id=table_id, year=year,
-                          force_update=force_update)
+        df = database_get('spatial', table_id = table_id, year = year,
+                          force_update = force_update)
     else:
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
 
-    df = (df.assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()))
-            .set_index('nuts3').sort_index(axis=0))['value']
+    df = (df.assign(nuts3 = lambda x: x.id_region.map(region_id_to_nuts3()))
+            .set_index('nuts3').sort_index(axis = 0))['value']
     df = plausibility_check_nuts3(df)
     return df
 
@@ -756,6 +1057,75 @@ def heat_demand_buildings(**kwargs):
 #    df = plausibility_check_nuts3(df, check_zero=False)
     return df
 
+def efficiency_enhancement(source, **kwargs):
+    """
+    Read and return the efficienicy enhancement for power or gas consumption
+    per branch.
+
+    Parameters
+    ----------
+    source : str
+        must be one of ['power', 'gas']
+    Returns
+    -------
+    pd.Series
+        index: Branches
+    """
+    year = kwargs.get('year', cfg['base_year'])
+    es_rate = (pd.read_excel(
+                    './data_in/temporal/Efficiency_Enhancement_Rates.xlsx')
+                 .set_index('WZ'))
+    df = pow((-es_rate + 1), (year - 2015))
+    if source == 'power':
+        df = df['Effizienzsteigerungsrate Strom']
+    elif source == 'gas':
+        df = df['Effizienzsteigerungsrate Gas'] 
+    else:
+        raise ValueError("`source` must be in ['power', 'gas']")   
+    return df
+
+
+def employees_per_branch_district(**kwargs):
+    """
+    Read, transform and return the number of employees per NUTS-3 area 
+    and branch.
+    The variable 'scenario' is used only as of 2019!
+        
+    Returns
+    -------
+    pd.Dataframe
+        index: Branches
+        columns: NUTS-3 codes
+    """
+    
+    year = kwargs.get('year', cfg['base_year'])
+    scenario = kwargs.get('scenario', cfg['scenario'])
+    
+    if year in range(2015, 2019):
+        df = database_get('spatial', table_id = 18, year = year)
+        df = (df.assign(ags = [int(x[:-3]) for x in 
+                               df['id_region'].astype(str)],
+                               WZ = [x[1] for x in df['internal_id']]))
+        bool_list = np.array(df['id_region'].astype(str))
+        for i in range(0, len(df)):
+            bool_list[i] = (df['internal_id'][i][0] == 9)
+        df = (df[((bool_list) & (df['WZ'] > 0))][['ags', 'value', 'WZ']]
+                .rename(columns = {'value': 'BZE'}))
+        df = (pd.pivot_table(df, values = 'BZE', index = 'WZ', 
+                             columns = 'ags', fill_value = 0, dropna = False))
+    elif year in range(2019, 2036):
+        if scenario == 'Basis':
+            df = database_get('spatial', table_id = 27, year = year)
+        elif scenario == 'Digital':
+            df = database_get('spatial', table_id = 28, year = year)
+            
+        df = (df.assign(ags = [int(x[:-3]) for x in 
+                               df['id_region'].astype(str)],
+                               WZ = [x[0] for x in df['internal_id']]))
+        df = (pd.pivot_table(df, values = 'value', index = 'WZ', 
+                             columns = 'ags', fill_value = 0, dropna = False))
+    
+    return df
 
 # --- Temporal data -----------------------------------------------------------
 
@@ -827,6 +1197,345 @@ def standard_load_profile_elc(which='H0', freq='1H', **kwargs):
             raise NotImplementedError('`freq` must be either `1H` or `15min`.')
     else:
         raise NotImplementedError('Not here yet!')
+
+def Leistung(Tag_Zeit, mask, df, df_SLP):
+    """
+    Returns
+    -------
+    pd.Series
+    """
+    u = (pd.merge(df[mask], df_SLP[['Stunde', Tag_Zeit]], 
+                  on = ['Stunde'], how = 'left'))
+    v = pd.merge(df, u[['Date', Tag_Zeit]], on = ['Date'], how = 'left')  
+    v[Tag_Zeit][v[Tag_Zeit] != v[Tag_Zeit]] = 0  
+    return v[Tag_Zeit]
+
+def shift_load_profile_generator(state, **kwargs):
+    """
+    Return shift load profiles in normalized units
+    ('normalized' means here that the sum over all time steps equals one).
+    
+    Parameter
+    -------
+    state : str
+        Must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
+                        'NI','NW','RP','SL','SN','ST','SH','TH']
+    
+    Returns
+    -------
+    pd.DataFrame
+    """
+    year = kwargs.get('year', cfg['base_year'])
+    low = 0.3
+    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0) 
+          & (year % 100 == 0) & (year % 400 == 0)):
+        periods = 35136
+    else:
+        periods = 35040 
+    df = (pd.DataFrame(data= {"Date": pd.date_range((str(year) + '-01-01'), 
+                                                     periods = periods, 
+                                                     freq = '15T', 
+                                                     tz = 'Europe/Berlin')}))
+    df['Tag'] = pd.DatetimeIndex(df['Date']).date
+    df['Stunde'] = pd.DatetimeIndex(df['Date']).time
+    df['DayOfYear'] = pd.DatetimeIndex(df['Date']).dayofyear.astype(int)
+    mask_holiday = [] 
+    for i in range(0, len(holidays.DE(state = state, years = year))):
+        mask_holiday.append('Null')
+        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state = 
+                            state, years = year).items()][i][0]))
+    HD = mask_holiday[0]
+    for i in range(1, len(holidays.DE(state = state, years = year))):
+        HD = HD | mask_holiday[i]
+    df['WT'] = df['Date'].apply(lambda x: x.weekday() <  5) 
+    df['WT'] = df['WT'] & (HD == False) 
+    df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5) 
+    df['SA'] = df['SA'] & (HD==False) 
+    df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6) 
+    df['SO'] = df['SO'] | HD  
+    df['WT'][(df['Tag'] == datetime.date(year, 12, 24))] = False
+    df['WT'][(df['Tag'] == datetime.date(year, 12, 31))] = False
+    df['SO'][(df['Tag'] == datetime.date(year, 12, 24))] = False
+    df['SO'][(df['Tag'] == datetime.date(year, 12, 31))] = False
+    df['SA'][(df['Tag'] == datetime.date(year, 12, 24))] = True
+    df['SA'][(df['Tag'] == datetime.date(year, 12, 31))] = True
+    for sp in ['S1_WT','S1_WT_SA','S1_WT_SA_SO','S2_WT',
+               'S2_WT_SA','S2_WT_SA_SO','S3_WT','S3_WT_SA',
+               'S3_WT_SA_SO']:
+        if(sp == 'S1_WT'):
+            anzahl_wz =  17 / 48 * len(df[df['WT']])
+            anzahl_nwz = (31 / 48 * len(df[df['WT']]) + len(df[df['SO']]) + 
+                             len(df[df['SA']]))
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz)
+            df[sp] = anteil
+            df[sp][df['SO']] = low * anteil
+            df[sp][df['SA']] = low * anteil
+            mask = ((df['WT'])&
+                    ((df['Stunde'] < pd.to_datetime('08:00:00').time()) |
+                    (df['Stunde'] >= pd.to_datetime('16:30:00').time())))
+            df[sp][mask] = low * anteil
+        elif(sp == 'S1_WT_SA'):    
+            anzahl_wz = (17/48 * len(df[df['WT']]) + 
+                         17/48 * len(df[df['SA']]))
+            anzahl_nwz = (31/48 * len(df[df['WT']]) + len(df[df['SO']]) + 
+                          31/48 * len(df[df['SA']]))
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            df[sp] = anteil
+            df[sp][df['SO']] = low * anteil
+            mask =((df['WT']) & ((df['Stunde'] < pd.to_datetime('08:00:00')
+                      .time()) | (df['Stunde'] >= pd.to_datetime('16:30:00')
+                      .time())))
+            df[sp][mask] = low * anteil
+            mask =((df['SA']) & ((df['Stunde'] < pd.to_datetime('08:00:00')
+                     .time()) | (df['Stunde'] >= pd.to_datetime('16:30:00')
+                     .time())))
+            df[sp][mask] = low * anteil
+        elif(sp == 'S1_WT_SA_SO'):    
+            anzahl_wz = (17/48* (len(df[df['WT']]) + len(df[df['SO']]) + 
+                                 len(df[df['SA']])))
+            anzahl_nwz = (31/48 * (len(df[df['WT']]) + len(df[df['SO']]) +
+                                   len(df[df['SA']])))
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            df[sp] = anteil
+            mask =((df['Stunde'] < pd.to_datetime('08:00:00').time()) |
+                    (df['Stunde'] >= pd.to_datetime('16:30:00').time()))
+            df[sp][mask] = low * anteil
+        elif(sp == 'S2_WT'):    
+            anzahl_wz = 17/24 * len(df[df['WT']])
+            anzahl_nwz = (7/24 * len(df[df['WT']]) + len(df[df['SO']]) +
+                          len(df[df['SA']]))
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            df[sp] = anteil
+            df[sp][df['SO']] = low * anteil
+            df[sp][df['SA']] = low * anteil
+            mask =((df['WT']) &
+                   ((df['Stunde'] < pd.to_datetime('06:00:00').time())|
+                    (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
+            df[sp][mask] = low * anteil
+        elif(sp == 'S2_WT_SA'):    
+            anzahl_wz = 17/24 * (len(df[df['WT']]) + len(df[df['SA']]))
+            anzahl_nwz = (7/24 * len(df[df['WT']]) + len(df[df['SO']]) +
+                          7/24* len(df[df['SA']]))
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            df[sp] = anteil
+            df[sp][df['SO']] = low * anteil
+            mask =(((df['WT']) | (df['SA'])) &
+                   ((df['Stunde'] < pd.to_datetime('06:00:00')
+                   .time()) | (df['Stunde'] >= pd.to_datetime('23:00:00')
+                   .time())))
+            df[sp][mask] = low * anteil
+        elif(sp == 'S2_WT_SA_SO'):    
+            anzahl_wz = (17/24 * (len(df[df['WT']]) + len(df[df['SA']]) +
+                                  len(df[df['SO']])))
+            anzahl_nwz = (7/24 * (len(df[df['WT']]) + len(df[df['SO']]) +
+                                  len(df[df['SA']])))
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            df[sp] = anteil
+            mask =(((df['Stunde'] < pd.to_datetime('06:00:00').time()) |
+                    (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
+            df[sp][mask] = low * anteil
+        elif(sp == 'S3_WT_SA_SO'):
+            anteil = 1 / periods
+            df[sp] = anteil
+        elif(sp == 'S3_WT'):    
+            anzahl_wz = len(df[df['WT']])
+            anzahl_nwz = len(df[df['SO']]) + len(df[df['SA']])
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            df[sp] = anteil
+            df[sp][df['SO']] = low * anteil
+            df[sp][df['SA']] = low * anteil
+        elif(sp == 'S3_WT_SA'):    
+            anzahl_wz = len(df[df['WT']]) + len(df[df['SA']])
+            anzahl_nwz = len(df[df['SO']])
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            df[sp] = anteil
+            df[sp][df['SO']] = low * anteil
+    df= (df[['Date','S1_WT','S1_WT_SA','S1_WT_SA_SO','S2_WT','S2_WT_SA',
+             'S2_WT_SA_SO','S3_WT','S3_WT_SA','S3_WT_SA_SO']]
+            .set_index('Date'))
+    return df
+
+
+
+def gas_slp_generator(state, **kwargs):
+    """
+    Return the gas standard load profiles in normalized units
+    ('normalized' means here that the sum over all time steps equals 
+    365 (or 366 in a leapyear)).
+    
+    Parameter
+    -------
+    state: str
+        must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
+                        'NI','NW','RP','SL','SN','ST','SH','TH']
+    Returns
+    -------
+    pd.DataFrame
+    """
+    year = kwargs.get('year', cfg['base_year'])
+    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0) 
+        & (year % 100 == 0) & (year % 400 == 0)):
+        days = 366
+    else:
+        days = 365 
+        
+    df = (pd.DataFrame(data = {"Date": pd.date_range((str(year) + '-01-01'),
+                                                   periods = days,
+                                                   freq = 'd',
+                                                   tz = 'Europe/Berlin')})) 
+    df = df.assign(Tag = pd.DatetimeIndex(df['Date']).date,
+                   DayOfYear = pd.DatetimeIndex(df['Date'])
+                                 .dayofyear.astype(int))
+    mask_holiday = [] 
+    for i in range(0,len(holidays.DE(state = state, years = year))):
+        mask_holiday.append('Null')
+        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state = state, 
+                                          years = year).items()][i][0]))
+    HD = mask_holiday[0]
+    for i in range(1,len(holidays.DE(state = state, years = year))):
+        HD = HD | mask_holiday[i]
+    df['MO'] = df['Date'].apply(lambda x: x.weekday() ==  0)
+    df['MO'] = df['MO'] & (HD == False)
+    df['DI'] = df['Date'].apply(lambda x: x.weekday() ==  1)
+    df['DI'] = df['DI'] & (HD == False) 
+    df['MI'] = df['Date'].apply(lambda x: x.weekday() ==  2) 
+    df['MI'] = df['MI'] & (HD == False)
+    df['DO'] = df['Date'].apply(lambda x: x.weekday() ==  3) 
+    df['DO'] = df['DO'] & (HD == False) 
+    df['FR'] = df['Date'].apply(lambda x: x.weekday() ==  4)
+    df['FR'] = df['FR'] & (HD == False)
+    df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
+    df['SA'] = df['SA'] & (HD == False) 
+    df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6) 
+    df['SO'] = df['SO'] | HD  
+    df['MO'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
+    df['MO'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
+    df['DI'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
+    df['DI'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
+    df['MI'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
+    df['MI'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
+    df['DO'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
+    df['DO'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
+    df['FR'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
+    df['FR'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
+    df['SA'][(df['Tag'] == datetime.date(int(year), 12, 24))] = True
+    df['SA'][(df['Tag'] == datetime.date(int(year), 12, 31))] = True
+    df['SO'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
+    df['SO'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
+    par = pd.DataFrame.from_dict(gas_load_profile_parameters_dict())
+    for slp in par.index:
+        df2 = par.loc[par.index == slp].reset_index()
+        df['FW_'+str(slp)] = 0
+        df['FW_'+str(slp)][df['MO']] = df2['MO'][0]
+        df['FW_'+str(slp)][df['DI']] = df2['DI'][0]
+        df['FW_'+str(slp)][df['MI']] = df2['MI'][0]
+        df['FW_'+str(slp)][df['DO']] = df2['DO'][0]
+        df['FW_'+str(slp)][df['FR']] = df2['FR'][0]
+        df['FW_'+str(slp)][df['SA']] = df2['SA'][0]
+        df['FW_'+str(slp)][df['SO']] = df2['SO'][0]
+        summe = df['FW_'+str(slp)].sum()
+        df['FW_'+str(slp)] = df['FW_'+str(slp)] * days/summe
+    return df.drop(columns=['DayOfYear']).set_index('Tag')
+
+
+def power_slp_generator(state, **kwargs):
+    """
+    Return the electric standard load profiles in normalized units
+    ('normalized' means here that the sum over all time steps equals one).
+    
+    Parameter
+    -------
+    state: str
+        must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
+                        'NI','NW','RP','SL','SN','ST','SH','TH']
+    
+    Returns
+    -------
+    pd.DataFrame
+    """
+    year = kwargs.get('year', cfg['base_year'])
+    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0) 
+        & (year % 100 == 0) & (year % 400 == 0)):
+        periods = 35136
+    else:
+        periods = 35040 
+    df = (pd.DataFrame(data = {"Date": pd.date_range((str(year) + '-01-01'),
+                                                   periods = periods,
+                                                   freq = '15T',
+                                                   tz = 'Europe/Berlin')}))
+    df['Tag'] = pd.DatetimeIndex(df['Date']).date
+    df['Stunde'] = pd.DatetimeIndex(df['Date']).time
+    df['DayOfYear'] = pd.DatetimeIndex(df['Date']).dayofyear.astype(int)
+    mask_holiday = [] 
+    for i in range(0,len(holidays.DE(state = state, years = year))):
+        mask_holiday.append('Null')
+        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state = state, 
+                                          years = year).items()][i][0]))
+    HD = mask_holiday[0]
+    for i in range(1,len(holidays.DE(state = state, years = year))):
+        HD = HD | mask_holiday[i]
+    df['WT'] = df['Date'].apply(lambda x: x.weekday() <  5) 
+    df['WT'] = df['WT'] & (HD == False) 
+    df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5) 
+    df['SA'] = df['SA'] & (HD==False) 
+    df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6) 
+    df['SO'] = df['SO'] | HD
+    df['WT'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
+    df['WT'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
+    df['SO'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
+    df['SO'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
+    df['SA'][(df['Tag'] == datetime.date(int(year), 12, 24))] = True
+    df['SA'][(df['Tag'] == datetime.date(int(year), 12, 31))] = True
+    df_wiz1 = df.loc[df['Date'] < (str(year) + '-03-21 00:00:00')] 
+    df_wiz2 = df.loc[df['Date'] >= (str(year) + '-11-01')] 
+    df_soz  = (df.loc[((str(year) + '-05-15') <= df['Date']) & 
+                     (df['Date'] < (str(year) + '-09-15'))]) 
+    df_uez1 = (df.loc[((str(year) + '-03-21') <= df['Date']) & 
+                     (df['Date'] < (str(year) + '-05-15'))])
+    df_uez2 =  (df.loc[((str(year) + '-09-15') <= df['Date']) & 
+                       (df['Date'] <= (str(year) + '-10-31'))])
+    df['WIZ'] = (df['Tag'].isin(df_wiz1['Tag']) | 
+                 df['Tag'].isin(df_wiz2['Tag'])) 
+    df['SOZ'] = df['Tag'].isin(df_soz['Tag'])
+    df['UEZ'] = (df['Tag'].isin(df_uez1['Tag']) | 
+                 df['Tag'].isin(df_uez2['Tag']))
+    for Tarifkundenprofil in ['H0','L0','L1','L2','G0','G1',
+                              'G2','G3','G4','G5','G6']:
+        path = ('./data_in/temporal/Power Load Profiles/39_VDEW_Strom_' +
+                 'Repräsentative Profile_' + Tarifkundenprofil + '.xlsx')
+        df_load = pd.read_excel(path, sep = ';', decimal = ',')
+        df_load.columns = ['Stunde', 'SA_WIZ', 'SO_WIZ',  'WT_WIZ', 'SA_SOZ',
+                           'SO_SOZ',  'WT_SOZ', 'SA_UEZ', 'SO_UEZ',  'WT_UEZ']
+        df_load.loc[1] = df_load.loc[len(df_load) - 2] 
+        df_SLP = df_load[1:97] 
+        df_SLP = df_SLP.reset_index()[['Stunde', 'SA_WIZ', 'SO_WIZ',  'WT_WIZ',
+                                   'SA_SOZ', 'SO_SOZ',  'WT_SOZ', 'SA_UEZ', 
+                                   'SO_UEZ',  'WT_UEZ']]
+        wt_wiz = Leistung ('WT_WIZ', (df.WT & df.WIZ), df, df_SLP) 
+        wt_soz = Leistung ('WT_SOZ', (df.WT & df.SOZ), df, df_SLP)
+        wt_uez = Leistung ('WT_UEZ', (df.WT & df.UEZ), df, df_SLP)
+        wt = wt_wiz + wt_soz + wt_uez
+        sa_wiz = Leistung ('SA_WIZ', (df.SA & df.WIZ), df, df_SLP) 
+        sa_soz = Leistung ('SA_SOZ', (df.SA & df.SOZ), df, df_SLP)
+        sa_uez = Leistung ('SA_UEZ', (df.SA & df.UEZ), df, df_SLP)
+        sa = sa_wiz + sa_soz + sa_uez
+        so_wiz = Leistung ('SO_WIZ', (df.SO & df.WIZ), df, df_SLP) 
+        so_soz = Leistung ('SO_SOZ', (df.SO & df.SOZ), df, df_SLP)
+        so_uez = Leistung ('SO_UEZ', (df.SO & df.UEZ), df, df_SLP)
+        so = so_wiz + so_soz + so_uez
+        Summe = wt + sa + so
+        Last = 'Last_' + str(Tarifkundenprofil)
+        df[Last] = Summe       
+        total = sum(df[Last])
+        df_normiert = df[Last] / total
+        df[Tarifkundenprofil] = df_normiert
+
+    slp_bl = (df.drop(columns = ['Last_H0', 'Last_L0', 'Last_L1', 'Last_L2',
+                                 'Last_G0', 'Last_G1', 'Last_G2', 'Last_G3',
+                                 'Last_G4', 'Last_G5', 'Last_G6'])
+                .set_index('Date'))
+    return slp_bl
+
 
 
 def ambient_T(**kwargs):
