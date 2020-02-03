@@ -205,7 +205,7 @@ def generate_specific_consumption_per_branch():
 
     # Beibehalten der relevanten Zeilen und Spalten
     bool_list = np.array(bze_je_LK_WZ['id_region'])
-    for i in range(0,len(bze_je_LK_WZ)):
+    for i in range(0, len(bze_je_LK_WZ)):
         bool_list[i]= (bze_je_LK_WZ['internal_id'][i][0]==9)
     bze_je_LK_WZ = bze_je_LK_WZ[bool_list]
     bze_je_LK_WZ = bze_je_LK_WZ[['ags','internal_id','value']]
