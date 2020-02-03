@@ -1,5 +1,6 @@
 # --- General settings ---
 base_year: 2015
+scenario: 'Basis'
 database_host: "http://opendata.ffe.de:4000/"
 dict_source: database
 # Set the maximum number of cpu threads to be used. Logic:
