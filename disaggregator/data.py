@@ -23,7 +23,7 @@ import pandas as pd
 import numpy as np
 import logging
 import holidays
-import datetime 
+import datetime
 from .config import (get_config, _data_in, database_raw, region_id_to_nuts3,
                      literal_converter, wz_dict, hist_weather_year, bl_dict,
                      slp_branch_cts_gas, slp_branch_cts_power,
@@ -171,55 +171,61 @@ def zve_application_profiles():
     return pd.read_csv(_data_in('temporal', 'application_profiles.csv'),
                        engine='c')
 
+
 def t_allo(**kwargs):
     """
     Returns allocation temperature from weather data for (historical) year
-    
+
     Returns
     -------
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
     hist_year = hist_weather_year().get(year)
-    dic_nuts3 = (region_id_to_nuts3(raw = True)[['natcode_nuts3','ags_lk']]
-                    .set_index('natcode_nuts3'))
+    dic_nuts3 = (region_id_to_nuts3(raw=True)[['natcode_nuts3', 'ags_lk']]
+                 .set_index('natcode_nuts3'))
     dic_nuts3['ags_lk'] = dic_nuts3['ags_lk'].astype(str).str.zfill(5)
-    if ((hist_year % 4 == 0) & (hist_year % 100 != 0) | (hist_year % 4 == 0) 
-        & (hist_year % 100 == 0) & (hist_year % 400 == 0)):
+    if ((hist_year % 4 == 0)
+            & (hist_year % 100 != 0)
+            | (hist_year % 4 == 0)
+            & (hist_year % 100 == 0)
+            & (hist_year % 400 == 0)):
         periods = 35136
     else:
-        periods = 35040       
-    df = ambient_T(year = hist_year, internal_id = 2)
-    df = (df.assign(date = pd.date_range((str(hist_year) + '-01-01'), 
-                    periods = periods / 4 , freq = 'H',
-                    tz = 'Europe/Berlin'))
+        periods = 35040
+    df = ambient_T(year=hist_year, internal_id=2)
+    df = (df.assign(date=pd.date_range((str(hist_year) + '-01-01'),
+                    periods=periods / 4, freq='H',
+                    tz='Europe/Berlin'))
             .set_index('date').resample('D').mean())
-    df = (pd.merge(df.transpose(), dic_nuts3, how = 'right',
-                      left_index = True, right_index = True)
-                     .set_index('ags_lk').transpose())
+    df = (pd.merge(df.transpose(), dic_nuts3, how='right',
+                   left_index=True, right_index=True)
+            .set_index('ags_lk').transpose())
     df['03159'] = (df['03152'] + df['03156']) / 2
-    df.drop(columns = ['03152','03156'], inplace = True)
-    df.columns = df.columns.astype(int).astype(str)    
+    df.drop(columns=['03152', '03156'], inplace=True)
+    df.columns = df.columns.astype(int).astype(str)
     for district in df.columns:
         te = df[district].values
         for i in range(len(te)-1, -1, -1):
             if (i >= 3):
-                te[i] = ((te[i] + 0.5 * te[i - 1] + 0.25 * te[i - 2] + 
-                          te[i - 3] * 0.125) / 1.875)
-        df[district] = te 
+                te[i] = ((te[i] + 0.5 * te[i - 1] + 0.25 * te[i - 2]
+                         + te[i - 3] * 0.125) / 1.875)
+        df[district] = te
     return df
+
 
 def h_value(slp, districts):
     """
+    Moin
     Returns h-values depending on allocation temperature  for every district
-    
+
     Parameter
     -------
     slp : str
         Must be one of ['BA', 'BD', 'BH', 'GA', 'GB', 'HA',
                         'KO', 'MF', 'MK', 'PD', 'WA']
     districts : list of district keys in state e.g. ['11000'] for Berlin
-    
+
     Returns
     -------
     pd.DataFrame
@@ -236,11 +242,11 @@ def h_value(slp, districts):
     bH = par_slp['bH'][0]
     mW = par_slp['mW'][0]
     bW = par_slp['bW'][0]
-    for landkreis in districts:        
+    for landkreis in districts:
         te = temp_df[landkreis].values
         for i in range(len(te)):
-            df[landkreis][i] = ((A / (1 + pow(B / (te[i] - 40), C)) + D) + 
-                                 max(mH * te[i] + bH, mW * te[i] + bW))
+            df[landkreis][i] = ((A / (1 + pow(B / (te[i] - 40), C)) + D)
+                                + max(mH * te[i] + bH, mW * te[i] + bW))
         summe = df[landkreis].sum()
         df[landkreis] = df[landkreis] / summe
     return df
