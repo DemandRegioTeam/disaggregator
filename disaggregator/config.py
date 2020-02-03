@@ -48,9 +48,9 @@ def get_config(filename=None, **kwargs):
     if filename is None:
         filename = _data('config.yaml')
     assert os.path.exists(filename), (
-            "The config file '{}' does not exist yet. "
-            "Copy config_example.yaml to config.yaml and fill in details, "
-            "as necessary.".format(filename))
+        "The config file '{}' does not exist yet. "
+        "Copy config_example.yaml to config.yaml and fill in details, "
+        "as necessary.".format(filename))
     yaml_ver = [int(v) for v in yaml.__version__.split('.')]
     if (yaml_ver[0] > 5) or (yaml_ver[0] == 5 and yaml_ver[1] >= 1):
         with open(filename) as f:

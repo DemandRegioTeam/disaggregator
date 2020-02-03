@@ -19,7 +19,6 @@
 Provides functions for plotting
 """
 
-import os
 import math
 import logging
 import numpy as np
@@ -28,7 +27,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.patheffects as PathEffects
-from .config import get_config, _data_out
+from .config import get_config
 from .data import database_shapes, transpose_spatiotemporal
 logger = logging.getLogger(__name__)
 ScaMap = plt.cm.ScalarMappable
@@ -102,9 +101,9 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
     DF = pd.concat([DE, df], axis=1, join='inner')
     # Derive lat/lon tuple as representative point for each shape
     DF['coords'] = DF.geometry.apply(
-            lambda x: x.representative_point().coords[:][0])
+        lambda x: x.representative_point().coords[:][0])
     DF['coords_WGS84'] = DF.to_crs({'init': 'epsg:4326'}).geometry.apply(
-            lambda x: x.representative_point().coords[:][0])
+        lambda x: x.representative_point().coords[:][0])
 
     cols = df.columns
     unit = '\\%' if unit == '%' else unit
@@ -189,8 +188,8 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
                 if ann in ['percentage', 'percentages']:
                     if relative:
                         s += ('' if np.isnan(df.loc[idx, col]) else
-                              '{:.2%}'.format(df.loc[idx, col] /
-                                              float(df[col].sum())))
+                              '{:.2%}'.format(df.loc[idx, col]
+                                              / float(df[col].sum())))
                     else:
                         s += ('' if np.isnan(row[col]) else
                               '{:.2%}'.format(row[col]/DF[col].sum()))
@@ -431,8 +430,8 @@ def gather_nrows_ncols(x, orientation='landscape'):
         # Solution 2:
         n, m = calc(k-1, k+1)
         sol2 = {'n': n, 'm': m, 'dif': (m*n) - x}
-        if (((sol1['dif'] <= sol2['dif']) & (sol1['n'] >= 2)) |
-                (x in [7, 13, 14])):
+        if (((sol1['dif'] <= sol2['dif']) & (sol1['n'] >= 2))
+                | (x in [7, 13, 14])):
             n, m = [sol1['n'], sol1['m']]
         else:
             n, m = [sol2['n'], sol2['m']]
