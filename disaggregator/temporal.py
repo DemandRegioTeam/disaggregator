@@ -476,11 +476,12 @@ def disagg_temporal_power_CTS(branch = False, **kwargs):
     else:
         return SV_Dtl    
 
+
 def disagg_daily_gas_slp(state, **kwargs):
     """
     Returns daily demand of gas with a given yearly demand in MWh
     per district and SLP.
-    
+
     state: str
         must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
                         'NI','NW','RP','SL','SN','ST','SH','TH']
@@ -491,40 +492,43 @@ def disagg_daily_gas_slp(state, **kwargs):
     year = kwargs.get('year', cfg['base_year'])
     wz_slp_dict = slp_branch_cts_gas()
     bl_dic = bl_dict()
-    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0) 
-            & (year % 100 == 0) & (year % 400 == 0)):
+    if ((year % 4 == 0)
+            & (year % 100 != 0)
+            | (year % 4 == 0)
+            & (year % 100 == 0)
+            & (year % 400 == 0)):
         days = 366
     else:
         days = 365
     gv_lk = disagg_CTS('gas').transpose()
-    gv_lk = (gv_lk.assign(BL = [bl_dic.get(int(x[ : -3])) 
-                                for x in gv_lk.index.astype(str)]))
-    df = pd.DataFrame(index = range(days)) 
-    gv_lk = gv_lk.loc[gv_lk['BL'] == state].drop(columns = ['BL']).transpose()
+    gv_lk = (gv_lk.assign(BL=[bl_dic.get(int(x[: -3]))
+                          for x in gv_lk.index.astype(str)]))
+    df = pd.DataFrame(index=range(days))
+    gv_lk = gv_lk.loc[gv_lk['BL'] == state].drop(columns=['BL']).transpose()
     list_ags = gv_lk.columns.astype(str)
     gv_lk['SLP'] = [wz_slp_dict[x] for x in (gv_lk.index)]
-    calender_df = gas_slp_generator(state).drop(columns = ['MO','DI','MI','DO',
-                                                           'FR','SA','SO'])   
-    tageswerte = pd.DataFrame(index = calender_df['Date']) 
+    calender_df = gas_slp_generator(state).drop(columns=['MO', 'DI', 'MI', 'DO'
+                                                         , 'FR', 'SA', 'SO'])
+    tageswerte = pd.DataFrame(index=calender_df['Date'])
     for slp in gv_lk['SLP'].unique():
         h_slp = h_value(slp, list_ags)
-        gv_df = (gv_lk.loc[gv_lk['SLP'] == slp].drop(columns = ['SLP'])
+        gv_df = (gv_lk.loc[gv_lk['SLP'] == slp].drop(columns=['SLP'])
                       .stack().reset_index())
-        tw_lk_wz = pd.DataFrame(index = h_slp.index)
+        tw_lk_wz = pd.DataFrame(index=h_slp.index)
         for lk in gv_df['level_1'].unique():
             gv_slp = (gv_df.loc[gv_df['level_1'] == lk]
-                           .drop(columns = ['level_1'])
+                           .drop(columns=['level_1'])
                            .set_index('WZ').transpose()
-                           .rename(columns = lambda x: str(lk) + '_' + 
-                                   str(slp) + '_' + str(x)))
+                           .rename(columns=lambda x: str(lk) + '_'
+                                   + str(slp) + '_' + str(x)))
             tw_lk_wz_slp = pd.DataFrame(np.multiply(h_slp[[str(lk)] *
-                                                           len(gv_slp.columns)]
-                                          .values, gv_slp.values), 
-                                        index = h_slp.index, 
-                                        columns = gv_slp.columns)
-            tw_lk_wz = pd.concat([tw_lk_wz, tw_lk_wz_slp], axis = 1)
-        tageswerte = pd.concat([tageswerte, tw_lk_wz], axis = 1)
-    df = pd.concat([df, tageswerte.iloc[:days]], axis = 1)
+                                                          len(gv_slp.columns)]
+                                                    .values, gv_slp.values),
+                                        index=h_slp.index,
+                                        columns=gv_slp.columns)
+            tw_lk_wz = pd.concat([tw_lk_wz, tw_lk_wz_slp], axis=1)
+        tageswerte = pd.concat([tageswerte, tw_lk_wz], axis=1)
+    df = pd.concat([df, tageswerte.iloc[:days]], axis=1)
     return df.iloc[days:]
 
 
