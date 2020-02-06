@@ -370,6 +370,7 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
                                     '90-99']).transpose()
     spez_sv.index = spez_sv.index.astype(int)
 
+    # original source (table_id = 38) gives sum of natural gas and other gases
     # use factor form sheet to decompose energy consumption
     df_decom = pd.read_excel(_data_in('dimensionless',
                                       'Decomposition Factors Industrial'
@@ -378,18 +379,48 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
     df_decom.set_index('WZ', inplace=True)
     df_decom = spez_gv.merge(df_decom, how='left',
                              left_index=True, right_index=True)
+    df_decom['Strom Eigenerzeugung'].fillna(0, inplace=True)
     df_decom.fillna(1, inplace=True)
-    # original source contains sum of natural gas and various other gases
     spez_gv['spez. GV'] = spez_gv['spez. GV'] * df_decom['Anteil Erdgas']
-
     if (no_self_gen):
         spez_sv['spez. SV'] = spez_sv['spez. SV'] * df_decom['Strom Netzbezug']
+
+    # original source (table_id = 38) does not include gas consumption for
+    # self generation in industrial sector
+    # get gas consumption for self_generation from German energy balance
+    df_balance = pd.read_excel(_data_in('dimensionless', 'bilanz15d.xlsx'),
+                               sheet_name='nat', skiprows=3)
+    # tbd import energy balance from database
+    df_balance.rename(columns={"Unnamed: 1": "Zeile",
+                               "Unnamed: 24": "Grubengas",
+                               "Naturgase": "Erdgas in Mio kWh"},
+                      inplace=True)
+    df_balance.drop([0, 1, 2], inplace=True)
+    df_balance.set_index('Zeile', inplace=True)
+    # locate natural gas consumption for self generation in energy balance
+    GV_slf_gen_global = df_balance['Erdgas in Mio kWh'].loc[12]*1000
+    df_help_sv = spez_sv.assign(BZE=bze_je_lk_wz.sum(axis=1),
+                                SV_WZ_MWh=lambda x: x['spez. SV'] * x['BZE'],
+                                f_SV_self_gen=df_decom['Strom Eigenerzeugung'],
+                                SV_self_gen=lambda x:
+                                    x.f_SV_self_gen * x.SV_WZ_MWh,
+                                f_GV_self_gen=lambda x:
+                                    x.SV_self_gen / x.SV_self_gen.sum(),
+                                GV_self_gen=lambda x:
+                                    x.f_GV_self_gen * GV_slf_gen_global,
+                                spez_GV_self_gen=lambda x:
+                                    x.GV_self_gen / x.BZE)
+    df_help_gv = spez_gv.assign(spez_GV_self_gen=df_help_sv.spez_GV_self_gen,
+                                spez_GV_final=lambda x:
+                                    x['spez. GV'] + x.spez_GV_self_gen)
+    spez_gv['spez. GV'] = df_help_gv.spez_GV_final
 
     return spez_sv.sort_index(), spez_gv.sort_index(), vb_wz, bze_je_lk_wz
 
 
 def generate_specific_consumption_per_branch_and_district(iterations_power,
-                                                          iterations_gas):
+                                                          iterations_gas,
+                                                          no_self_gen=False):
     """
     Returns specific power and gas consumption per branch and district.
 
@@ -402,11 +433,14 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
         The amount of iterations to generate specific gas consumption per
         branch and district
 
+    no_self_gen : bool, optional, default = False,
+        If True: returns specific power consumption without self generation,
+                 resulting energy consumption will be lower
     Returns
     ------------
     Tuple that contains two pd.DataFrames
     """
-    spez_vb = generate_specific_consumption_per_branch()
+    spez_vb = generate_specific_consumption_per_branch(no_self_gen)
     spez_sv = spez_vb[0]
     spez_gv = spez_vb[1]
     vb_wz = spez_vb[2]
@@ -503,23 +537,24 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                                              .transpose())
                         spez_sv_angepasst[spez_sv_angepasst < 10] = 10
                         spez_sv_angepasst = (spez_sv_angepasst *
-                                             sv_LK['Verbrauch e-int WZ'].sum()/
-                                             sv_LK['SV Modell e-int [MWh]']
+                                             sv_LK['Verbrauch e-int WZ'].sum()
+                                             / sv_LK['SV Modell e-int [MWh]']
                                              .sum())
                         sv_lk_wz_e_int = bze_sv_e_int * spez_sv_angepasst
                     else:
-                        y = False   
-                sv_wz = (pd.DataFrame(sv_lk_wz_e_int.sum(axis = 1),
-                                      columns = ['SV WZ Modell [MWh]']))
+                        y = False
+                sv_wz = (pd.DataFrame(sv_lk_wz_e_int.sum(axis=1),
+                                      columns=['SV WZ Modell [MWh]']))
                 k = 0
                 z = True
                 while(z):
                     k = k + 1
-                    sv_wz_t51 = (pd.DataFrame(index= ['5','6','7-9','10-12',
-                                                     '13-15','16','17','18',
-                                                     '19','20','22','23','24',
-                                                     '25','27','28','29','33'],
-                                             columns=['SV WZ Modell [MWh]']))
+                    sv_wz_t51 = (pd.DataFrame(index=['5', '6', '7-9', '10-12',
+                                                     '13-15', '16', '17', '18',
+                                                     '19', '20', '22', '23',
+                                                     '24', '25', '27', '28',
+                                                     '29', '33'],
+                                              columns=['SV WZ Modell [MWh]']))
                     sv_wz_t51['SV WZ Modell [MWh]'] = 0.0
                     WZe = [7, 8, 9]
                     for i in WZe:
@@ -536,22 +571,23 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                         sv_wz_t51['SV WZ Modell [MWh]']['13-15'] = (
                                 sv_wz_t51['SV WZ Modell [MWh]']['13-15'] +
                                 sv_wz['SV WZ Modell [MWh]'][i])
-                    WZe = [5, 6, 16, 17, 18, 19, 20, 22, 23, 24, 25, 27, 28, 
+                    WZe = [5, 6, 16, 17, 18, 19, 20, 22, 23, 24, 25, 27, 28,
                            29, 33]
                     for i in WZe:
                         sv_wz_t51['SV WZ Modell [MWh]'][str(i)] = (
                                                 sv_wz['SV WZ Modell [MWh]'][i])
-                    sv_wz_t51 = (sv_wz_t51.merge(sv_wz_e_int,left_index=True, 
+                    sv_wz_t51 = (sv_wz_t51.merge(sv_wz_e_int, left_index=True,
                                                  right_index=True))
                     mean_value2 = sv_wz_t51['value'].sum()/len(sv_wz_t51)
                     sv_wz_t51['Normierter relativer Fehler'] = (
-                            (sv_wz_t51['value'] - 
+                            (sv_wz_t51['value'] -
                              sv_wz_t51['SV WZ Modell [MWh]'])/mean_value2)
                     sv_wz_t51['Anpassungsfaktor'] = 1
                     (sv_wz_t51['Anpassungsfaktor']
-                    [((sv_wz_t51['Normierter relativer Fehler']>0.01) | 
-                    (sv_wz_t51['Normierter relativer Fehler']<-0.01))]) = (
-                    sv_wz_t51['value']/sv_wz_t51['SV WZ Modell [MWh]'])
+                     [((sv_wz_t51['Normierter relativer Fehler'] > 0.01)
+                      | (sv_wz_t51['Normierter relativer Fehler'] < -0.01))])
+                        = (sv_wz_t51['value']
+                           / sv_wz_t51['SV WZ Modell [MWh]'])
                     sv_wz['Anpassungsfaktor'] = 0.0
                     for wz in sv_wz.index:
                         if((wz == 7) | (wz == 8) | (wz == 9)):
@@ -568,7 +604,7 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                                     sv_wz_t51['Anpassungsfaktor']['31-32'])
                         else:
                             sv_wz['Anpassungsfaktor'][wz] = (
-                                    sv_wz_t51['Anpassungsfaktor'][str(wz)]) 
+                                    sv_wz_t51['Anpassungsfaktor'][str(wz)])
                     if(sv_wz['Anpassungsfaktor'].sum() == len(sv_wz)):
                         z = False
                     elif(k < 10):
@@ -578,8 +614,8 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                                                        axis=0))
                         spez_sv_angepasst[spez_sv_angepasst < 10] = 10
                         sv_lk_wz_e_int = bze_sv_e_int * spez_sv_angepasst
-                        sv_wz = pd.DataFrame(sv_lk_wz_e_int.sum(axis = 1),
-                                             columns = ['SV WZ Modell [MWh]'])
+                        sv_wz = pd.DataFrame(sv_lk_wz_e_int.sum(axis=1),
+                                             columns=['SV WZ Modell [MWh]'])
                     else:
                         z = False
         elif (et == 4):
@@ -597,8 +633,8 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                     i = i + 1
                     gv_LK['GV Modell e-int [MWh]'] = gv_lk_wz_e_int.sum()
                     gv_LK['Normierter relativer Fehler'] = (
-                            (gv_LK['Verbrauch e-int WZ'] - 
-                             gv_LK['GV Modell e-int [MWh]']) / mean_value)
+                            (gv_LK['Verbrauch e-int WZ']
+                             - gv_LK['GV Modell e-int [MWh]']) / mean_value)
                     gv_LK['Anpassungsfaktor'] = 1
                     (gv_LK['Anpassungsfaktor']
                     [((gv_LK['Normierter relativer Fehler']>0.1) | 
@@ -692,12 +728,12 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     spez_sv_lk.loc[list(spez_sv_angepasst.index)] = spez_sv_angepasst.values
     spez_gv_lk.loc[list(spez_gv_angepasst.index)] = spez_gv_angepasst.values
     spez_gv_lk[3103] = spez_gv['spez. GV']
-    spez_sv_lk.sort_index(axis = 1).to_csv(
-            './data_in/regional/specific_power_consumption.csv')
-    spez_gv_lk.sort_index(axis = 1).to_csv(
-            './data_in/regional/specific_gas_consumption.csv')
+    spez_sv_lk.sort_index(axis = 1).to_csv(_data_in('regional',
+                                 'specific_power_consumption.csv'))
+    spez_gv_lk.sort_index(axis = 1).to_csv(_data_in('regional',
+                                 'specific_gas_consumption.csv'))
     return spez_sv_lk.sort_index(axis = 1), spez_gv_lk.sort_index(axis = 1)
-    
+
 # --- Spatial data ------------------------------------------------------------
 
 
