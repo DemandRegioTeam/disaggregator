@@ -1199,21 +1199,21 @@ def employees_per_branch_district(**kwargs):
         for i in range(0, len(df)):
             bool_list[i] = (df['internal_id'][i][0] == 9)
         df = (df[((bool_list) & (df['WZ'] > 0))][['ags', 'value', 'WZ']]
-                .rename(columns = {'value': 'BZE'}))
-        df = (pd.pivot_table(df, values = 'BZE', index = 'WZ', 
-                             columns = 'ags', fill_value = 0, dropna = False))
+              .rename(columns={'value': 'BZE'}))
+        df = (pd.pivot_table(df, values='BZE', index='WZ',
+                             columns='ags', fill_value=0, dropna=False))
     elif year in range(2019, 2036):
         if scenario == 'Basis':
-            df = database_get('spatial', table_id = 27, year = year)
+            df = database_get('spatial', table_id=27, year=year)
         elif scenario == 'Digital':
-            df = database_get('spatial', table_id = 28, year = year)
-            
-        df = (df.assign(ags = [int(x[:-3]) for x in 
-                               df['id_region'].astype(str)],
-                               WZ = [x[0] for x in df['internal_id']]))
-        df = (pd.pivot_table(df, values = 'value', index = 'WZ', 
-                             columns = 'ags', fill_value = 0, dropna = False))
-    
+            df = database_get('spatial', table_id=28, year=year)
+
+        df = (df.assign(ags=[int(x[:-3]) for x in
+                             df['id_region'].astype(str)],
+                        WZ=[x[0] for x in df['internal_id']]))
+        df = (pd.pivot_table(df, values='value', index='WZ',
+                             columns='ags', fill_value=0, dropna=False))
+
     return df
 
 # --- Temporal data -----------------------------------------------------------
@@ -1287,171 +1287,171 @@ def standard_load_profile_elc(which='H0', freq='1H', **kwargs):
     else:
         raise NotImplementedError('Not here yet!')
 
+
 def Leistung(Tag_Zeit, mask, df, df_SLP):
     """
     Returns
     -------
     pd.Series
     """
-    u = (pd.merge(df[mask], df_SLP[['Stunde', Tag_Zeit]], 
-                  on = ['Stunde'], how = 'left'))
-    v = pd.merge(df, u[['Date', Tag_Zeit]], on = ['Date'], how = 'left')  
-    v[Tag_Zeit][v[Tag_Zeit] != v[Tag_Zeit]] = 0  
+    u = (pd.merge(df[mask], df_SLP[['Stunde', Tag_Zeit]],
+                  on=['Stunde'], how='left'))
+    v = pd.merge(df, u[['Date', Tag_Zeit]], on=['Date'], how='left')
+    v[Tag_Zeit][v[Tag_Zeit] != v[Tag_Zeit]] = 0
     return v[Tag_Zeit]
+
 
 def shift_load_profile_generator(state, **kwargs):
     """
     Return shift load profiles in normalized units
     ('normalized' means here that the sum over all time steps equals one).
-    
+
     Parameter
     -------
     state : str
         Must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
                         'NI','NW','RP','SL','SN','ST','SH','TH']
-    
+
     Returns
     -------
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
     low = 0.3
-    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0) 
-          & (year % 100 == 0) & (year % 400 == 0)):
+    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
+       & (year % 100 == 0) & (year % 400 == 0)):
         periods = 35136
     else:
-        periods = 35040 
-    df = (pd.DataFrame(data= {"Date": pd.date_range((str(year) + '-01-01'), 
-                                                     periods = periods, 
-                                                     freq = '15T', 
-                                                     tz = 'Europe/Berlin')}))
+        periods = 35040
+    df = (pd.DataFrame(data={"Date": pd.date_range((str(year)+'-01-01'),
+                                                   periods=periods,
+                                                   freq='15T',
+                                                   tz='Europe/Berlin')}))
     df['Tag'] = pd.DatetimeIndex(df['Date']).date
     df['Stunde'] = pd.DatetimeIndex(df['Date']).time
     df['DayOfYear'] = pd.DatetimeIndex(df['Date']).dayofyear.astype(int)
-    mask_holiday = [] 
-    for i in range(0, len(holidays.DE(state = state, years = year))):
+    mask_holiday = []
+    for i in range(0, len(holidays.DE(state=state, years=year))):
         mask_holiday.append('Null')
-        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state = 
-                            state, years = year).items()][i][0]))
+        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state=state,
+                            years=year).items()][i][0]))
     HD = mask_holiday[0]
-    for i in range(1, len(holidays.DE(state = state, years = year))):
+    for i in range(1, len(holidays.DE(state=state, years=year))):
         HD = HD | mask_holiday[i]
-    df['WT'] = df['Date'].apply(lambda x: x.weekday() <  5) 
-    df['WT'] = df['WT'] & (HD == False) 
-    df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5) 
-    df['SA'] = df['SA'] & (HD==False) 
-    df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6) 
-    df['SO'] = df['SO'] | HD  
+    df['WT'] = df['Date'].apply(lambda x: x.weekday() < 5)
+    df['WT'] = df['WT'] & (HD == False)
+    df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
+    df['SA'] = df['SA'] & (HD==False)
+    df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
+    df['SO'] = df['SO'] | HD
     df['WT'][(df['Tag'] == datetime.date(year, 12, 24))] = False
     df['WT'][(df['Tag'] == datetime.date(year, 12, 31))] = False
     df['SO'][(df['Tag'] == datetime.date(year, 12, 24))] = False
     df['SO'][(df['Tag'] == datetime.date(year, 12, 31))] = False
     df['SA'][(df['Tag'] == datetime.date(year, 12, 24))] = True
     df['SA'][(df['Tag'] == datetime.date(year, 12, 31))] = True
-    for sp in ['S1_WT','S1_WT_SA','S1_WT_SA_SO','S2_WT',
-               'S2_WT_SA','S2_WT_SA_SO','S3_WT','S3_WT_SA',
+    for sp in ['S1_WT', 'S1_WT_SA', 'S1_WT_SA_SO', 'S2_WT',
+               'S2_WT_SA', 'S2_WT_SA_SO', 'S3_WT', 'S3_WT_SA',
                'S3_WT_SA_SO']:
         if(sp == 'S1_WT'):
-            anzahl_wz =  17 / 48 * len(df[df['WT']])
-            anzahl_nwz = (31 / 48 * len(df[df['WT']]) + len(df[df['SO']]) + 
-                             len(df[df['SA']]))
+            anzahl_wz = 17 / 48 * len(df[df['WT']])
+            anzahl_nwz = (31 / 48 * len(df[df['WT']]) + len(df[df['SO']])
+                          + len(df[df['SA']]))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
             df[sp][df['SO']] = low * anteil
             df[sp][df['SA']] = low * anteil
-            mask = ((df['WT'])&
-                    ((df['Stunde'] < pd.to_datetime('08:00:00').time()) |
-                    (df['Stunde'] >= pd.to_datetime('16:30:00').time())))
+            mask = ((df['WT'])
+                    & ((df['Stunde'] < pd.to_datetime('08:00:00').time())
+                    | (df['Stunde'] >= pd.to_datetime('16:30:00').time())))
             df[sp][mask] = low * anteil
-        elif(sp == 'S1_WT_SA'):    
-            anzahl_wz = (17/48 * len(df[df['WT']]) + 
-                         17/48 * len(df[df['SA']]))
-            anzahl_nwz = (31/48 * len(df[df['WT']]) + len(df[df['SO']]) + 
-                          31/48 * len(df[df['SA']]))
-            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+        elif(sp == 'S1_WT_SA'):
+            anzahl_wz = (17 / 48 * len(df[df['WT']])
+                         + 17 / 48 * len(df[df['SA']]))
+            anzahl_nwz = (31 / 48 * len(df[df['WT']]) + len(df[df['SO']])
+                          + 31/48 * len(df[df['SA']]))
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
             df[sp][df['SO']] = low * anteil
-            mask =((df['WT']) & ((df['Stunde'] < pd.to_datetime('08:00:00')
-                      .time()) | (df['Stunde'] >= pd.to_datetime('16:30:00')
-                      .time())))
+            mask = ((df['WT']) & ((df['Stunde'] < pd.to_datetime('08:00:00')
+                    .time()) | (df['Stunde'] >= pd.to_datetime('16:30:00')
+                                .time())))
             df[sp][mask] = low * anteil
-            mask =((df['SA']) & ((df['Stunde'] < pd.to_datetime('08:00:00')
-                     .time()) | (df['Stunde'] >= pd.to_datetime('16:30:00')
-                     .time())))
+            mask = ((df['SA']) & ((df['Stunde'] < pd.to_datetime('08:00:00')
+                    .time()) | (df['Stunde'] >= pd.to_datetime('16:30:00')
+                                .time())))
             df[sp][mask] = low * anteil
-        elif(sp == 'S1_WT_SA_SO'):    
-            anzahl_wz = (17/48* (len(df[df['WT']]) + len(df[df['SO']]) + 
-                                 len(df[df['SA']])))
-            anzahl_nwz = (31/48 * (len(df[df['WT']]) + len(df[df['SO']]) +
-                                   len(df[df['SA']])))
-            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+        elif(sp == 'S1_WT_SA_SO'):
+            anzahl_wz = (17 / 48 * (len(df[df['WT']]) + len(df[df['SO']])
+                         + len(df[df['SA']])))
+            anzahl_nwz = (31 / 48 * (len(df[df['WT']]) + len(df[df['SO']])
+                          + len(df[df['SA']])))
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            mask =((df['Stunde'] < pd.to_datetime('08:00:00').time()) |
-                    (df['Stunde'] >= pd.to_datetime('16:30:00').time()))
+            mask = ((df['Stunde'] < pd.to_datetime('08:00:00').time())
+                    | (df['Stunde'] >= pd.to_datetime('16:30:00').time()))
             df[sp][mask] = low * anteil
-        elif(sp == 'S2_WT'):    
+        elif(sp == 'S2_WT'):
             anzahl_wz = 17/24 * len(df[df['WT']])
             anzahl_nwz = (7/24 * len(df[df['WT']]) + len(df[df['SO']]) +
                           len(df[df['SA']]))
-            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
             df[sp][df['SO']] = low * anteil
             df[sp][df['SA']] = low * anteil
-            mask =((df['WT']) &
-                   ((df['Stunde'] < pd.to_datetime('06:00:00').time())|
-                    (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
+            mask = ((df['WT']) &
+                    ((df['Stunde'] < pd.to_datetime('06:00:00').time())
+                     | (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
             df[sp][mask] = low * anteil
-        elif(sp == 'S2_WT_SA'):    
+        elif(sp == 'S2_WT_SA'):
             anzahl_wz = 17/24 * (len(df[df['WT']]) + len(df[df['SA']]))
             anzahl_nwz = (7/24 * len(df[df['WT']]) + len(df[df['SO']]) +
-                          7/24* len(df[df['SA']]))
-            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+                          7/24 * len(df[df['SA']]))
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
             df[sp][df['SO']] = low * anteil
-            mask =(((df['WT']) | (df['SA'])) &
-                   ((df['Stunde'] < pd.to_datetime('06:00:00')
-                   .time()) | (df['Stunde'] >= pd.to_datetime('23:00:00')
-                   .time())))
+            mask = (((df['WT']) | (df['SA']))
+                    & ((df['Stunde'] < pd.to_datetime('06:00:00').time())
+                    | (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
             df[sp][mask] = low * anteil
-        elif(sp == 'S2_WT_SA_SO'):    
+        elif(sp == 'S2_WT_SA_SO'):
             anzahl_wz = (17/24 * (len(df[df['WT']]) + len(df[df['SA']]) +
                                   len(df[df['SO']])))
             anzahl_nwz = (7/24 * (len(df[df['WT']]) + len(df[df['SO']]) +
                                   len(df[df['SA']])))
-            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            mask =(((df['Stunde'] < pd.to_datetime('06:00:00').time()) |
-                    (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
+            mask = (((df['Stunde'] < pd.to_datetime('06:00:00').time())
+                    | (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
             df[sp][mask] = low * anteil
         elif(sp == 'S3_WT_SA_SO'):
             anteil = 1 / periods
             df[sp] = anteil
-        elif(sp == 'S3_WT'):    
+        elif(sp == 'S3_WT'):
             anzahl_wz = len(df[df['WT']])
             anzahl_nwz = len(df[df['SO']]) + len(df[df['SA']])
-            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
             df[sp][df['SO']] = low * anteil
             df[sp][df['SA']] = low * anteil
-        elif(sp == 'S3_WT_SA'):    
+        elif(sp == 'S3_WT_SA'):
             anzahl_wz = len(df[df['WT']]) + len(df[df['SA']])
             anzahl_nwz = len(df[df['SO']])
-            anteil = 1 / (anzahl_wz + low * anzahl_nwz) 
+            anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
             df[sp][df['SO']] = low * anteil
-    df= (df[['Date','S1_WT','S1_WT_SA','S1_WT_SA_SO','S2_WT','S2_WT_SA',
-             'S2_WT_SA_SO','S3_WT','S3_WT_SA','S3_WT_SA_SO']]
-            .set_index('Date'))
+    df = (df[['Date', 'S1_WT', 'S1_WT_SA', 'S1_WT_SA_SO', 'S2_WT', 'S2_WT_SA',
+             'S2_WT_SA_SO', 'S3_WT', 'S3_WT_SA', 'S3_WT_SA_SO']]
+          .set_index('Date'))
     return df
-
 
 
 def gas_slp_generator(state, **kwargs):
     """
     Return the gas standard load profiles in normalized units
-    ('normalized' means here that the sum over all time steps equals 
+    ('normalized' means here that the sum over all time steps equals
     365 (or 366 in a leapyear)).
-    
+
     Parameter
     -------
     state: str
@@ -1462,41 +1462,41 @@ def gas_slp_generator(state, **kwargs):
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
-    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0) 
-        & (year % 100 == 0) & (year % 400 == 0)):
+    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
+       & (year % 100 == 0) & (year % 400 == 0)):
         days = 366
     else:
-        days = 365 
-        
-    df = (pd.DataFrame(data = {"Date": pd.date_range((str(year) + '-01-01'),
-                                                   periods = days,
-                                                   freq = 'd',
-                                                   tz = 'Europe/Berlin')})) 
-    df = df.assign(Tag = pd.DatetimeIndex(df['Date']).date,
-                   DayOfYear = pd.DatetimeIndex(df['Date'])
-                                 .dayofyear.astype(int))
-    mask_holiday = [] 
-    for i in range(0,len(holidays.DE(state = state, years = year))):
+        days = 365
+
+    df = (pd.DataFrame(data={"Date": pd.date_range((str(year) + '-01-01'),
+                                                   periods=days,
+                                                   freq='d',
+                                                   tz='Europe/Berlin')}))
+    df = df.assign(Tag=pd.DatetimeIndex(df['Date']).date,
+                   DayOfYear=pd.DatetimeIndex(df['Date'])
+                   .dayofyear.astype(int))
+    mask_holiday = []
+    for i in range(0, len(holidays.DE(state=state, years=year))):
         mask_holiday.append('Null')
-        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state = state, 
-                                          years = year).items()][i][0]))
+        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state=state,
+                                          years=year).items()][i][0]))
     HD = mask_holiday[0]
-    for i in range(1,len(holidays.DE(state = state, years = year))):
+    for i in range(1, len(holidays.DE(state=state, years=year))):
         HD = HD | mask_holiday[i]
-    df['MO'] = df['Date'].apply(lambda x: x.weekday() ==  0)
+    df['MO'] = df['Date'].apply(lambda x: x.weekday() == 0)
     df['MO'] = df['MO'] & (HD == False)
-    df['DI'] = df['Date'].apply(lambda x: x.weekday() ==  1)
+    df['DI'] = df['Date'].apply(lambda x: x.weekday() == 1)
     df['DI'] = df['DI'] & (HD == False) 
-    df['MI'] = df['Date'].apply(lambda x: x.weekday() ==  2) 
+    df['MI'] = df['Date'].apply(lambda x: x.weekday() == 2)
     df['MI'] = df['MI'] & (HD == False)
-    df['DO'] = df['Date'].apply(lambda x: x.weekday() ==  3) 
+    df['DO'] = df['Date'].apply(lambda x: x.weekday() == 3)
     df['DO'] = df['DO'] & (HD == False) 
-    df['FR'] = df['Date'].apply(lambda x: x.weekday() ==  4)
+    df['FR'] = df['Date'].apply(lambda x: x.weekday() == 4)
     df['FR'] = df['FR'] & (HD == False)
     df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
     df['SA'] = df['SA'] & (HD == False) 
-    df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6) 
-    df['SO'] = df['SO'] | HD  
+    df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
+    df['SO'] = df['SO'] | HD
     df['MO'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
     df['MO'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
     df['DI'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
