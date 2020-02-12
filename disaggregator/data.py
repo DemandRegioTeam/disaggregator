@@ -424,15 +424,20 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                                                           no_self_gen=False):
     """
     Returns specific power and gas consumption per branch and district.
+    This function adjusts the specific consumption of all branches from the
+    industrial sector.
+    One iteration is one adjustment of the results from the function
+    generate_specific_consumption_per_branch() regarding the publications
+    from the Federal Statistical Office (table_id = 15).
 
     Parameters
     ----------
     iteration_power: int
         The amount of iterations to generate specific power consumption per
-        branch and district
+        branch and district, 20 recommended.
     iteration_gas: int
         The amount of iterations to generate specific gas consumption per
-        branch and district
+        branch and district, 20 recommended.
 
     no_self_gen : bool, optional, default = False,
         If True: returns specific power consumption without self generation,
@@ -597,7 +602,7 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                     sv_wz_t51['Anpassungsfaktor'] = 1
                     (sv_wz_t51['Anpassungsfaktor']
                      [((sv_wz_t51['Normierter relativer Fehler'] > 0.01)
-                      | (sv_wz_t51['Normierter relativer Fehler'] < -0.01))]) = (
+                      | (sv_wz_t51['Normierter relativer Fehler'] < -0.01))])=(
                         sv_wz_t51['value'] / sv_wz_t51['SV WZ Modell [MWh]'])
                     sv_wz['Anpassungsfaktor'] = 0.0
                     for wz in sv_wz.index:
@@ -707,7 +712,7 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                     gv_wz_t51['Anpassungsfaktor'] = 1
                     (gv_wz_t51['Anpassungsfaktor']
                      [((gv_wz_t51['Normierter relativer Fehler'] > 0.01)
-                      | (gv_wz_t51['Normierter relativer Fehler'] < -0.01))])= (
+                      | (gv_wz_t51['Normierter relativer Fehler'] < -0.01))])=(
                         gv_wz_t51['value'] / gv_wz_t51['GV WZ Modell [MWh]'])
                     gv_wz['Anpassungsfaktor'] = 0.0
                     for wz in gv_wz.index:
