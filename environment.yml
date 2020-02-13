@@ -16,6 +16,7 @@ dependencies:
   - xarray
   
   - matplotlib
+  - holidays
   
   # Jupyter Environment
   - jupyterlab
