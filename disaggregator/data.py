@@ -451,8 +451,8 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
         generate_specific_consumption_per_branch(no_self_gen))
     # get "Regionalstatistik" from Database
     vb_LK = database_get('spatial', table_id=15, year=2015)
-    vb_LK['Verbrauch in MWh'] = vb_LK['value'] / 3.6
-    vb_LK['id_region'] = vb_LK['id_region'].astype(str)
+    vb_LK.loc[:, 'Verbrauch in MWh'] = vb_LK['value'] / 3.6
+    vb_LK.loc[:, 'id_region'] = vb_LK['id_region'].astype(str)
     vb_LK = (vb_LK.assign(ags=[int(x[:-3]) for x in vb_LK['id_region']],
                           ET=[x[0] for x in vb_LK['internal_id']]))
     vb_LK = (vb_LK.loc[((vb_LK['ET'] == 2) | (vb_LK['ET'] == 4))]
@@ -503,14 +503,18 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     gv_lk_wz_e_int = gv_lk_wz.loc[gv_ind_branches]
     bze_gv_e_int = bze_je_lk_wz.loc[gv_ind_branches]
     # get industry branches with energy intensity < 10 MWh/worker
-    sv_LK_real['Verbrauch e-arme WZ'] = (sv_lk_wz.loc[[21, 26, 30, 31, 32]]
-                                                 .sum())
-    sv_LK_real['Verbrauch e-int WZ'] = (sv_LK_real['Verbrauch in MWh']
-                                        - sv_LK_real['Verbrauch e-arme WZ'])
-    gv_LK_real['Verbrauch e-arme WZ'] = (gv_lk_wz.loc[[26, 27, 28, 31, 32, 33]]
-                                                 .sum())
-    gv_LK_real['Verbrauch e-int WZ'] = (gv_LK_real['Verbrauch in MWh']
-                                        - gv_LK_real['Verbrauch e-arme WZ'])
+    sv_LK_real.loc[:, 'Verbrauch e-arme WZ'] = (sv_lk_wz
+                                                .loc[[21, 26, 30, 31, 32]]
+                                                .sum())
+    sv_LK_real.loc[:, 'Verbrauch e-int WZ'] = (sv_LK_real['Verbrauch in MWh']
+                                               - sv_LK_real
+                                                   ['Verbrauch e-arme WZ'])
+    gv_LK_real.loc[:, 'Verbrauch e-arme WZ'] = (gv_lk_wz
+                                                .loc[[26, 27, 28, 31, 32, 33]]
+                                                .sum())
+    gv_LK_real.loc[:, 'Verbrauch e-int WZ'] = (gv_LK_real['Verbrauch in MWh']
+                                               - gv_LK_real
+                                                   ['Verbrauch e-arme WZ'])
     # get specific demand per WZ and district
     spez_sv_e_int = spez_sv_lk.loc[sv_ind_branches]
     spez_gv_e_int = spez_gv_lk.loc[gv_ind_branches]
@@ -523,7 +527,6 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
             mean_value = sv_LK['Verbrauch e-int WZ'].sum() / len(sv_LK)
             spez_sv_angepasst = spez_sv_e_int.copy()
             # spez_sv_angepasst.columns = spez_sv_angepasst.columns
-            x = True
             # start loop for adjusting specific power consumption
             while(iterations_power > 0):
                 iterations_power -= 1
@@ -550,10 +553,11 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                                              * sv_LK['Anpassungsfaktor']
                                              .transpose())
                         spez_sv_angepasst[spez_sv_angepasst < 10] = 10
-                        spez_sv_angepasst = (spez_sv_angepasst *
-                                             sv_LK['Verbrauch e-int WZ'].sum()
+                        spez_sv_angepasst = (spez_sv_angepasst
+                                             * sv_LK['Verbrauch e-int WZ']
+                                               .sum()
                                              / sv_LK['SV Modell e-int [MWh]']
-                                             .sum())
+                                               .sum())
                         sv_lk_wz_e_int = bze_sv_e_int * spez_sv_angepasst
                     else:
                         y = False
@@ -565,13 +569,9 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                     # compare adjusted demand to source from UGR
                     # adjust specific demands for energy intensive industries
                     k = k + 1
-                    sv_wz_t51 = (pd.DataFrame(index=['5', '6', '7-9', '10-12',
-                                                     '13-15', '16', '17', '18',
-                                                     '19', '20', '22', '23',
-                                                     '24', '25', '27', '28',
-                                                     '29', '33'],
+                    sv_wz_t51 = (pd.DataFrame(index=sv_ind_branches_grp,
                                               columns=['SV WZ Modell [MWh]']))
-                    sv_wz_t51['SV WZ Modell [MWh]'] = 0.0
+                    sv_wz_t51.loc[:, 'SV WZ Modell [MWh]'] = 0.0
                     WZe = [7, 8, 9]
                     for i in WZe:
                         sv_wz_t51['SV WZ Modell [MWh]']['7-9'] = (
@@ -604,23 +604,23 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                                   'Anpassungsfaktor'] = (
                                       sv_wz_t51['value']
                                       / sv_wz_t51['SV WZ Modell [MWh]'])
-                    sv_wz['Anpassungsfaktor'] = 0.0
+                    sv_wz.loc[:, 'Anpassungsfaktor'] = 0.0
                     for wz in sv_wz.index:
                         if((wz == 7) | (wz == 8) | (wz == 9)):
                             sv_wz['Anpassungsfaktor'][wz] = (
-                                    sv_wz_t51['Anpassungsfaktor']['7-9'])
+                                sv_wz_t51['Anpassungsfaktor']['7-9'])
                         elif((wz == 10) | (wz == 11) | (wz == 12)):
                             sv_wz['Anpassungsfaktor'][wz] = (
-                                    sv_wz_t51['Anpassungsfaktor']['10-12'])
+                                sv_wz_t51['Anpassungsfaktor']['10-12'])
                         elif((wz == 13) | (wz == 14) | (wz == 15)):
                             sv_wz['Anpassungsfaktor'][wz] = (
-                                    sv_wz_t51['Anpassungsfaktor']['13-15'])
+                                sv_wz_t51['Anpassungsfaktor']['13-15'])
                         elif((wz == 31) | (wz == 32)):
                             sv_wz['Anpassungsfaktor'][wz] = (
-                                    sv_wz_t51['Anpassungsfaktor']['31-32'])
+                                sv_wz_t51['Anpassungsfaktor']['31-32'])
                         else:
                             sv_wz['Anpassungsfaktor'][wz] = (
-                                    sv_wz_t51['Anpassungsfaktor'][str(wz)])
+                                sv_wz_t51['Anpassungsfaktor'][str(wz)])
                     if(sv_wz['Anpassungsfaktor'].sum() == len(sv_wz)):
                         z = False
                     elif(k < 10):
@@ -635,30 +635,21 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                     else:
                         z = False
         elif (et == 4):  # start adjusting loop for gas
-            gv_LK = gv_LK_real[['Verbrauch e-int WZ']]
+            gv_LK = pd.DataFrame(gv_LK_real.loc[:, 'Verbrauch e-int WZ'])
             mean_value = gv_LK['Verbrauch e-int WZ'].sum() / len(gv_LK)
             spez_gv_angepasst = spez_gv_e_int.copy()
-            x = True
-            while(x):
-                iterations_gas = iterations_gas - 1
-                if(iterations_gas == 0):
-                    break
+            while(iterations_gas > 0):
+                iterations_gas -= 1
                 y = True
                 i = 0
                 while(y):
-                    i = i + 1
+                    i += 1
                     gv_LK.loc[:, 'GV Modell e-int [MWh]'] = (
                         gv_lk_wz_e_int.sum())
                     gv_LK.loc[:, 'Normierter relativer Fehler'] = (
                         (gv_LK['Verbrauch e-int WZ']
                          - gv_LK['GV Modell e-int [MWh]']) / mean_value)
                     gv_LK.loc[:, 'Anpassungsfaktor'] = 1
-# HACK
-                    # (gv_LK['Anpassungsfaktor']
-                    #  [((gv_LK['Normierter relativer Fehler'] > 0.1)
-                    #    | (gv_LK['Normierter relativer Fehler'] < -0.1))]) = (
-                    #             gv_LK['Verbrauch e-int WZ']
-                    #             / gv_LK['GV Modell e-int [MWh]'])
                     gv_LK.loc[lambda x:
                               abs(x['Normierter relativer Fehler']) > 0.1,
                               'Anpassungsfaktor'] = (
@@ -672,9 +663,10 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                                              .transpose())
                         spez_gv_angepasst[spez_gv_angepasst < 10] = 10
                         spez_gv_angepasst = (spez_gv_angepasst
-                                             * gv_LK['Verbrauch e-int WZ'].sum()
+                                             * gv_LK['Verbrauch e-int WZ']
+                                               .sum()
                                              / gv_LK['GV Modell e-int [MWh]']
-                                             .sum())
+                                               .sum())
                         gv_lk_wz_e_int = bze_gv_e_int * spez_gv_angepasst
                     else:
                         y = False
@@ -684,13 +676,9 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                 z = True
                 while(z):
                     k = k + 1
-                    gv_wz_t51 = (pd.DataFrame(index=['5', '6', '7-9',
-                                                     '10-12', '13-15', '16',
-                                                     '17', '18', '19', '20',
-                                                     '21', '22', '23', '24',
-                                                     '25', '30'],
+                    gv_wz_t51 = (pd.DataFrame(index=gv_ind_branches_grp,
                                               columns=['GV WZ Modell [MWh]']))
-                    gv_wz_t51['GV WZ Modell [MWh]'] = 0.0
+                    gv_wz_t51.loc[:, 'GV WZ Modell [MWh]'] = 0.0
                     WZe = [7, 8, 9]
                     for i in WZe:
                         gv_wz_t51['GV WZ Modell [MWh]']['7-9'] = (
@@ -717,36 +705,32 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                         (gv_wz_t51['value']
                              - gv_wz_t51['GV WZ Modell [MWh]']) / mean_value2)
                     gv_wz_t51.loc[:, 'Anpassungsfaktor'] = 1
-                    # (gv_wz_t51['Anpassungsfaktor']
-                    #  [((gv_wz_t51['Normierter relativer Fehler'] > 0.01)
-                    #   | (gv_wz_t51['Normierter relativer Fehler'] < -0.01))])=(
-                    #     gv_wz_t51['value'] / gv_wz_t51['GV WZ Modell [MWh]'])
                     gv_wz_t51.loc[lambda x:
                                   abs(x['Normierter relativer Fehler']) > 0.01,
                                   'Anpassungsfaktor'] = (
                                       gv_wz_t51['value']
                                       / gv_wz_t51['GV WZ Modell [MWh]'])
-                    gv_wz['Anpassungsfaktor'] = 0.0
+                    gv_wz.loc[:, 'Anpassungsfaktor'] = 0.0
                     for wz in gv_wz.index:
                         if((wz == 7) | (wz == 8) | (wz == 9)):
                             gv_wz['Anpassungsfaktor'][wz] = (
-                                    gv_wz_t51['Anpassungsfaktor']['7-9'])
+                                gv_wz_t51['Anpassungsfaktor']['7-9'])
                         elif((wz == 10) | (wz == 11) | (wz == 12)):
                             gv_wz['Anpassungsfaktor'][wz] = (
-                                    gv_wz_t51['Anpassungsfaktor']['10-12'])
+                                gv_wz_t51['Anpassungsfaktor']['10-12'])
                         elif((wz == 13) | (wz == 14) | (wz == 15)):
                             gv_wz['Anpassungsfaktor'][wz] = (
-                                    gv_wz_t51['Anpassungsfaktor']['13-15'])
+                                gv_wz_t51['Anpassungsfaktor']['13-15'])
                         else:
                             gv_wz['Anpassungsfaktor'][wz] = (
-                                    gv_wz_t51['Anpassungsfaktor'][str(wz)])
+                                gv_wz_t51['Anpassungsfaktor'][str(wz)])
                     if(gv_wz['Anpassungsfaktor'].sum() == len(gv_wz)):
                         z = False
                     elif(k < 10):
                         spez_gv_angepasst = (spez_gv_angepasst
                                              .multiply(
-                                                     gv_wz['Anpassungsfaktor'],
-                                                     axis=0))
+                                                 gv_wz['Anpassungsfaktor'],
+                                                 axis=0))
                         spez_gv_angepasst[spez_gv_angepasst < 10] = 10
                         gv_lk_wz_e_int = bze_gv_e_int * spez_gv_angepasst
                         gv_wz = pd.DataFrame(gv_lk_wz_e_int.sum(axis=1),
@@ -755,11 +739,13 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                         z = False
     spez_sv_lk.loc[list(spez_sv_angepasst.index)] = spez_sv_angepasst.values
     spez_gv_lk.loc[list(spez_gv_angepasst.index)] = spez_gv_angepasst.values
+    #  HACK for Wolfsburg: There is no energy demand available Wolfsburg in the
+    #  Regionalstatistik. Therefore, specific demand is set on the average.
     spez_gv_lk[3103] = spez_gv['spez. GV']
     spez_sv_lk.sort_index(axis=1).to_csv(_data_in('regional',
-                                         'specific_power_consumption.csv'))
+                                          'specific_power_consumption.csv'))
     spez_gv_lk.sort_index(axis=1).to_csv(_data_in('regional',
-                                         'specific_gas_consumption.csv'))
+                                          'specific_gas_consumption.csv'))
     return spez_sv_lk.sort_index(axis=1), spez_gv_lk.sort_index(axis=1)
 
 # --- Spatial data ------------------------------------------------------------
@@ -1178,8 +1164,8 @@ def efficiency_enhancement(source, **kwargs):
         index: Branches
     """
     year = kwargs.get('year', cfg['base_year'])
-    es_rate = (pd.read_excel(
-                    './data_in/temporal/Efficiency_Enhancement_Rates.xlsx')
+    es_rate = (pd.read_excel(_data_in('temporal',
+                                      'Efficiency_Enhancement_Rates.xlsx'))
                  .set_index('WZ'))
     df = pow((-es_rate + 1), (year - 2015))
     if source == 'power':
