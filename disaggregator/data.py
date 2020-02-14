@@ -288,21 +288,11 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
     gv_wz_real = (vb_wz.loc[vb_wz['ET'] == 12][['WZ', 'value']]
                        .groupby(by='WZ')[['value']].sum()
                        .rename(columns={'value': 'GV WZ [MWh]'}))
-    # get number of workers (bze) from database
-    df = database_get('spatial', table_id=18, year=2015)
-    df = (df.assign(ags=[int(x[:-3]) for x in df['id_region'].astype(str)],
-                    WZ=[x[1] for x in df['internal_id']]))
-    bool_list = np.array(df['id_region'].astype(str))
-    for i in range(0, len(df)):
-        # filter statistics for correct date (september == 9)
-        bool_list[i] = (df['internal_id'][i][0] == 9)
-    df = (df[((bool_list) & (df['WZ'] > 0))][['ags', 'value', 'WZ']]
-          .rename(columns={'value': 'BZE'}))
-    bze_je_lk_wz = (pd.pivot_table(df, values='BZE', index='WZ',
-                                   columns='ags', fill_value=0, dropna=False))
+    # get number of employees (bze) from database
+    bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=2015))
     bze_lk_wz = (pd.DataFrame(0.0, index=bze_je_lk_wz.columns,
                               columns=wz_dict().values()))
-    # arrange values from workers accordingly to energy consumption statistics
+    # arrange employees DataFrame accordingly to energy consumption statistics
     for i in [1, 2, 3, 5, 6]:
         bze_lk_wz[str(i)] = bze_je_lk_wz.transpose()[i]
     for i in [7, 8, 9]:
@@ -435,10 +425,10 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     ----------
     iteration_power: int
         The amount of iterations to generate specific power consumption per
-        branch and district, 20 recommended.
+        branch and district, 8 recommended.
     iteration_gas: int
         The amount of iterations to generate specific gas consumption per
-        branch and district, 20 recommended.
+        branch and district, 8 recommended.
 
     no_self_gen : bool, optional, default = False,
         If True: returns specific power consumption without self generation,
@@ -743,9 +733,9 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     #  Regionalstatistik. Therefore, specific demand is set on the average.
     spez_gv_lk[3103] = spez_gv['spez. GV']
     spez_sv_lk.sort_index(axis=1).to_csv(_data_in('regional',
-                                          'specific_power_consumption.csv'))
+                                         'specific_power_consumption.csv'))
     spez_gv_lk.sort_index(axis=1).to_csv(_data_in('regional',
-                                          'specific_gas_consumption.csv'))
+                                         'specific_gas_consumption.csv'))
     return spez_sv_lk.sort_index(axis=1), spez_gv_lk.sort_index(axis=1)
 
 # --- Spatial data ------------------------------------------------------------
@@ -1307,7 +1297,7 @@ def Leistung(Tag_Zeit, mask, df, df_SLP):
 def shift_load_profile_generator(state, **kwargs):
     """
     Return shift load profiles in normalized units
-    ('normalized' means here that the sum over all time steps equals one).
+    ('normalized' means here that the sum over all time steps equals to one).
 
     Parameter
     -------
@@ -1320,7 +1310,7 @@ def shift_load_profile_generator(state, **kwargs):
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
-    low = 0.3
+    low = 0.35
     if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
        & (year % 100 == 0) & (year % 400 == 0)):
         periods = 35136
@@ -1347,12 +1337,11 @@ def shift_load_profile_generator(state, **kwargs):
     df['SA'] = df['SA'] & (HD==False)
     df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
     df['SO'] = df['SO'] | HD
-    df['WT'][(df['Tag'] == datetime.date(year, 12, 24))] = False
-    df['WT'][(df['Tag'] == datetime.date(year, 12, 31))] = False
-    df['SO'][(df['Tag'] == datetime.date(year, 12, 24))] = False
-    df['SO'][(df['Tag'] == datetime.date(year, 12, 31))] = False
-    df['SA'][(df['Tag'] == datetime.date(year, 12, 24))] = True
-    df['SA'][(df['Tag'] == datetime.date(year, 12, 31))] = True
+    # 24th and 31st of december are treated like a saturday
+    hld = [datetime.date(year, 12, 24), datetime.date(year, 12, 31)]
+    mask = df['Tag'].isin(hld)
+    df.loc[mask, ['WT', 'SO']] = False
+    df.loc[mask, 'SA'] = True
     for sp in ['S1_WT', 'S1_WT_SA', 'S1_WT_SA_SO', 'S2_WT',
                'S2_WT_SA', 'S2_WT_SA_SO', 'S3_WT', 'S3_WT_SA',
                'S3_WT_SA_SO']:
@@ -1362,12 +1351,12 @@ def shift_load_profile_generator(state, **kwargs):
                           + len(df[df['SA']]))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            df[sp][df['SO']] = low * anteil
-            df[sp][df['SA']] = low * anteil
+            mask = (df['SO'] | df['SA'])
+            df.loc[mask, sp] = low * anteil
             mask = ((df['WT'])
                     & ((df['Stunde'] < pd.to_datetime('08:00:00').time())
                     | (df['Stunde'] >= pd.to_datetime('16:30:00').time())))
-            df[sp][mask] = low * anteil
+            df.loc[mask, sp] = low * anteil
         elif(sp == 'S1_WT_SA'):
             anzahl_wz = (17 / 48 * len(df[df['WT']])
                          + 17 / 48 * len(df[df['SA']]))
@@ -1375,15 +1364,16 @@ def shift_load_profile_generator(state, **kwargs):
                           + 31/48 * len(df[df['SA']]))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            df[sp][df['SO']] = low * anteil
+            mask = df['SO']
+            df.loc[mask, sp] = low * anteil
             mask = ((df['WT']) & ((df['Stunde'] < pd.to_datetime('08:00:00')
                     .time()) | (df['Stunde'] >= pd.to_datetime('16:30:00')
                                 .time())))
-            df[sp][mask] = low * anteil
+            df.loc[mask, sp] = low * anteil
             mask = ((df['SA']) & ((df['Stunde'] < pd.to_datetime('08:00:00')
                     .time()) | (df['Stunde'] >= pd.to_datetime('16:30:00')
                                 .time())))
-            df[sp][mask] = low * anteil
+            df.loc[mask, sp] = low * anteil
         elif(sp == 'S1_WT_SA_SO'):
             anzahl_wz = (17 / 48 * (len(df[df['WT']]) + len(df[df['SO']])
                          + len(df[df['SA']])))
@@ -1393,40 +1383,41 @@ def shift_load_profile_generator(state, **kwargs):
             df[sp] = anteil
             mask = ((df['Stunde'] < pd.to_datetime('08:00:00').time())
                     | (df['Stunde'] >= pd.to_datetime('16:30:00').time()))
-            df[sp][mask] = low * anteil
+            df.loc[mask, sp] = low * anteil
         elif(sp == 'S2_WT'):
             anzahl_wz = 17/24 * len(df[df['WT']])
-            anzahl_nwz = (7/24 * len(df[df['WT']]) + len(df[df['SO']]) +
-                          len(df[df['SA']]))
+            anzahl_nwz = (7/24 * len(df[df['WT']]) + len(df[df['SO']])
+                          + len(df[df['SA']]))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            df[sp][df['SO']] = low * anteil
-            df[sp][df['SA']] = low * anteil
-            mask = ((df['WT']) &
-                    ((df['Stunde'] < pd.to_datetime('06:00:00').time())
-                     | (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
-            df[sp][mask] = low * anteil
+            mask = (df['SO'] | df['SA'])
+            df.loc[mask, sp] = low * anteil
+            mask = ((df['WT'])
+                    & ((df['Stunde'] < pd.to_datetime('06:00:00').time())
+                    | (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
+            df.loc[mask, sp] = low * anteil
         elif(sp == 'S2_WT_SA'):
             anzahl_wz = 17/24 * (len(df[df['WT']]) + len(df[df['SA']]))
-            anzahl_nwz = (7/24 * len(df[df['WT']]) + len(df[df['SO']]) +
-                          7/24 * len(df[df['SA']]))
+            anzahl_nwz = (7/24 * len(df[df['WT']]) + len(df[df['SO']])
+                          + 7/24 * len(df[df['SA']]))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            df[sp][df['SO']] = low * anteil
+            mask = df['SO']
+            df.loc[mask, sp] = low * anteil
             mask = (((df['WT']) | (df['SA']))
                     & ((df['Stunde'] < pd.to_datetime('06:00:00').time())
                     | (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
-            df[sp][mask] = low * anteil
+            df.loc[mask, sp] = low * anteil
         elif(sp == 'S2_WT_SA_SO'):
-            anzahl_wz = (17/24 * (len(df[df['WT']]) + len(df[df['SA']]) +
-                                  len(df[df['SO']])))
-            anzahl_nwz = (7/24 * (len(df[df['WT']]) + len(df[df['SO']]) +
-                                  len(df[df['SA']])))
+            anzahl_wz = (17/24 * (len(df[df['WT']]) + len(df[df['SA']])
+                                  + len(df[df['SO']])))
+            anzahl_nwz = (7/24 * (len(df[df['WT']]) + len(df[df['SO']])
+                                  + len(df[df['SA']])))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
             mask = (((df['Stunde'] < pd.to_datetime('06:00:00').time())
                     | (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
-            df[sp][mask] = low * anteil
+            df.loc[mask, sp] = low * anteil
         elif(sp == 'S3_WT_SA_SO'):
             anteil = 1 / periods
             df[sp] = anteil
@@ -1435,14 +1426,15 @@ def shift_load_profile_generator(state, **kwargs):
             anzahl_nwz = len(df[df['SO']]) + len(df[df['SA']])
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            df[sp][df['SO']] = low * anteil
-            df[sp][df['SA']] = low * anteil
+            mask = (df['SO'] | df['SA'])
+            df.loc[mask, sp] = low * anteil
         elif(sp == 'S3_WT_SA'):
             anzahl_wz = len(df[df['WT']]) + len(df[df['SA']])
             anzahl_nwz = len(df[df['SO']])
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            df[sp][df['SO']] = low * anteil
+            mask = df['SO']
+            df.loc[mask, sp] = low * anteil
     df = (df[['Date', 'S1_WT', 'S1_WT_SA', 'S1_WT_SA_SO', 'S2_WT', 'S2_WT_SA',
              'S2_WT_SA_SO', 'S3_WT', 'S3_WT_SA', 'S3_WT_SA_SO']]
           .set_index('Date'))
@@ -1500,33 +1492,18 @@ def gas_slp_generator(state, **kwargs):
     df['SA'] = df['SA'] & (HD == False)
     df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
     df['SO'] = df['SO'] | HD
-    df['MO'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
-    df['MO'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
-    df['DI'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
-    df['DI'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
-    df['MI'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
-    df['MI'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
-    df['DO'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
-    df['DO'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
-    df['FR'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
-    df['FR'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
-    df['SA'][(df['Tag'] == datetime.date(int(year), 12, 24))] = True
-    df['SA'][(df['Tag'] == datetime.date(int(year), 12, 31))] = True
-    df['SO'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
-    df['SO'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
+    hld = [(datetime.date(int(year), 12, 24)),
+           (datetime.date(int(year), 12, 31))]
+    mask = df['Tag'].isin(hld)
+    df.loc[mask, ['MO', 'DI', 'MI', 'DO', 'FR', 'SO']] = False
+    df.loc[mask, 'SA'] = True
     par = pd.DataFrame.from_dict(gas_load_profile_parameters_dict())
     for slp in par.index:
-        df2 = par.loc[par.index == slp].reset_index()
         df['FW_'+str(slp)] = 0
-        df['FW_'+str(slp)][df['MO']] = df2['MO'][0]
-        df['FW_'+str(slp)][df['DI']] = df2['DI'][0]
-        df['FW_'+str(slp)][df['MI']] = df2['MI'][0]
-        df['FW_'+str(slp)][df['DO']] = df2['DO'][0]
-        df['FW_'+str(slp)][df['FR']] = df2['FR'][0]
-        df['FW_'+str(slp)][df['SA']] = df2['SA'][0]
-        df['FW_'+str(slp)][df['SO']] = df2['SO'][0]
+        for wd in ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO']:
+            df.loc[df[wd], ['FW_'+str(slp)]] = par.loc[slp, wd]
         summe = df['FW_'+str(slp)].sum()
-        df['FW_'+str(slp)] = df['FW_'+str(slp)] * days/summe
+        df['FW_'+str(slp)] *= days/summe
     return df.drop(columns=['DayOfYear']).set_index('Tag')
 
 
@@ -1547,57 +1524,62 @@ def power_slp_generator(state, **kwargs):
     """
     year = kwargs.get('year', cfg['base_year'])
     if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
-        & (year % 100 == 0) & (year % 400 == 0)):
+         & (year % 100 == 0) & (year % 400 == 0)):
         periods = 35136
     else:
         periods = 35040
-    df = (pd.DataFrame(data = {"Date": pd.date_range((str(year) + '-01-01'),
-                                                   periods = periods,
-                                                   freq = '15T',
-                                                   tz = 'Europe/Berlin')}))
+    df = (pd.DataFrame(data={"Date": pd.date_range((str(year) + '-01-01'),
+                                                   periods=periods,
+                                                   freq='15T',
+                                                   tz='Europe/Berlin')}))
     df['Tag'] = pd.DatetimeIndex(df['Date']).date
     df['Stunde'] = pd.DatetimeIndex(df['Date']).time
     df['DayOfYear'] = pd.DatetimeIndex(df['Date']).dayofyear.astype(int)
     mask_holiday = []
-    for i in range(0,len(holidays.DE(state = state, years = year))):
+    for i in range(0, len(holidays.DE(state=state, years=year))):
         mask_holiday.append('Null')
-        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state = state,
-                                          years = year).items()][i][0]))
+        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state=state,
+                                          years=year).items()][i][0]))
     HD = mask_holiday[0]
-    for i in range(1,len(holidays.DE(state = state, years = year))):
+    for i in range(1, len(holidays.DE(state=state, years=year))):
         HD = HD | mask_holiday[i]
-    df['WT'] = df['Date'].apply(lambda x: x.weekday() <  5)
+    df['WT'] = df['Date'].apply(lambda x: x.weekday() < 5)
     df['WT'] = df['WT'] & (HD == False)
     df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
-    df['SA'] = df['SA'] & (HD==False)
+    df['SA'] = df['SA'] & (HD == False)
     df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
     df['SO'] = df['SO'] | HD
-    df['WT'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
-    df['WT'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
-    df['SO'][(df['Tag'] == datetime.date(int(year), 12, 24))] = False
-    df['SO'][(df['Tag'] == datetime.date(int(year), 12, 31))] = False
-    df['SA'][(df['Tag'] == datetime.date(int(year), 12, 24))] = True
-    df['SA'][(df['Tag'] == datetime.date(int(year), 12, 31))] = True
+    hld = [datetime.date(year, 12, 24), datetime.date(year, 12, 31)]
+    mask = df['Tag'].isin(hld)
+    df.loc[mask, ['WT', 'SO']] = False
+    df.loc[mask, 'SA'] = True
     df_wiz1 = df.loc[df['Date'] < (str(year) + '-03-21 00:00:00')]
     df_wiz2 = df.loc[df['Date'] >= (str(year) + '-11-01')]
-    df_soz  = (df.loc[((str(year) + '-05-15') <= df['Date']) &
-                     (df['Date'] < (str(year) + '-09-15'))])
-    df_uez1 = (df.loc[((str(year) + '-03-21') <= df['Date']) &
-                     (df['Date'] < (str(year) + '-05-15'))])
-    df_uez2 =  (df.loc[((str(year) + '-09-15') <= df['Date']) &
-                       (df['Date'] <= (str(year) + '-10-31'))])
-    df['WIZ'] = (df['Tag'].isin(df_wiz1['Tag']) |
-                 df['Tag'].isin(df_wiz2['Tag']))
+    df_soz = (df.loc[((str(year) + '-05-15') <= df['Date'])
+                       & (df['Date'] < (str(year) + '-09-15'))])
+    df_uez1 = (df.loc[((str(year) + '-03-21') <= df['Date'])
+                       & (df['Date'] < (str(year) + '-05-15'))])
+    df_uez2 = (df.loc[((str(year) + '-09-15') <= df['Date'])
+                        & (df['Date'] <= (str(year) + '-10-31'))])
+    df['WIZ'] = (df['Tag'].isin(df_wiz1['Tag'])
+                 | df['Tag'].isin(df_wiz2['Tag']))
     df['SOZ'] = df['Tag'].isin(df_soz['Tag'])
-    df['UEZ'] = (df['Tag'].isin(df_uez1['Tag']) |
-                 df['Tag'].isin(df_uez2['Tag']))
-    for Tarifkundenprofil in ['H0','L0','L1','L2','G0','G1',
-                              'G2','G3','G4','G5','G6']:
-        path = ('./data_in/temporal/Power Load Profiles/39_VDEW_Strom_' +
-                 'Repräsentative Profile_' + Tarifkundenprofil + '.xlsx')
-        df_load = pd.read_excel(path, sep = ';', decimal = ',')
-        df_load.columns = ['Stunde', 'SA_WIZ', 'SO_WIZ',  'WT_WIZ', 'SA_SOZ',
-                           'SO_SOZ',  'WT_SOZ', 'SA_UEZ', 'SO_UEZ',  'WT_UEZ']
+    df['UEZ'] = (df['Tag'].isin(df_uez1['Tag'])
+                 | df['Tag'].isin(df_uez2['Tag']))
+    for Tarifkundenprofil in ['H0', 'L0', 'L1', 'L2', 'G0', 'G1',
+                              'G2', 'G3', 'G4', 'G5', 'G6']:
+# =============================================================================
+#         path = ('./data_in/temporal/Power Load Profiles/39_VDEW_Strom_' +
+#                  'Repräsentative Profile_' + Tarifkundenprofil + '.xlsx')
+#         df_load = pd.read_excel(path, sep = ';', decimal = ',')
+# =============================================================================
+        df_load = pd.read_excel(config._data_in(
+                                'temporal', 'Power Load Profiles/'
+                                + '39_VDEW_Strom_Repräsentative Profile_'
+                                + Tarifkundenprofil + '.xlsx'),
+                                sep=';', decimal=',')
+        df_load.columns = ['Stunde', 'SA_WIZ', 'SO_WIZ', 'WT_WIZ', 'SA_SOZ',
+                           'SO_SOZ', 'WT_SOZ', 'SA_UEZ', 'SO_UEZ', 'WT_UEZ']
         df_load.loc[1] = df_load.loc[len(df_load) - 2]
         df_SLP = df_load[1:97]
         df_SLP = df_SLP.reset_index()[['Stunde', 'SA_WIZ', 'SO_WIZ',  'WT_WIZ',
