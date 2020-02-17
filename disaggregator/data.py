@@ -1290,7 +1290,7 @@ def Leistung(Tag_Zeit, mask, df, df_SLP):
     u = (pd.merge(df[mask], df_SLP[['Stunde', Tag_Zeit]],
                   on=['Stunde'], how='left'))
     v = pd.merge(df, u[['Date', Tag_Zeit]], on=['Date'], how='left')
-    v[Tag_Zeit][v[Tag_Zeit] != v[Tag_Zeit]] = 0
+    v.fillna(0, inplace=True)
     return v[Tag_Zeit]
 
 
@@ -1568,12 +1568,7 @@ def power_slp_generator(state, **kwargs):
                  | df['Tag'].isin(df_uez2['Tag']))
     for Tarifkundenprofil in ['H0', 'L0', 'L1', 'L2', 'G0', 'G1',
                               'G2', 'G3', 'G4', 'G5', 'G6']:
-# =============================================================================
-#         path = ('./data_in/temporal/Power Load Profiles/39_VDEW_Strom_' +
-#                  'Repräsentative Profile_' + Tarifkundenprofil + '.xlsx')
-#         df_load = pd.read_excel(path, sep = ';', decimal = ',')
-# =============================================================================
-        df_load = pd.read_excel(config._data_in(
+        df_load = pd.read_excel(_data_in(
                                 'temporal', 'Power Load Profiles/'
                                 + '39_VDEW_Strom_Repräsentative Profile_'
                                 + Tarifkundenprofil + '.xlsx'),
@@ -1582,20 +1577,20 @@ def power_slp_generator(state, **kwargs):
                            'SO_SOZ', 'WT_SOZ', 'SA_UEZ', 'SO_UEZ', 'WT_UEZ']
         df_load.loc[1] = df_load.loc[len(df_load) - 2]
         df_SLP = df_load[1:97]
-        df_SLP = df_SLP.reset_index()[['Stunde', 'SA_WIZ', 'SO_WIZ',  'WT_WIZ',
-                                   'SA_SOZ', 'SO_SOZ',  'WT_SOZ', 'SA_UEZ',
-                                   'SO_UEZ',  'WT_UEZ']]
-        wt_wiz = Leistung ('WT_WIZ', (df.WT & df.WIZ), df, df_SLP)
-        wt_soz = Leistung ('WT_SOZ', (df.WT & df.SOZ), df, df_SLP)
-        wt_uez = Leistung ('WT_UEZ', (df.WT & df.UEZ), df, df_SLP)
+        df_SLP = df_SLP.reset_index()[['Stunde', 'SA_WIZ', 'SO_WIZ', 'WT_WIZ',
+                                       'SA_SOZ', 'SO_SOZ', 'WT_SOZ', 'SA_UEZ',
+                                       'SO_UEZ', 'WT_UEZ']]
+        wt_wiz = Leistung('WT_WIZ', (df.WT & df.WIZ), df, df_SLP)
+        wt_soz = Leistung('WT_SOZ', (df.WT & df.SOZ), df, df_SLP)
+        wt_uez = Leistung('WT_UEZ', (df.WT & df.UEZ), df, df_SLP)
         wt = wt_wiz + wt_soz + wt_uez
-        sa_wiz = Leistung ('SA_WIZ', (df.SA & df.WIZ), df, df_SLP)
-        sa_soz = Leistung ('SA_SOZ', (df.SA & df.SOZ), df, df_SLP)
-        sa_uez = Leistung ('SA_UEZ', (df.SA & df.UEZ), df, df_SLP)
+        sa_wiz = Leistung('SA_WIZ', (df.SA & df.WIZ), df, df_SLP)
+        sa_soz = Leistung('SA_SOZ', (df.SA & df.SOZ), df, df_SLP)
+        sa_uez = Leistung('SA_UEZ', (df.SA & df.UEZ), df, df_SLP)
         sa = sa_wiz + sa_soz + sa_uez
-        so_wiz = Leistung ('SO_WIZ', (df.SO & df.WIZ), df, df_SLP)
-        so_soz = Leistung ('SO_SOZ', (df.SO & df.SOZ), df, df_SLP)
-        so_uez = Leistung ('SO_UEZ', (df.SO & df.UEZ), df, df_SLP)
+        so_wiz = Leistung('SO_WIZ', (df.SO & df.WIZ), df, df_SLP)
+        so_soz = Leistung('SO_SOZ', (df.SO & df.SOZ), df, df_SLP)
+        so_uez = Leistung('SO_UEZ', (df.SO & df.UEZ), df, df_SLP)
         so = so_wiz + so_soz + so_uez
         Summe = wt + sa + so
         Last = 'Last_' + str(Tarifkundenprofil)
@@ -1604,12 +1599,11 @@ def power_slp_generator(state, **kwargs):
         df_normiert = df[Last] / total
         df[Tarifkundenprofil] = df_normiert
 
-    slp_bl = (df.drop(columns = ['Last_H0', 'Last_L0', 'Last_L1', 'Last_L2',
-                                 'Last_G0', 'Last_G1', 'Last_G2', 'Last_G3',
-                                 'Last_G4', 'Last_G5', 'Last_G6'])
+    slp_bl = (df.drop(columns=['Last_H0', 'Last_L0', 'Last_L1', 'Last_L2',
+                               'Last_G0', 'Last_G1', 'Last_G2', 'Last_G3',
+                               'Last_G4', 'Last_G5', 'Last_G6'])
                 .set_index('Date'))
     return slp_bl
-
 
 
 def ambient_T(**kwargs):
