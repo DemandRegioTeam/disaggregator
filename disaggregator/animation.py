@@ -20,7 +20,7 @@ This file is an executable script for multi-threaded creation of animations.
 Therefore it is NOT a library and should not be imported into other modules.
 """
 
-from disaggregator.config import get_config, _data_out
+from disaggregator.config import get_config, data_out
 from disaggregator.data import (ambient_T, solar_irradiation,
                                 elc_consumption_HH_spatiotemporal)
 from disaggregator.plot import choropleth_map
@@ -72,9 +72,9 @@ def create_animation(name, dir_in=None, dir_out=None, extension='mp4', fps=24):
     name : str
         A name for the created animation.
     dir_in : str
-        A path to the directory. If None, it will look in _data_out/batch/
+        A path to the directory. If None, it will look in data_out/batch/
     dir_out : str
-        A path to the directory. If None, it will save to _data_out/
+        A path to the directory. If None, it will save to data_out/
     extension : str
         Either 'mp4' or 'gif'
     fps : int
@@ -84,9 +84,9 @@ def create_animation(name, dir_in=None, dir_out=None, extension='mp4', fps=24):
     import imageio as im
 
     if dir_in is None:
-        dir_in = _data_out('batch')
+        dir_in = data_out('batch')
     if dir_out is None:
-        dir_out = _data_out()
+        dir_out = data_out()
 
     list_png = [os.path.join(dir_in, f)
                 for f in os.listdir(dir_in) if f.endswith('.png')]
@@ -205,7 +205,7 @@ if __name__ == '__main__':
                           relative=True, interval=(0, 1.54), cmap='jet',
                           unit='MW')
     # Exemplaric user_generated file:
-    df = pd.read_csv(_data_out('gas_disagg.csv'), index_col=0, engine='c')
+    df = pd.read_csv(data_out('gas_disagg.csv'), index_col=0, engine='c')
     invoke_batch_creation(df, name='Gas_Consumption', fps=6,
                           relative=True, interval=(0, 3.25), cmap='jet',
                           unit='MWh/h')

@@ -24,10 +24,10 @@ import numpy as np
 import logging
 import holidays
 import datetime
-from .config import (get_config, _data_in, database_raw, region_id_to_nuts3,
                      literal_converter, wz_dict, hist_weather_year, bl_dict,
                      slp_branch_cts_gas, slp_branch_cts_power,
                      shift_profile_industry, gas_load_profile_parameters_dict)
+from .config import (get_config, data_in, database_raw, region_id_to_nuts3,
 logger = logging.getLogger(__name__)
 cfg = get_config()
 
@@ -58,7 +58,7 @@ def elc_consumption_HH(by_HH_size=False, **kwargs):
                        "'local' or 'database' but is: {}".format(source))
     if by_HH_size:
         if source == 'local':
-            df = read_local(_data_in('dimensionless', cfg[key]['filename']))
+            df = read_local(data_in('dimensionless', cfg[key]['filename']))
         elif source == 'database':
             df = database_get('spatial', table_id=cfg[key]['table_id'],
                               force_update=force_update)
@@ -75,7 +75,7 @@ def elc_consumption_HH(by_HH_size=False, **kwargs):
         df /= 1e3
     else:
         if source == 'local':
-            df = float(read_local(_data_in('dimensionless',
+            df = float(read_local(data_in('dimensionless',
                                            cfg[key]['filename']),
                                   year=year)
                        .reset_index(drop=True)
@@ -107,7 +107,7 @@ def heat_consumption_HH(by='households', **kwargs):
     if source == 'local':
         col = {'households': 'PersonsInHousehold',
                'buildings': 'BuildingType'}[by]
-        df = (pd.read_csv(_data_in('dimensionless',
+        df = (pd.read_csv(data_in('dimensionless',
                                    cfg['heat_consumption_HH']['filename']))
                 .pivot_table(index='Application', columns=col, values='Value'))
     elif source == 'database':
@@ -137,7 +137,7 @@ def gas_consumption_HH(**kwargs):
     force_update = kwargs.get('force_update', False)
 
     if source == 'local':
-        df = read_local(_data_in('dimensionless', cfg[key]['filename']),
+        df = read_local(data_in('dimensionless', cfg[key]['filename']),
                         year=year)
     elif source == 'database':
         df = database_get('spatial', table_id=table_id, year=year,
@@ -152,7 +152,7 @@ def gas_consumption_HH(**kwargs):
 
 
 def zve_percentages_applications():
-    df = (pd.read_csv(_data_in('temporal', 'percentages_applications.csv'),
+    df = (pd.read_csv(data_in('temporal', 'percentages_applications.csv'),
                       index_col='Application', engine='c')
             .drop(labels='all', axis=1))
     df.columns = df.columns.astype(int)
@@ -160,7 +160,7 @@ def zve_percentages_applications():
 
 
 def zve_percentages_baseload():
-    df = (pd.read_csv(_data_in('temporal', 'percentages_baseload.csv'),
+    df = (pd.read_csv(data_in('temporal', 'percentages_baseload.csv'),
                       index_col='Application', engine='c')
             .drop(labels='all', axis=1))
     df.columns = df.columns.astype(int)
@@ -168,7 +168,7 @@ def zve_percentages_baseload():
 
 
 def zve_application_profiles():
-    return pd.read_csv(_data_in('temporal', 'application_profiles.csv'),
+    return pd.read_csv(data_in('temporal', 'application_profiles.csv'),
                        engine='c')
 
 
@@ -364,7 +364,7 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
 
     # original source (table_id = 38) gives sum of natural gas and other gases
     # use factor form sheet to decompose energy consumption
-    df_decom = pd.read_excel(_data_in('dimensionless',
+    df_decom = pd.read_excel(data_in('dimensionless',
                                       'Decomposition Factors Industrial'
                                       + ' Energy Demand_2.xlsx'),
                              sheet_name='Tabelle1')
@@ -380,7 +380,7 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
     # original source (table_id = 38) does not include gas consumption for
     # self generation in industrial sector
     # get gas consumption for self_generation from German energy balance
-    df_balance = pd.read_excel(_data_in('dimensionless', 'bilanz15d.xlsx'),
+    df_balance = pd.read_excel(data_in('dimensionless', 'bilanz15d.xlsx'),
                                sheet_name='nat', skiprows=3)
     # tbd import energy balance from database
     df_balance.rename(columns={"Unnamed: 1": "Zeile",
@@ -732,9 +732,9 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     #  HACK for Wolfsburg: There is no energy demand available Wolfsburg in the
     #  Regionalstatistik. Therefore, specific demand is set on the average.
     spez_gv_lk[3103] = spez_gv['spez. GV']
-    spez_sv_lk.sort_index(axis=1).to_csv(_data_in('regional',
+    spez_sv_lk.sort_index(axis=1).to_csv(data_in('regional',
                                          'specific_power_consumption.csv'))
-    spez_gv_lk.sort_index(axis=1).to_csv(_data_in('regional',
+    spez_gv_lk.sort_index(axis=1).to_csv(data_in('regional',
                                          'specific_gas_consumption.csv'))
     return spez_sv_lk.sort_index(axis=1), spez_gv_lk.sort_index(axis=1)
 
@@ -759,10 +759,10 @@ def population(**kwargs):
     if source == 'local':
         if year >= 2018:
             logger.warn('open # TODO not yet working correctly!')
-            fn = _data_in('regional', cfg['demographic_trend']['filename'])
+            fn = data_in('regional', cfg['demographic_trend']['filename'])
             df = read_local(fn, year=year)
         else:
-            fn = _data_in('regional', cfg['population']['filename'])
+            fn = data_in('regional', cfg['population']['filename'])
             df = read_local(fn, year=year)
     elif source == 'database':
         if year >= 2018:
@@ -808,7 +808,7 @@ def elc_consumption_HH_spatial(**kwargs):
     force_update = kwargs.get('force_update', False)
 
     if source == 'local':
-        fn = _data_in('regional', cfg['elc_cons_HH_spatial']['filename'])
+        fn = data_in('regional', cfg['elc_cons_HH_spatial']['filename'])
         df = read_local(fn, year=year)
     elif source == 'database':
         df = database_get('spatial', table_id=table_id, year=year,
@@ -846,7 +846,7 @@ def households_per_size(original=False, **kwargs):
     force_update = kwargs.get('force_update', False)
 
     if source == 'local':
-        fn = _data_in('regional', cfg['household_sizes']['filename'])
+        fn = data_in('regional', cfg['household_sizes']['filename'])
         df = read_local(fn)
     elif source == 'database':
         df = database_get('spatial', table_id=table_id, year=2011,
@@ -940,7 +940,7 @@ def living_space(aggregate=True, **kwargs):
     ne = kwargs.get('internal_id_3', cfg['living_space']['internal_id'][3])
 
     if source == 'local':
-        df = read_local(_data_in('regional', cfg['living_space']['filename']))
+        df = read_local(data_in('regional', cfg['living_space']['filename']))
     elif source == 'database':
         df = database_get('spatial', table_id=table_id, year=year,
                           force_update=force_update)
@@ -996,7 +996,7 @@ def income(**kwargs):
     force_update = kwargs.get('force_update', False)
 
     if source == 'local':
-        df = read_local(_data_in('regional', cfg['income']['filename']),
+        df = read_local(data_in('regional', cfg['income']['filename']),
                         internal_id=internal_id, year=year)
     elif source == 'database':
         df = database_get('spatial', table_id=table_id, year=year,
@@ -1023,7 +1023,7 @@ def stove_assumptions(**kwargs):
     """
     source = kwargs.get('source', cfg['stove_assumptions']['source'])
     if source == 'local':
-        df = (pd.read_csv(_data_in('regional',
+        df = (pd.read_csv(data_in('regional',
                                    cfg['stove_assumptions']['filename']),
                           index_col='natcode_nuts1', encoding='utf-8')
                 .drop(labels='name_nuts1', axis=1))
@@ -1045,7 +1045,7 @@ def hotwater_shares(**kwargs):
     """
     source = kwargs.get('source', cfg['hotwater_shares']['source'])
     if source == 'local':
-        df = (pd.read_csv(_data_in('regional',
+        df = (pd.read_csv(data_in('regional',
                                    cfg['hotwater_shares']['filename']),
                           index_col='natcode_nuts1', encoding='utf-8')
                 .drop(labels='name_nuts1', axis=1))
@@ -1154,8 +1154,8 @@ def efficiency_enhancement(source, **kwargs):
         index: Branches
     """
     year = kwargs.get('year', cfg['base_year'])
-    es_rate = (pd.read_excel(_data_in('temporal',
-                                      'Efficiency_Enhancement_Rates.xlsx'))
+    es_rate = (pd.read_excel(data_in('temporal',
+                                     'Efficiency_Enhancement_Rates.xlsx'))
                  .set_index('WZ'))
     df = pow((-es_rate + 1), (year - 2015))
     if source == 'power':
@@ -1570,7 +1570,7 @@ def power_slp_generator(state, **kwargs):
                               'G2', 'G3', 'G4', 'G5', 'G6']:
         f = ('39_VDEW_Strom_Repräsentative Profile_{}.xlsx'
              .format(Tarifkundenprofil))
-        df_load = pd.read_excel(_data_in('temporal', 'Power Load Profiles', f),                          
+        df_load = pd.read_excel(data_in('temporal', 'Power Load Profiles', f),
                                 sep=';', decimal=',')
         df_load.columns = ['Stunde', 'SA_WIZ', 'SO_WIZ', 'WT_WIZ', 'SA_SOZ',
                            'SO_SOZ', 'WT_SOZ', 'SA_UEZ', 'SO_UEZ', 'WT_UEZ']

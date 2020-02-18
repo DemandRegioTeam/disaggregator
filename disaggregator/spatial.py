@@ -24,7 +24,7 @@ from .data import (elc_consumption_HH, heat_consumption_HH, gas_consumption_HH,
                    living_space, hotwater_shares, heat_demand_buildings,
                    employees_per_branch_district, efficiency_enhancement,
                    generate_specific_consumption_per_branch_and_district)
-from .config import (_data_in)
+from .config import data_in
 
 import pandas as pd
 import logging
@@ -268,13 +268,13 @@ def disagg_CTS(source):
 
     if (source == 'power') | (source == 'gas'):
         try:
-            spez_vb = (pd.read_csv(_data_in('regional',
+            spez_vb = (pd.read_csv(data_in('regional',
                                             'specific_' + source +
                                             '_consumption.csv'))
                          .rename(columns={'Unnamed: 0': 'WZ'}).set_index('WZ'))
         except FileNotFoundError:
             generate_specific_consumption_per_branch_and_district(20, 20)
-            spez_vb = (pd.read_csv(_data_in('regional',
+            spez_vb = (pd.read_csv(data_in('regional',
                                             'specific_' + source +
                                             '_consumption.csv'))
                          .rename(columns={'Unnamed: 0': 'WZ'}).set_index('WZ'))
@@ -310,13 +310,13 @@ def disagg_industry(source):
     """
     if (source == 'power') | (source == 'gas'):
         try:
-            spez_vb = (pd.read_csv(_data_in('regional',
+            spez_vb = (pd.read_csv(data_in('regional',
                                             'specific_' + source +
                                             '_consumption.csv')) 
                          .rename(columns={'Unnamed: 0':'WZ'}).set_index('WZ'))
         except FileNotFoundError:
             generate_specific_consumption_per_branch_and_district(20,20)
-            spez_vb = (pd.read_csv(_data_in('regional',
+            spez_vb = (pd.read_csv(data_in('regional',
                                             'specific_' + source +
                                             '_consumption.csv'))
                          .rename(columns={'Unnamed: 0':'WZ'}).set_index('WZ'))

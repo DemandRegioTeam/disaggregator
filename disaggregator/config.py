@@ -29,24 +29,20 @@ from ast import literal_eval as lit_eval
 logger = logging.getLogger(__name__)
 
 
-def _data(fn):
-    return os.path.join(os.path.dirname(__file__), fn)
-
-
-def _data_out(*fn):
+def data_out(*fn):
     dirpath = os.path.join(os.path.dirname(__file__), '..', 'data_out')
     if not os.path.isdir(dirpath):
         os.mkdir(dirpath)
     return os.path.join(dirpath, *fn)
 
 
-def _data_in(*fn):
+def data_in(*fn):
     return os.path.join(os.path.dirname(__file__), '..', 'data_in', *fn)
 
 
 def get_config(filename=None, **kwargs):
     if filename is None:
-        filename = _data('config.yaml')
+        filename = os.path.join(os.path.dirname(__file__), 'config.yaml')
     assert os.path.exists(filename), (
         "The config file '{}' does not exist yet. "
         "Copy config_example.yaml to config.yaml and fill in details, "
@@ -83,11 +79,11 @@ def database_raw(query, force_update=False):
     sha1 = hashlib.sha1(query.encode()).hexdigest()
 
     # Check if caching directory exists and create if not.
-    if not os.path.isdir(_data_in('__cache__/')):
-        os.mkdir(_data_in('__cache__/'))
+    if not os.path.isdir(data_in('__cache__/')):
+        os.mkdir(data_in('__cache__/'))
 
     # If file has already been cached, read cache, else query from API + save.
-    filename = _data_in('__cache__/{}.csv'.format(sha1))
+    filename = data_in('__cache__/{}.csv'.format(sha1))
     if os.path.exists(filename) and (force_update is False):
         return pd.read_csv(filename, index_col='idx', encoding='utf-8',
                            engine='c',
@@ -120,12 +116,12 @@ def clear_local_cache():
     Clear the local query cache.
     """
     # Check if caching directory exists and create if not.
-    if not os.path.isdir(_data_in('__cache__/')):
-        os.mkdir(_data_in('__cache__/'))
+    if not os.path.isdir(data_in('__cache__/')):
+        os.mkdir(data_in('__cache__/'))
 
     deleted = False
-    for the_file in os.listdir(_data_in('__cache__')):
-        file_path = os.path.join(_data_in('__cache__'), the_file)
+    for the_file in os.listdir(data_in('__cache__')):
+        file_path = os.path.join(data_in('__cache__'), the_file)
         try:
             if os.path.isfile(file_path):
                 os.unlink(file_path)
@@ -158,7 +154,7 @@ def region_id_to_nuts3(raw=False, nuts3_to_name=False):
     """
     dict_source = get_config()['dict_source']
     if dict_source == 'local':
-        df = pd.read_csv(_data_in('regional/t_nuts3_lk.csv'), encoding='utf-8')
+        df = pd.read_csv(data_in('regional/t_nuts3_lk.csv'), encoding='utf-8')
     else:
         df = database_raw('t_nuts3_lk')
     if raw:

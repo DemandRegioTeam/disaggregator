@@ -19,7 +19,7 @@
 Provides functions for temporal disaggregations.
 """
 
-from .config import (get_config, _data_out, bl_dict, slp_branch_cts_power,
+from .config import (get_config, data_out, bl_dict, slp_branch_cts_power,
                      shift_profile_industry)
 from .data import (elc_consumption_HH, households_per_size, population,
                    living_space, h_value, slp_branch_cts_gas,
@@ -250,7 +250,7 @@ def make_zve_load_profiles(return_profile_by_typeday=False,
     if reg is None:
         reg = 'AllRegions'
     f = 'ZVE_timeseries_{}_{}.csv'.format(reg, year)
-    DF.to_csv(_data_out(f), encoding='utf-8')
+    DF.to_csv(data_out(f), encoding='utf-8')
     return DF
 
 
