@@ -363,10 +363,9 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
 
     # original source (table_id = 38) gives sum of natural gas and other gases
     # use factor form sheet to decompose energy consumption
-    df_decom = pd.read_excel(data_in('dimensionless',
-                                      'Decomposition Factors Industrial'
-                                      + ' Energy Demand_2.xlsx'),
-                             sheet_name='Tabelle1')
+    f = ('Decomposition Factors Industrial Energy Demand_2.xlsx')
+    df_decom = pd.read_excel(data_in('dimensionless', f),
+                               sheet_name='Tabelle1')
     df_decom.set_index('WZ', inplace=True)
     df_decom = spez_gv.merge(df_decom, how='left',
                              left_index=True, right_index=True)
@@ -1176,7 +1175,7 @@ def employees_per_branch_district(**kwargs):
     -------
     pd.Dataframe
         index: Branches
-        columns: NUTS-3 codes
+        columns: District keys (Landkreisschlüssel)
     """
 
     year = kwargs.get('year', cfg['base_year'])
@@ -1199,12 +1198,16 @@ def employees_per_branch_district(**kwargs):
             df = database_get('spatial', table_id=27, year=year)
         elif scenario == 'Digital':
             df = database_get('spatial', table_id=28, year=year)
+        else:
+            raise ValueError("`scenario` must be in ['Basis', 'Digital']")
 
         df = (df.assign(ags=[int(x[:-3]) for x in
                              df['id_region'].astype(str)],
                         WZ=[x[0] for x in df['internal_id']]))
         df = (pd.pivot_table(df, values='value', index='WZ',
                              columns='ags', fill_value=0, dropna=False))
+    else:
+        raise ValueError("`year` must be between 2015 and 2035")
 
     return df
 
