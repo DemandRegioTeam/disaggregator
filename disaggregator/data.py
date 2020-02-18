@@ -1332,9 +1332,9 @@ def shift_load_profile_generator(state, **kwargs):
     for i in range(1, len(holidays.DE(state=state, years=year))):
         HD = HD | mask_holiday[i]
     df['WT'] = df['Date'].apply(lambda x: x.weekday() < 5)
-    df['WT'] = df['WT'] & (HD == False)
+    df['WT'] = df['WT'] & (HD is False)
     df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
-    df['SA'] = df['SA'] & (HD==False)
+    df['SA'] = df['SA'] & (HD is False)
     df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
     df['SO'] = df['SO'] | HD
     # 24th and 31st of december are treated like a saturday
@@ -1479,17 +1479,17 @@ def gas_slp_generator(state, **kwargs):
     for i in range(1, len(holidays.DE(state=state, years=year))):
         HD = HD | mask_holiday[i]
     df['MO'] = df['Date'].apply(lambda x: x.weekday() == 0)
-    df['MO'] = df['MO'] & (HD == False)
+    df['MO'] = df['MO'] & (HD is False)
     df['DI'] = df['Date'].apply(lambda x: x.weekday() == 1)
-    df['DI'] = df['DI'] & (HD == False)
+    df['DI'] = df['DI'] & (HD is False)
     df['MI'] = df['Date'].apply(lambda x: x.weekday() == 2)
-    df['MI'] = df['MI'] & (HD == False)
+    df['MI'] = df['MI'] & (HD is False)
     df['DO'] = df['Date'].apply(lambda x: x.weekday() == 3)
-    df['DO'] = df['DO'] & (HD == False)
+    df['DO'] = df['DO'] & (HD is False)
     df['FR'] = df['Date'].apply(lambda x: x.weekday() == 4)
-    df['FR'] = df['FR'] & (HD == False)
+    df['FR'] = df['FR'] & (HD is False)
     df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
-    df['SA'] = df['SA'] & (HD == False)
+    df['SA'] = df['SA'] & (HD is False)
     df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
     df['SO'] = df['SO'] | HD
     hld = [(datetime.date(int(year), 12, 24)),
@@ -1544,9 +1544,9 @@ def power_slp_generator(state, **kwargs):
     for i in range(1, len(holidays.DE(state=state, years=year))):
         HD = HD | mask_holiday[i]
     df['WT'] = df['Date'].apply(lambda x: x.weekday() < 5)
-    df['WT'] = df['WT'] & (HD == False)
+    df['WT'] = df['WT'] & (HD is False)
     df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
-    df['SA'] = df['SA'] & (HD == False)
+    df['SA'] = df['SA'] & (HD is False)
     df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
     df['SO'] = df['SO'] | HD
     hld = [datetime.date(year, 12, 24), datetime.date(year, 12, 31)]
@@ -1568,10 +1568,9 @@ def power_slp_generator(state, **kwargs):
                  | df['Tag'].isin(df_uez2['Tag']))
     for Tarifkundenprofil in ['H0', 'L0', 'L1', 'L2', 'G0', 'G1',
                               'G2', 'G3', 'G4', 'G5', 'G6']:
-        df_load = pd.read_excel(_data_in(
-                                'temporal', 'Power Load Profiles/'
-                                + '39_VDEW_Strom_Repräsentative Profile_'
-                                + Tarifkundenprofil + '.xlsx'),
+        f = ('39_VDEW_Strom_Repräsentative Profile_{}.xlsx'
+             .format(Tarifkundenprofil))
+        df_load = pd.read_excel(_data_in('temporal', 'Power Load Profiles', f),                          
                                 sep=';', decimal=',')
         df_load.columns = ['Stunde', 'SA_WIZ', 'SO_WIZ', 'WT_WIZ', 'SA_SOZ',
                            'SO_SOZ', 'WT_SOZ', 'SA_UEZ', 'SO_UEZ', 'WT_UEZ']
