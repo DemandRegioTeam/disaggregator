@@ -24,10 +24,9 @@ import numpy as np
 import logging
 import holidays
 import datetime
-                     literal_converter, wz_dict, hist_weather_year, bl_dict,
-                     slp_branch_cts_gas, slp_branch_cts_power,
-                     shift_profile_industry, gas_load_profile_parameters_dict)
 from .config import (get_config, data_in, database_raw, region_id_to_nuts3,
+                     literal_converter, wz_dict, hist_weather_year,
+                     gas_load_profile_parameters_dict)
 logger = logging.getLogger(__name__)
 cfg = get_config()
 
