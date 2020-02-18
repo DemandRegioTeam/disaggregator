@@ -20,13 +20,12 @@ Provides functions for temporal disaggregations.
 """
 
 from .config import (get_config, data_out, bl_dict, slp_branch_cts_power,
-                     shift_profile_industry)
+                     shift_profile_industry, slp_branch_cts_gas)
 from .data import (elc_consumption_HH, households_per_size, population,
-                   living_space, h_value, standard_load_profile_elc,
-                   zve_percentages_applications, zve_percentages_baseload,
-                   zve_application_profiles, database_shapes,
-                   power_slp_generator, t_allo, shift_load_profile_generator,
-                   gas_slp_generator)
+                   living_space, h_value, zve_percentages_applications,
+                   zve_percentages_baseload, zve_application_profiles,
+                   database_shapes, CTS_power_slp_generator, t_allo,
+                   shift_load_profile_generator, gas_slp_weekday_params)
 from .spatial import disagg_CTS, disagg_industry
 import numpy as np
 import pandas as pd
@@ -443,7 +442,7 @@ def disagg_temporal_power_CTS(branch=False, **kwargs):
                             .drop(columns=['BL'])
                             .transpose())
         sv_lk_wz = sv_lk_wz.assign(SLP=[slp_wz[x] for x in sv_lk_wz.index])
-        slp_bl = power_slp_generator(state)
+        slp_bl = CTS_power_slp_generator(state)
         sv_timestamp = pd.DataFrame(index=slp_bl.index)
         sv_lk_timestamp = (pd.DataFrame(index=slp_bl.index,
                                         columns=sv_lk_wz.drop(columns=['SLP']))
@@ -490,7 +489,7 @@ def disagg_daily_gas_slp(state, **kwargs):
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
-    wz_slp_dict = gas_slp_generator()
+    wz_slp_dict = slp_branch_CTS_gas()
     bl_dic = bl_dict()
     if ((year % 4 == 0)
             & (year % 100 != 0)
@@ -507,7 +506,7 @@ def disagg_daily_gas_slp(state, **kwargs):
     gv_lk = gv_lk.loc[gv_lk['BL'] == state].drop(columns=['BL']).transpose()
     list_ags = gv_lk.columns.astype(str)
     gv_lk['SLP'] = [wz_slp_dict[x] for x in (gv_lk.index)]
-    calender_df = (gas_slp_generator(state)
+    calender_df = (gas_slp_weekday_params(state)
                    .drop(columns=['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO']))
     tageswerte = pd.DataFrame(index=calender_df['Date'])
     for slp in gv_lk['SLP'].unique():
@@ -544,7 +543,7 @@ def disagg_temporal_gas_CTS(state, **kwargs):
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
-    wz_slp_dict = gas_slp_generator()
+    wz_slp_dict = slp_branch_cts_gas()
     bl_dic = bl_dict()
     if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
             & (year % 100 == 0) & (year % 400 == 0)):
@@ -580,8 +579,7 @@ def disagg_temporal_gas_CTS(state, **kwargs):
                               (t_allo_df[col].values < 25)] = 25
         t_allo_df[col].values[(t_allo_df[col].values > 25)] = 100
         t_allo_df = t_allo_df.astype('int32')
-
-    calender_df = gas_slp_generator(state).drop(columns = ['FW_BA', 'FW_BD',
+    calender_df = gas_slp_weekday_params(state).drop(columns = ['FW_BA', 'FW_BD',
                                    'FW_BH', 'FW_GA', 'FW_GB', 'FW_HA', 'FW_KO',
                                    'FW_MF', 'FW_MK', 'FW_PD','FW_WA'])
     temp_calender_df = (pd.concat([calender_df, t_allo_df], axis = 1)

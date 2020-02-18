@@ -1327,15 +1327,15 @@ def shift_load_profile_generator(state, **kwargs):
         mask_holiday.append('Null')
         mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state=state,
                             years=year).items()][i][0]))
-    HD = mask_holiday[0]
+    hd = mask_holiday[0]
     for i in range(1, len(holidays.DE(state=state, years=year))):
-        HD = HD | mask_holiday[i]
+        hd = hd | mask_holiday[i]
     df['WT'] = df['Date'].apply(lambda x: x.weekday() < 5)
-    df['WT'] = df['WT'] & (HD is False)
+    df['WT'] = df['WT'] & (~hd)
     df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
-    df['SA'] = df['SA'] & (HD is False)
+    df['SA'] = df['SA'] & (~hd)
     df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
-    df['SO'] = df['SO'] | HD
+    df['SO'] = df['SO'] | hd
     # 24th and 31st of december are treated like a saturday
     hld = [datetime.date(year, 12, 24), datetime.date(year, 12, 31)]
     mask = df['Tag'].isin(hld)
@@ -1440,11 +1440,11 @@ def shift_load_profile_generator(state, **kwargs):
     return df
 
 
-def gas_slp_generator(state, **kwargs):
+def gas_slp_weekday_params(state, **kwargs):
     """
-    Return the gas standard load profiles in normalized units
-    ('normalized' means here that the sum over all time steps equals
-    365 (or 366 in a leapyear)).
+    Returns the weekday-parameters of the gas standard load profiles in
+    normalized units ('normalized' means here that the sum over all time steps
+    equals 365 (or 366 in a leapyear)).
 
     Parameter
     -------
@@ -1474,23 +1474,23 @@ def gas_slp_generator(state, **kwargs):
         mask_holiday.append('Null')
         mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state=state,
                                           years=year).items()][i][0]))
-    HD = mask_holiday[0]
+    hd = mask_holiday[0]
     for i in range(1, len(holidays.DE(state=state, years=year))):
-        HD = HD | mask_holiday[i]
+        hd = hd | mask_holiday[i]
     df['MO'] = df['Date'].apply(lambda x: x.weekday() == 0)
-    df['MO'] = df['MO'] & (HD is False)
+    df['MO'] = df['MO'] & (~hd)
     df['DI'] = df['Date'].apply(lambda x: x.weekday() == 1)
-    df['DI'] = df['DI'] & (HD is False)
+    df['DI'] = df['DI'] & (~hd)
     df['MI'] = df['Date'].apply(lambda x: x.weekday() == 2)
-    df['MI'] = df['MI'] & (HD is False)
+    df['MI'] = df['MI'] & (~hd)
     df['DO'] = df['Date'].apply(lambda x: x.weekday() == 3)
-    df['DO'] = df['DO'] & (HD is False)
+    df['DO'] = df['DO'] & (~hd)
     df['FR'] = df['Date'].apply(lambda x: x.weekday() == 4)
-    df['FR'] = df['FR'] & (HD is False)
+    df['FR'] = df['FR'] & (~hd)
     df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
-    df['SA'] = df['SA'] & (HD is False)
+    df['SA'] = df['SA'] & (~hd)
     df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
-    df['SO'] = df['SO'] | HD
+    df['SO'] = df['SO'] | hd
     hld = [(datetime.date(int(year), 12, 24)),
            (datetime.date(int(year), 12, 31))]
     mask = df['Tag'].isin(hld)
@@ -1506,7 +1506,7 @@ def gas_slp_generator(state, **kwargs):
     return df.drop(columns=['DayOfYear']).set_index('Tag')
 
 
-def power_slp_generator(state, **kwargs):
+def CTS_power_slp_generator(state, **kwargs):
     """
     Return the electric standard load profiles in normalized units
     ('normalized' means here that the sum over all time steps equals one).
@@ -1539,15 +1539,15 @@ def power_slp_generator(state, **kwargs):
         mask_holiday.append('Null')
         mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state=state,
                                           years=year).items()][i][0]))
-    HD = mask_holiday[0]
+    hd = mask_holiday[0]
     for i in range(1, len(holidays.DE(state=state, years=year))):
-        HD = HD | mask_holiday[i]
+        hd = hd | mask_holiday[i]
     df['WT'] = df['Date'].apply(lambda x: x.weekday() < 5)
-    df['WT'] = df['WT'] & (HD is False)
+    df['WT'] = df['WT'] & (~hd)
     df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
-    df['SA'] = df['SA'] & (HD is False)
+    df['SA'] = df['SA'] & (~hd)
     df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
-    df['SO'] = df['SO'] | HD
+    df['SO'] = df['SO'] | hd
     hld = [datetime.date(year, 12, 24), datetime.date(year, 12, 31)]
     mask = df['Tag'].isin(hld)
     df.loc[mask, ['WT', 'SO']] = False
