@@ -438,6 +438,7 @@ def disagg_temporal_power_CTS(branch=False, **kwargs):
     SV_Dtl = pd.DataFrame(index=range(periods))
     liste = []
     for state in bl_dic.values():
+        print('Working on state: ' + state + '.')
         sv_lk_wz = (sv_wz_lk.loc[sv_wz_lk['BL'] == state]
                             .drop(columns=['BL'])
                             .transpose())
@@ -466,8 +467,10 @@ def disagg_temporal_power_CTS(branch=False, **kwargs):
                                     columns=sv_dtl_df.columns))
             sv_timestamp = (sv_timestamp.merge(slp_sv, left_index=True,
                                                right_index=True))
-            #  TODO: make this list available without memory errors
-            #  liste.append(sv_timestamp)
+            #  TODO: make this list available without memory errors,
+            #  6 GB of memory needed
+            # if branch:
+            #    liste.append(sv_timestamp)
             sv_lk_timestamp = sv_lk_timestamp + lk_sv
         SV_Dtl = (pd.concat([SV_Dtl, sv_lk_timestamp], axis=1, sort=True)
                     .dropna())
@@ -521,11 +524,12 @@ def disagg_daily_gas_slp(state, **kwargs):
                            .set_index('WZ').transpose()
                            .rename(columns=lambda x: str(lk) + '_'
                                    + str(slp) + '_' + str(x)))
-            tw_lk_wz_slp = pd.DataFrame(np.multiply(h_slp[[str(lk)] *
-                                                          len(gv_slp.columns)]
-                                                    .values, gv_slp.values),
-                                        index=h_slp.index,
-                                        columns=gv_slp.columns)
+            tw_lk_wz_slp = (pd.DataFrame(np.multiply(h_slp[
+                                                     [str(lk)]
+                                                     * len(gv_slp.columns)]
+                                                     .values, gv_slp.values),
+                                         index=h_slp.index,
+                                         columns=gv_slp.columns))
             tw_lk_wz = pd.concat([tw_lk_wz, tw_lk_wz_slp], axis=1)
         tageswerte = pd.concat([tageswerte, tw_lk_wz], axis=1)
     df = pd.concat([df, tageswerte.iloc[:days]], axis=1)
@@ -731,12 +735,13 @@ def disagg_temporal_industry(source, branch=False, **kwargs):
     VB_Dtl = pd.DataFrame(index=range(periods))
     liste = []
     for state in bl_dic.values():
+        print('Working on state: ' + state + '.')
         vb_BL = (vb_wz_lk.loc[vb_wz_lk['BL'].replace(bl_dict) == state]
                         .drop(columns=['BL']).fillna(value=0)
                         .transpose().reset_index())
         sp_bl = shift_load_profile_generator(state)
         sv_timestamp = pd.DataFrame(index=sp_bl.index)
-        sv_lk_timestamp = (0, pd.DataFrame(index=sp_bl.index,
+        sv_lk_timestamp = (pd.DataFrame(0, index=sp_bl.index,
                                            columns=vb_BL.set_index('WZ')
                                                         .columns))
         for sp in list(dict.fromkeys(shift_profiles.values())):
@@ -757,7 +762,10 @@ def disagg_temporal_industry(source, branch=False, **kwargs):
                                   index=sp_bl.index, columns=SV_df.columns))
             sv_timestamp = (sv_timestamp.merge(sp_sv, left_index=True,
                                                right_index=True))
-            liste.append(sv_timestamp)
+            #  TODO: make this list available without memory errors,
+            #  3 GB of memory needed
+            # if branch:
+            #    liste.append(sv_timestamp)
             sv_lk_timestamp = sv_lk_timestamp + lk_sv
         VB_Dtl = pd.concat([VB_Dtl, sv_lk_timestamp], axis=1).dropna()
     if(branch):
