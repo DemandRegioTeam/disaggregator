@@ -1285,19 +1285,6 @@ def standard_load_profile_elc(which='H0', freq='1H', **kwargs):
         raise NotImplementedError('Not here yet!')
 
 
-def Leistung(Tag_Zeit, mask, df, df_SLP):
-    """
-    Returns
-    -------
-    pd.Series
-    """
-    u = (pd.merge(df[mask], df_SLP[['Stunde', Tag_Zeit]],
-                  on=['Stunde'], how='left'))
-    v = pd.merge(df, u[['Date', Tag_Zeit]], on=['Date'], how='left')
-    v.fillna(0, inplace=True)
-    return v[Tag_Zeit]
-
-
 def shift_load_profile_generator(state, **kwargs):
     """
     Return shift load profiles in normalized units
@@ -1528,6 +1515,12 @@ def CTS_power_slp_generator(state, **kwargs):
     -------
     pd.DataFrame
     """
+    def Leistung(Tag_Zeit, mask, df, df_SLP):
+        u = pd.merge(df[mask], df_SLP[['Hour', Tag_Zeit]], on=['Hour'],
+                     how='left')
+        v = pd.merge(df, u[['Date', Tag_Zeit]], on=['Date'], how='left')
+        return v.fillna(0)[Tag_Zeit]
+
     year = kwargs.get('year', cfg['base_year'])
     if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
          & (year % 100 == 0) & (year % 400 == 0)):
