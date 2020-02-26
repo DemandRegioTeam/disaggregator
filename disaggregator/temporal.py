@@ -19,14 +19,15 @@
 Provides functions for temporal disaggregations.
 """
 
-from .config import (get_config, data_out, bl_dict, slp_branch_cts_power,
-                     shift_profile_industry, slp_branch_cts_gas, data_in)
+from .config import (get_config, data_out, bl_dict, shift_profile_industry,
+                     slp_branch_cts_gas as slp_wz_g, data_in,
+                     slp_branch_cts_power as slp_wz_p)
 from .data import (elc_consumption_HH, households_per_size, population,
                    living_space, h_value, zve_percentages_applications,
                    zve_percentages_baseload, zve_application_profiles,
                    database_shapes, CTS_power_slp_generator, t_allo,
                    shift_load_profile_generator, gas_slp_weekday_params)
-from .spatial import disagg_CTS, disagg_industry
+from .spatial import disagg_CTS_industry
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -409,75 +410,104 @@ def probability_light_needed(lat, lon, nTsLP=96):
     return p_night
 
 
-def disagg_temporal_power_CTS(branch=False, **kwargs):
+def disagg_temporal_power_CTS(detailed=False, **kwargs):
     """
     Disagreggate spatial data of CTS' power demand temporally.
 
-    Parameter
-    -------
-    branch : bool
-        choose depth of dissolution
-        True: demand per district and branch
-        False: demand per district
+    Parameters
+    ----------
+    detailed : bool
+        If True return 'per district and branch' else only 'per district'
 
     Returns
     -------
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
-    bl_dic = bl_dict()
-    slp_wz = slp_branch_cts_power()
-    sv_wz_lk = disagg_CTS('power').transpose()
-    sv_wz_lk = (sv_wz_lk.assign(BL=[bl_dic.get(int(x[: -3]))
-                                for x in sv_wz_lk.index.astype(str)]))
-    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
-            & (year % 100 == 0) & (year % 400 == 0)):
-        periods = 35136
-    else:
-        periods = 35040
-    SV_Dtl = pd.DataFrame(index=range(periods))
-    liste = []
-    for state in bl_dic.values():
-        print('Working on state: ' + state + '.')
-        sv_lk_wz = (sv_wz_lk.loc[sv_wz_lk['BL'] == state]
-                            .drop(columns=['BL'])
-                            .transpose())
-        sv_lk_wz = sv_lk_wz.assign(SLP=[slp_wz[x] for x in sv_lk_wz.index])
+    # Obtain yearly power consumption per WZ per LK
+    sv_yearly = (disagg_CTS_industry('power', 'CTS')
+                 .transpose()
+                 .assign(BL=lambda x: [bl_dict().get(int(i[: -3]))
+                                       for i in x.index.astype(str)]))
+    total_sum = sv_yearly.drop('BL', axis=1).sum().sum()
+
+    # Create 15min-index'ed DataFrames for target year
+    idx = pd.date_range(start=str(year), end=str(year+1), freq='15T')[:-1]
+    DF_DE = pd.DataFrame(index=idx)
+    DF_detailed = pd.DataFrame(index=idx)
+
+    for state in bl_dict().values():
+        logger.info('Working on state: {}.'.format(state))
+        sv_lk_wz = (sv_yearly
+                    .loc[lambda x: x['BL'] == state]
+                    .drop(columns=['BL'])
+                    .transpose()
+                    .assign(SLP=lambda x: [slp_wz_p()[i] for i in x.index]))
+        logger.info('... creating state-specific load-profiles')
         slp_bl = CTS_power_slp_generator(state)
-        sv_timestamp = pd.DataFrame(index=slp_bl.index)
-        sv_lk_timestamp = (pd.DataFrame(index=slp_bl.index,
-                                        columns=sv_lk_wz.drop(columns=['SLP'])
-                                                        .columns))
-        sv_lk_timestamp[:] = 0
+        # Plausibility check:
+        assert slp_bl.index.equals(idx), "The time-indizes are not aligned"
+        # Create 15min-index'ed DataFrames for current state
+        if detailed:
+            sv_lk_wz_ts = pd.DataFrame(index=idx)
+        else:
+            cols = sv_lk_wz.drop(columns=['SLP']).columns
+            sv_lk_ts = pd.DataFrame(index=idx, columns=cols).fillna(0.0)
+
+        logger.info('... assigning load-profiles to WZs')
         for slp in sv_lk_wz['SLP'].unique():
             sv_lk = (sv_lk_wz.loc[sv_lk_wz['SLP'] == slp]
                              .drop(columns=['SLP']).stack().reset_index())
             sv_dtl_df = sv_lk.groupby(by=['level_1'])[[0]].sum().transpose()
-            sv_lk['LK_WZ'] = (sv_lk['level_1'].astype(str)+'_'+sv_lk['WZ']
-                                             .astype(str))
-            sv_lk = sv_lk.set_index('LK_WZ')[[0]]
-            sv_lk = sv_lk.loc[sv_lk[0] != 0].transpose()
-            slp_sv = (pd.DataFrame(np.multiply(slp_bl[[slp]].values,
-                                               sv_lk.values),
-                                   index=slp_bl.index,
-                                   columns=sv_lk.columns))
-            lk_sv = (pd.DataFrame(np.multiply(slp_bl[[slp]].values,
-                                              sv_dtl_df.values),
-                                    index=slp_bl.index,
-                                    columns=sv_dtl_df.columns))
-            sv_timestamp = (sv_timestamp.merge(slp_sv, left_index=True,
-                                               right_index=True))
-            #  TODO: make this list available without memory errors,
-            #  6 GB of memory needed
-            # if branch:
-            #    liste.append(sv_timestamp)
-            sv_lk_timestamp = sv_lk_timestamp + lk_sv
-        SV_Dtl = (pd.concat([SV_Dtl, sv_lk_timestamp], axis=1, sort=True)
-                    .dropna())
-    if branch:
-        return liste
+            sv_lk = (sv_lk.assign(LK_WZ=lambda x: x.level_1.astype(str) + '_'
+                                                  + x.WZ.astype(str))
+                     .set_index('LK_WZ')
+                     .drop(['WZ', 'level_1'], axis=1)
+                     .loc[lambda x: x[0] >= 0]
+                     .transpose())
+
+            if detailed:  # Calculate load profile for each LK and WZ
+                lp_lk_wz = (pd.DataFrame(np.multiply(slp_bl[[slp]].values,
+                                                     sv_lk.values),
+                                         index=slp_bl.index,
+                                         columns=sv_lk.columns))
+            else:  # Calculate load profile for each LK
+                lp_lk = (pd.DataFrame(np.multiply(slp_bl[[slp]].values,
+                                                  sv_dtl_df.values),
+                                      index=slp_bl.index,
+                                      columns=sv_dtl_df.columns))
+            # Merge intermediate results
+            if detailed:
+                sv_lk_wz_ts = (sv_lk_wz_ts.merge(lp_lk_wz, left_index=True,
+                                                 right_index=True,
+                                                 suffixes=(False, False)))
+            else:
+                sv_lk_ts += lp_lk
+
+        # Concatenate the state-wise results
+        if detailed:
+            sv_lk_wz_ts.columns = pd.MultiIndex.from_tuples(
+                [tuple(x) for x in sv_lk_wz_ts.columns.str.split('_')])
+            sv_lk_wz_ts.columns.names = ['LK', 'WZ']
+            DF_detailed = pd.concat([DF_detailed, sv_lk_wz_ts], axis=1)
+            DF_detailed.columns = pd.MultiIndex.from_tuples(
+                DF_detailed.columns)
+        else:
+            DF_DE = pd.concat([DF_DE, sv_lk_ts], axis=1).dropna()
+
+    # Plausibility check:
+    err_msg = ('The sum of yearly consumptions (={:.3f}) and the sum of '
+               'disaggregated consumptions (={:.3f}) do not match! Please '
+               'check plausibility!')
+    disagg_sum = DF_detailed.sum().sum() if detailed else DF_DE.sum().sum()
+    assert(np.isclose(total_sum, disagg_sum)),\
+        err_msg.format(total_sum, disagg_sum)
+
+    # Return the results
+    if detailed:
+        return DF_detailed
     else:
-        return SV_Dtl
+        return DF_DE
 
 
 def disagg_daily_gas_slp(state, **kwargs):
@@ -493,8 +523,6 @@ def disagg_daily_gas_slp(state, **kwargs):
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
-    wz_slp_dict = slp_branch_cts_gas()
-    bl_dic = bl_dict()
     if ((year % 4 == 0)
             & (year % 100 != 0)
             | (year % 4 == 0)
@@ -503,13 +531,13 @@ def disagg_daily_gas_slp(state, **kwargs):
         days = 366
     else:
         days = 365
-    gv_lk = disagg_CTS('gas').transpose()
-    gv_lk = (gv_lk.assign(BL=[bl_dic.get(int(x[: -3]))
+    gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
+    gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[: -3]))
                           for x in gv_lk.index.astype(str)]))
     df = pd.DataFrame(index=range(days))
     gv_lk = gv_lk.loc[gv_lk['BL'] == state].drop(columns=['BL']).transpose()
     list_ags = gv_lk.columns.astype(str)
-    gv_lk['SLP'] = [wz_slp_dict[x] for x in (gv_lk.index)]
+    gv_lk['SLP'] = [slp_wz_g()[x] for x in (gv_lk.index)]
     calender_df = (gas_slp_weekday_params(state)
                    .drop(columns=['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO']))
     tageswerte = pd.DataFrame(index=calender_df['Date'])
@@ -548,8 +576,6 @@ def disagg_temporal_gas_CTS(state, **kwargs):
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
-    wz_slp_dict = slp_branch_cts_gas()
-    bl_dic = bl_dict()
     if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
             & (year % 100 == 0) & (year % 400 == 0)):
         hours = 8784
@@ -560,8 +586,8 @@ def disagg_temporal_gas_CTS(state, **kwargs):
                       index=pd.date_range((str(year) + '-01-01'),
                                            periods=hours, freq='H'))
     tw_df = disagg_daily_gas_slp(state)
-    gv_lk = disagg_CTS('gas').transpose()
-    gv_lk = (gv_lk.assign(BL=[bl_dic.get(int(x[:-3]))
+    gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
+    gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[:-3]))
                               for x in gv_lk.index.astype(str)]))
     t_allo_df = temp_df[gv_lk.loc[gv_lk['BL'] == state].index]
     for col in t_allo_df.columns:
@@ -593,7 +619,7 @@ def disagg_temporal_gas_CTS(state, **kwargs):
     for lk in list_lk:
         lk_df = pd.DataFrame(index=pd.date_range((str(year) + '-01-01'),
                                                  periods=hours, freq='H'))
-        for slp in list(dict.fromkeys(wz_slp_dict.values())):
+        for slp in list(dict.fromkeys(slp_wz_g().values())):
             f = ('Lastprofil_{}.xls'.format(slp))
             slp_profil = pd.read_excel(data_in('temporal',
                                                'Gas Load Profiles', f))
@@ -625,7 +651,7 @@ def disagg_temporal_gas_CTS(state, **kwargs):
                                        .drop(columns=['Tagestyp'])
                                        .set_index('Temperatur\nin °C\nkleiner')
                                        .transpose().reset_index())
-            for wz in wz_slp_dict.keys():
+            for wz in slp_wz_g().keys():
                 profil_df = pd.DataFrame()
                 try:
                     for index in range(len(temp_calender_df)):
@@ -724,7 +750,7 @@ def disagg_temporal_industry(source, branch=False, **kwargs):
     year = kwargs.get('year', cfg['base_year'])
     bl_dic = bl_dict()
     shift_profiles = shift_profile_industry()
-    vb_wz_lk = disagg_industry(source).transpose()
+    vb_wz_lk = disagg_CTS_industry(source, 'industry').transpose()
     vb_wz_lk = (vb_wz_lk.assign(BL=[bl_dic.get(int(x[:-3]))
                                     for x in vb_wz_lk.index.astype(str)]))
     if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
