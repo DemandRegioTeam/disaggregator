@@ -134,7 +134,7 @@ def clear_local_cache():
         logger.info('Local cache already empty.')
 
 
-def region_id_to_nuts3(raw=False, nuts3_to_name=False):
+def region_id_to_nuts3(raw=False, nuts3_to_name=False, agslk_to_nuts3=False):
     """
     Read and return a dictionary with regional information.
 
@@ -157,8 +157,12 @@ def region_id_to_nuts3(raw=False, nuts3_to_name=False):
         df = pd.read_csv(data_in('regional/t_nuts3_lk.csv'), encoding='utf-8')
     else:
         df = database_raw('t_nuts3_lk')
+
     if raw:
         return df
+
+    if agslk_to_nuts3:     # e.g. 1001: 'DEF01'
+        return df.set_index('ags_lk').loc[:, 'natcode_nuts3'].to_dict()
     else:
         if nuts3_to_name:  # e.g. 'DEF01': 'Flensburg, Kreisfreie Stadt'
             return df.set_index('natcode_nuts3').loc[:, 'name'].to_dict()
