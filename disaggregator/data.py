@@ -1522,87 +1522,72 @@ def CTS_power_slp_generator(state, **kwargs):
         return v.fillna(0)[Tag_Zeit]
 
     year = kwargs.get('year', cfg['base_year'])
-    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
-         & (year % 100 == 0) & (year % 400 == 0)):
-        periods = 35136
-    else:
-        periods = 35040
-    df = (pd.DataFrame(data={"Date": pd.date_range((str(year) + '-01-01'),
-                                                   periods=periods,
-                                                   freq='15T',
-                                                   tz='Europe/Berlin')}))
-    df['Tag'] = pd.DatetimeIndex(df['Date']).date
-    df['Stunde'] = pd.DatetimeIndex(df['Date']).time
-    df['DayOfYear'] = pd.DatetimeIndex(df['Date']).dayofyear.astype(int)
-    mask_holiday = []
     validity_check_nuts1(state)
+    idx = pd.date_range(start=str(year), end=str(year+1), freq='15T')[:-1]
+    df = (pd.DataFrame(data={'Date': idx})
+            .assign(Day=lambda x: pd.DatetimeIndex(x['Date']).date)
+            .assign(Hour=lambda x: pd.DatetimeIndex(x['Date']).time)
+            .assign(DayOfYear=lambda x:
+                    pd.DatetimeIndex(x['Date']).dayofyear.astype(int)))
+    mask_holidays = []
     for i in range(0, len(holidays.DE(state=state, years=year))):
-        mask_holiday.append('Null')
-        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state=state,
-                                          years=year).items()][i][0]))
-    hd = mask_holiday[0]
+        mask_holidays.append('Null')
+        mask_holidays[i] = ((df['Day'] == [x for x in holidays.DE(state=state,
+                                           years=year).items()][i][0]))
+    hd = mask_holidays[0]
     for i in range(1, len(holidays.DE(state=state, years=year))):
-        hd = hd | mask_holiday[i]
-    df['WT'] = df['Date'].apply(lambda x: x.weekday() < 5)
-    df['WT'] = df['WT'] & (~hd)
-    df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
-    df['SA'] = df['SA'] & (~hd)
-    df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
-    df['SO'] = df['SO'] | hd
-    hld = [datetime.date(year, 12, 24), datetime.date(year, 12, 31)]
-    mask = df['Tag'].isin(hld)
-    df.loc[mask, ['WT', 'SO']] = False
+        hd = hd | mask_holidays[i]
+    df['WD'] = df['Date'].apply(lambda x: x.weekday() < 5) & (~hd)
+    df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5) & (~hd)
+    df['SU'] = df['Date'].apply(lambda x: x.weekday() == 6) | hd
+    mask = df['Day'].isin([datetime.date(year, 12, 24),
+                           datetime.date(year, 12, 31)])
+    df.loc[mask, ['WD', 'SU']] = False
     df.loc[mask, 'SA'] = True
-    df_wiz1 = df.loc[df['Date'] < (str(year) + '-03-21 00:00:00')]
-    df_wiz2 = df.loc[df['Date'] >= (str(year) + '-11-01')]
-    df_soz = (df.loc[((str(year) + '-05-15') <= df['Date'])
-                       & (df['Date'] < (str(year) + '-09-15'))])
-    df_uez1 = (df.loc[((str(year) + '-03-21') <= df['Date'])
+    wiz1 = df.loc[df['Date'] < (str(year) + '-03-21 00:00:00')]
+    wiz2 = df.loc[df['Date'] >= (str(year) + '-11-01')]
+    soz = (df.loc[((str(year) + '-05-15') <= df['Date'])
+                   & (df['Date'] < (str(year) + '-09-15'))])
+    uez1 = (df.loc[((str(year) + '-03-21') <= df['Date'])
                        & (df['Date'] < (str(year) + '-05-15'))])
-    df_uez2 = (df.loc[((str(year) + '-09-15') <= df['Date'])
+    uez2 = (df.loc[((str(year) + '-09-15') <= df['Date'])
                         & (df['Date'] <= (str(year) + '-10-31'))])
-    df['WIZ'] = (df['Tag'].isin(df_wiz1['Tag'])
-                 | df['Tag'].isin(df_wiz2['Tag']))
-    df['SOZ'] = df['Tag'].isin(df_soz['Tag'])
-    df['UEZ'] = (df['Tag'].isin(df_uez1['Tag'])
-                 | df['Tag'].isin(df_uez2['Tag']))
-    for Tarifkundenprofil in ['H0', 'L0', 'L1', 'L2', 'G0', 'G1',
-                              'G2', 'G3', 'G4', 'G5', 'G6']:
-        f = ('39_VDEW_Strom_Repräsentative Profile_{}.xlsx'
-             .format(Tarifkundenprofil))
+    df = df.assign(WIZ=lambda x: (x.Day.isin(wiz1.Day) | x.Day.isin(wiz2.Day)),
+                   SOZ=lambda x: x.Day.isin(soz.Day),
+                   UEZ=lambda x: (x.Day.isin(uez1.Day) | x.Day.isin(uez2.Day)))
+
+    last_strings = []
+    for profile in ['H0', 'L0', 'L1', 'L2', 'G0', 'G1', 'G2', 'G3', 'G4',
+                    'G5', 'G6']:
+        f = '39_VDEW_Strom_Repräsentative Profile_{}.xlsx'.format(profile)
         df_load = pd.read_excel(data_in('temporal', 'Power Load Profiles', f),
                                 sep=';', decimal=',')
-        df_load.columns = ['Stunde', 'SA_WIZ', 'SO_WIZ', 'WT_WIZ', 'SA_SOZ',
-                           'SO_SOZ', 'WT_SOZ', 'SA_UEZ', 'SO_UEZ', 'WT_UEZ']
+        df_load.columns = ['Hour', 'SA_WIZ', 'SU_WIZ', 'WD_WIZ', 'SA_SOZ',
+                           'SU_SOZ', 'WD_SOZ', 'SA_UEZ', 'SU_UEZ', 'WD_UEZ']
         df_load.loc[1] = df_load.loc[len(df_load) - 2]
         df_SLP = df_load[1:97]
-        df_SLP = df_SLP.reset_index()[['Stunde', 'SA_WIZ', 'SO_WIZ', 'WT_WIZ',
-                                       'SA_SOZ', 'SO_SOZ', 'WT_SOZ', 'SA_UEZ',
-                                       'SO_UEZ', 'WT_UEZ']]
-        wt_wiz = Leistung('WT_WIZ', (df.WT & df.WIZ), df, df_SLP)
-        wt_soz = Leistung('WT_SOZ', (df.WT & df.SOZ), df, df_SLP)
-        wt_uez = Leistung('WT_UEZ', (df.WT & df.UEZ), df, df_SLP)
-        wt = wt_wiz + wt_soz + wt_uez
+        df_SLP = df_SLP.reset_index()[['Hour', 'SA_WIZ', 'SU_WIZ', 'WD_WIZ',
+                                       'SA_SOZ', 'SU_SOZ', 'WD_SOZ', 'SA_UEZ',
+                                       'SU_UEZ', 'WD_UEZ']]
+        wd_wiz = Leistung('WD_WIZ', (df.WD & df.WIZ), df, df_SLP)
+        wd_soz = Leistung('WD_SOZ', (df.WD & df.SOZ), df, df_SLP)
+        wd_uez = Leistung('WD_UEZ', (df.WD & df.UEZ), df, df_SLP)
         sa_wiz = Leistung('SA_WIZ', (df.SA & df.WIZ), df, df_SLP)
         sa_soz = Leistung('SA_SOZ', (df.SA & df.SOZ), df, df_SLP)
         sa_uez = Leistung('SA_UEZ', (df.SA & df.UEZ), df, df_SLP)
-        sa = sa_wiz + sa_soz + sa_uez
-        so_wiz = Leistung('SO_WIZ', (df.SO & df.WIZ), df, df_SLP)
-        so_soz = Leistung('SO_SOZ', (df.SO & df.SOZ), df, df_SLP)
-        so_uez = Leistung('SO_UEZ', (df.SO & df.UEZ), df, df_SLP)
-        so = so_wiz + so_soz + so_uez
-        Summe = wt + sa + so
-        Last = 'Last_' + str(Tarifkundenprofil)
+        su_wiz = Leistung('SU_WIZ', (df.SU & df.WIZ), df, df_SLP)
+        su_soz = Leistung('SU_SOZ', (df.SU & df.SOZ), df, df_SLP)
+        su_uez = Leistung('SU_UEZ', (df.SU & df.UEZ), df, df_SLP)
+        Summe = (wd_wiz + wd_soz + wd_uez + sa_wiz + sa_soz + sa_uez
+                 + su_wiz + su_soz + su_uez)
+        Last = 'Last_' + str(profile)
+        last_strings.append(Last)
         df[Last] = Summe
         total = sum(df[Last])
         df_normiert = df[Last] / total
-        df[Tarifkundenprofil] = df_normiert
+        df[profile] = df_normiert
 
-    slp_bl = (df.drop(columns=['Last_H0', 'Last_L0', 'Last_L1', 'Last_L2',
-                               'Last_G0', 'Last_G1', 'Last_G2', 'Last_G3',
-                               'Last_G4', 'Last_G5', 'Last_G6'])
-                .set_index('Date'))
-    return slp_bl
+    return df.drop(columns=last_strings).set_index('Date')
 
 
 def ambient_T(**kwargs):
