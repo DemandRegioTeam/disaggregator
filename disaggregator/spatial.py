@@ -27,6 +27,7 @@ from .data import (elc_consumption_HH, heat_consumption_HH, gas_consumption_HH,
 from .config import data_in
 
 import pandas as pd
+import os
 import logging
 logger = logging.getLogger(__name__)
 
@@ -250,7 +251,7 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
     return df
 
 
-def disagg_CTS(source):
+def disagg_CTS_industry(source, sector):
     """
     Perform spatial disaggregation of electric power or gas in [MWh/a]
 
@@ -258,6 +259,8 @@ def disagg_CTS(source):
     ----------
     source : str
         must be one of ['power', 'gas']
+    sector : str
+        must be one of ['CTS', 'industry']
 
     Returns
     -------
@@ -265,62 +268,26 @@ def disagg_CTS(source):
         index = Branches
         columns = Districts
     """
+    assert (source in ['power', 'gas']), "`source` must be in ['power', 'gas']"
+    assert (sector in ['CTS', 'industry']),\
+        "`sector` must be in ['CTS', 'industry']"
 
-    if (source == 'power') | (source == 'gas'):
-        try:
-            f = ('specific_{}_consumption.csv'.format(source))
-            spez_vb = (pd.read_csv(data_in('regional', f))
-                        .rename(columns={'Unnamed: 0': 'WZ'}).set_index('WZ'))
-        except FileNotFoundError:
-            generate_specific_consumption_per_branch_and_district(20, 20)
-            f = ('specific_{}_consumption.csv'.format(source))
-            spez_vb = (pd.read_csv(data_in('regional', f))
-                        .rename(columns={'Unnamed: 0': 'WZ'}).set_index('WZ'))
-    else:
-        raise ValueError("`source` must be in ['power', 'gas']")
-    spez_vb = (spez_vb.loc[[1, 2, 3, 36, 37, 38, 39, 41, 42, 43, 45, 46, 47,
-                            49, 50, 51, 52, 53, 55, 56, 58, 59, 60, 61, 62, 63,
-                            64, 65, 66, 68, 69, 70, 71, 72, 73, 74, 75, 77, 78,
-                            79, 80, 81, 82, 84, 85, 86, 87, 88, 90, 91, 92, 93,
-                            94, 95, 96, 97, 98, 99]])
-    df = (pd.DataFrame(employees_per_branch_district()
-                       .loc[spez_vb.index].values * spez_vb.values,
-                       index=spez_vb.index, columns=spez_vb.columns))
-    df = (df.multiply(efficiency_enhancement(source)
-                      .transpose().loc[df.index], axis=0))
-    return df
+    # Read -- and if necessary pre-generate -- specific consumptions
+    f = data_in('regional', 'specific_{}_consumption.csv'.format(source))
+    if not os.path.isfile(f):
+        generate_specific_consumption_per_branch_and_district(20, 20)
+    spez_vb = pd.read_csv(f, index_col=0)
+    spez_vb.columns = spez_vb.columns.astype(int)
 
+    if sector == 'industry':
+        wz = list(range(5, 34))  # = [5, 6, ..., 33]
+    if sector == 'CTS':
+        wz = [1, 2, 3, 36, 37, 38, 39, 41, 42, 43, 45, 46, 47, 49, 50, 51, 52,
+              53, 55, 56, 58, 59, 60, 61, 62, 63, 64, 65, 66, 68, 69, 70, 71,
+              72, 73, 74, 75, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 90,
+              91, 92, 93, 94, 95, 96, 97, 98, 99]
 
-def disagg_industry(source):
-    """
-    Perform spatial disaggregation of electric power or gas in [MWh/a]
-
-    Parameters
-    ----------
-    source : str
-        must be one of ['power', 'gas']
-
-    Returns
-    -------
-    pd.DataFrame
-        index = Branches
-        columns = Districts
-    """
-    if (source == 'power') | (source == 'gas'):
-        try:
-            f = ('specific_{}_consumption.csv'.format(source))
-            spez_vb = (pd.read_csv(data_in('regional', f))
-                        .rename(columns={'Unnamed: 0': 'WZ'}).set_index('WZ'))
-        except FileNotFoundError:
-            generate_specific_consumption_per_branch_and_district(20, 20)
-            f = ('specific_{}_consumption.csv'.format(source))
-            spez_vb = (pd.read_csv(data_in('regional', f))
-                        .rename(columns={'Unnamed: 0': 'WZ'}).set_index('WZ'))
-    else:
-        raise ValueError("`source` must be in ['power', 'gas']")
-    spez_vb = (spez_vb.loc[[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-                            19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-                            32, 33]])
+    spez_vb = spez_vb.loc[wz]
     df = (pd.DataFrame(employees_per_branch_district()
                        .loc[spez_vb.index].values * spez_vb.values,
                        index=spez_vb.index, columns=spez_vb.columns))

@@ -730,10 +730,12 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     #  HACK for Wolfsburg: There is no energy demand available Wolfsburg in the
     #  Regionalstatistik. Therefore, specific demand is set on the average.
     spez_gv_lk[3103] = spez_gv['spez. GV']
-    spez_sv_lk.sort_index(axis=1).to_csv(data_in('regional',
-                                         'specific_power_consumption.csv'))
-    spez_gv_lk.sort_index(axis=1).to_csv(data_in('regional',
-                                         'specific_gas_consumption.csv'))
+    spez_sv_lk.sort_index(axis=1).to_csv(
+        data_in('regional', 'specific_power_consumption.csv'),
+        index_label='WZ')
+    spez_gv_lk.sort_index(axis=1).to_csv(
+        data_in('regional', 'specific_gas_consumption.csv'),
+        index_label='WZ')
     return spez_sv_lk.sort_index(axis=1), spez_gv_lk.sort_index(axis=1)
 
 # --- Spatial data ------------------------------------------------------------
