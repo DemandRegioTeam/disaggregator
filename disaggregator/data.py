@@ -1303,8 +1303,8 @@ def shift_load_profile_generator(state, **kwargs):
     Return shift load profiles in normalized units
     ('normalized' means here that the sum over all time steps equals to one).
 
-    Parameter
-    -------
+    Parameters
+    ----------
     state : str
         Must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
                         'NI','NW','RP','SL','SN','ST','SH','TH']
@@ -1314,6 +1314,7 @@ def shift_load_profile_generator(state, **kwargs):
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
+    validity_check_nuts1(state)
     low = 0.35
     if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
        & (year % 100 == 0) & (year % 400 == 0)):
@@ -1447,15 +1448,15 @@ def shift_load_profile_generator(state, **kwargs):
 
 def gas_slp_weekday_params(state, **kwargs):
     """
-    Returns the weekday-parameters of the gas standard load profiles in
+    Return the weekday-parameters of the gas standard load profiles in
     normalized units ('normalized' means here that the sum over all time steps
     equals 365 (or 366 in a leapyear)).
 
-    Parameter
-    -------
+    Parameters
+    ----------
     state: str
-        must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
-                        'NI','NW','RP','SL','SN','ST','SH','TH']
+        must be one of ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV',
+                        'NI', 'NW', 'RP', 'SL', 'SN',' ST', 'SH', 'TH']
     Returns
     -------
     pd.DataFrame
@@ -1517,11 +1518,11 @@ def CTS_power_slp_generator(state, **kwargs):
     Return the electric standard load profiles in normalized units
     ('normalized' means here that the sum over all time steps equals one).
 
-    Parameter
-    -------
+    Parameters
+    ----------
     state: str
-        must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
-                        'NI','NW','RP','SL','SN','ST','SH','TH']
+        must be one of ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV',
+                        'NI', 'NW', 'RP', 'SL', 'SN',' ST', 'SH', 'TH']
 
     Returns
     -------
