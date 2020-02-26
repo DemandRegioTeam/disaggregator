@@ -1461,6 +1461,7 @@ def gas_slp_weekday_params(state, **kwargs):
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
+    validity_check_nuts1(state)
     if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
        & (year % 100 == 0) & (year % 400 == 0)):
         days = 366
@@ -1540,6 +1541,7 @@ def CTS_power_slp_generator(state, **kwargs):
     df['Stunde'] = pd.DatetimeIndex(df['Date']).time
     df['DayOfYear'] = pd.DatetimeIndex(df['Date']).dayofyear.astype(int)
     mask_holiday = []
+    validity_check_nuts1(state)
     for i in range(0, len(holidays.DE(state=state, years=year))):
         mask_holiday.append('Null')
         mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state=state,
@@ -1826,6 +1828,20 @@ def database_shapes():
                              crs={'init': 'epsg:3857'}, geometry=geom)
                .assign(nuts3=lambda x: x.id_ags.map(region_id_to_nuts3()))
                .set_index('nuts3').sort_index(axis=0))
+
+
+def validity_check_nuts1(state):
+    """
+    Check if given NUTS-1 code is valid.
+
+    Parameters
+    ----------
+    state : str
+
+    """
+    if state not in ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV',
+                     'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH']:
+        raise ValueError('Given NUTS-1 code `{}` is not valid!'.format(state))
 
 
 def plausibility_check_nuts3(df, check_zero=True):
