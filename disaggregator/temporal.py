@@ -21,7 +21,7 @@ Provides functions for temporal disaggregations.
 
 from .config import (get_config, data_out, bl_dict, shift_profile_industry,
                      slp_branch_cts_gas as slp_wz_g, data_in,
-                     slp_branch_cts_power as slp_wz_p)
+                     slp_branch_cts_power as slp_wz_p, region_id_to_nuts3)
 from .data import (elc_consumption_HH, households_per_size, population,
                    living_space, h_value, zve_percentages_applications,
                    zve_percentages_baseload, zve_application_profiles,
@@ -410,7 +410,7 @@ def probability_light_needed(lat, lon, nTsLP=96):
     return p_night
 
 
-def disagg_temporal_power_CTS(detailed=False, **kwargs):
+def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
     """
     Disagreggate spatial data of CTS' power demand temporally.
 
@@ -499,6 +499,11 @@ def disagg_temporal_power_CTS(detailed=False, **kwargs):
            'ted consumptions (={:.3f}) do not match! Please check algorithm!')
     disagg_sum = DF.sum().sum()
     assert np.isclose(total_sum, disagg_sum), msg.format(total_sum, disagg_sum)
+
+    if use_nuts3code:
+        DF = DF.rename(columns=region_id_to_nuts3(agslk_to_nuts3=True),
+                       level=(0 if detailed else None))
+    return DF
 
 
 def disagg_daily_gas_slp(state, **kwargs):
