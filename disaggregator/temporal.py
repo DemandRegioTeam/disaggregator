@@ -431,10 +431,9 @@ def disagg_temporal_power_CTS(detailed=False, **kwargs):
                                        for i in x.index.astype(str)]))
     total_sum = sv_yearly.drop('BL', axis=1).sum().sum()
 
-    # Create 15min-index'ed DataFrames for target year
+    # Create empty 15min-index'ed DataFrame for target year
     idx = pd.date_range(start=str(year), end=str(year+1), freq='15T')[:-1]
-    DF_DE = pd.DataFrame(index=idx)
-    DF_detailed = pd.DataFrame(index=idx)
+    DF = pd.DataFrame(index=idx)
 
     for state in bl_dict().values():
         logger.info('Working on state: {}.'.format(state))
@@ -485,29 +484,21 @@ def disagg_temporal_power_CTS(detailed=False, **kwargs):
                 sv_lk_ts += lp_lk
 
         # Concatenate the state-wise results
-        if detailed:
-            sv_lk_wz_ts.columns = pd.MultiIndex.from_tuples(
-                [tuple(x) for x in sv_lk_wz_ts.columns.str.split('_')])
-            sv_lk_wz_ts.columns.names = ['LK', 'WZ']
-            DF_detailed = pd.concat([DF_detailed, sv_lk_wz_ts], axis=1)
-            DF_detailed.columns = pd.MultiIndex.from_tuples(
-                DF_detailed.columns)
+        if detailed:  # restore MultiIndex as integer tuples
+            sv_lk_wz_ts.columns =\
+                pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
+                                           sv_lk_wz_ts.columns.str.split('_')])
+            DF = pd.concat([DF, sv_lk_wz_ts], axis=1)
+            DF.columns = pd.MultiIndex.from_tuples(DF.columns,
+                                                   names=['LK', 'WZ'])
         else:
-            DF_DE = pd.concat([DF_DE, sv_lk_ts], axis=1).dropna()
+            DF = pd.concat([DF, sv_lk_ts], axis=1).dropna()
 
     # Plausibility check:
-    err_msg = ('The sum of yearly consumptions (={:.3f}) and the sum of '
-               'disaggregated consumptions (={:.3f}) do not match! Please '
-               'check plausibility!')
-    disagg_sum = DF_detailed.sum().sum() if detailed else DF_DE.sum().sum()
-    assert(np.isclose(total_sum, disagg_sum)),\
-        err_msg.format(total_sum, disagg_sum)
-
-    # Return the results
-    if detailed:
-        return DF_detailed
-    else:
-        return DF_DE
+    msg = ('The sum of yearly consumptions (={:.3f}) and the sum of disaggrega'
+           'ted consumptions (={:.3f}) do not match! Please check algorithm!')
+    disagg_sum = DF.sum().sum()
+    assert np.isclose(total_sum, disagg_sum), msg.format(total_sum, disagg_sum)
 
 
 def disagg_daily_gas_slp(state, **kwargs):
