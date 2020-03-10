@@ -24,6 +24,8 @@ import numpy as np
 import logging
 import holidays
 import datetime
+from collections import OrderedDict
+from collections.abc import Iterable
 from .config import (get_config, data_in, database_raw, dict_region_code,
                      literal_converter, wz_dict,
                      hist_weather_year, gas_load_profile_parameters_dict)
@@ -1008,6 +1010,71 @@ def income(**kwargs):
             .set_index('nuts3', drop=True)
             .sort_index())['value']
     df = plausibility_check_nuts3(df)
+    return df
+
+
+def energy_balance_households_power(**kwargs):
+    """
+    Currently, DE1 and DE2 do not report specific values only for households,
+    but aggregated for households+CTS in their energy balances. Therefore, we
+    estimate the percentage of households based on the mean of the relation in
+    the other regions.
+
+    Returns
+    -------
+    pd.Series
+        index: NUTS-1 codes
+    """
+    df_HH = energy_balance_values(internal_id=[52, 29], **kwargs)
+    df_HH_CTS = energy_balance_values(internal_id=[54, 29], **kwargs)
+    factor = df_HH.div(df_HH_CTS).mean()
+    df_HH_DE1_DE2 = df_HH_CTS.loc[['DE1', 'DE2']].multiply(factor)
+    return pd.concat([df_HH_DE1_DE2, df_HH], axis=0)
+
+
+def energy_balance_values(**kwargs):
+    """
+    Read, transform and return energy balance values in [TWh] per NUTS-1 area.
+
+    Returns
+    -------
+    pd.Series
+        index: NUTS-1 codes
+    """
+    year = kwargs.get('year', cfg['base_year'])
+    source = kwargs.get('source', cfg['energy_balance_values']['source'])
+    table_id = kwargs.get('table_id', cfg['energy_balance_values']['table_id'])
+    internal_id = kwargs.get('internal_id',
+                             cfg['energy_balance_values']['internal_id'])
+    force_update = kwargs.get('force_update', False)
+
+    # handle the multiple internal_id's
+    if not isinstance(internal_id, Iterable) or isinstance(internal_id, str):
+        raise TypeError('The passed `internal_id` must be an iterable (a list,'
+                        ' dict or tuple), but is {}'.format(type(internal_id)))
+    if isinstance(internal_id, dict):
+        internal_id = list(OrderedDict(internal_id).values())
+    assert sum(x <= 0 for x in internal_id) == 0, (
+        "There are non-positive values given as internal_id's. Please "
+        "pass or set in config.yaml correct line and column id's for the "
+        "energy balances. An explanation can be found in the "
+        "`internal_id_description` column in data.database_description().")
+
+    if source == 'local':
+        df = read_local(data_in('regional',
+                                cfg['energy_balance_values']['filename']),
+                        internal_id=internal_id, year=year)
+    elif source == 'database':
+        df = database_get('spatial', table_id=table_id, year=year,
+                          internal_id=internal_id, force_update=force_update)
+    else:
+        raise KeyError('Wrong source key given in config.yaml - must be either'
+                       ' `local` or `database` but is: {}'.format(source))
+
+    df = (df.assign(nuts1=lambda x: x.id_region.map(
+                    dict_region_code(values='natcode_nuts1', level='bl')))
+            .set_index('nuts1', drop=True)
+            .sort_index())['value'] / 3600  # convert TJ -> TWh
     return df
 
 

@@ -71,6 +71,15 @@ living_space:
         2: -1   # heating system or id_et: 9=Steinkohle; 10=Braunkohle; 11=Erdgas; 34=Heizoel; 35=Biomasse (fest); 68=Umgebungswaerme; 69=Solarwaerme; 71=Fernwaerme; 72=Elektrische Energie; 218=Biomasse (außer Holz, Biogas)
         3: -1   # non empty building. 0/False: building empty, 1/True: building not empty
 
+energy_balance_values:
+    source: database
+    filename: energy_balance_values.csv
+    table_id: 59
+    internal_id:
+        0: -1  # line in balance sheet, e.g. 52=private households
+        1: -1  # column in balance sheet, e.g. 29=power
+    
+
 elc_cons_HH_spatial:
     source: database
     filename: elc_consumption_HH_spatial.csv
