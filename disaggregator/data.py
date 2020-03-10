@@ -101,7 +101,6 @@ def heat_consumption_HH(by='households', **kwargs):
     pd.DataFrame
     """
     source = kwargs.get('source', cfg['heat_consumption_HH']['source'])
-    force_update = kwargs.get('force_update', False)
 
     if source == 'local':
         col = {'households': 'PersonsInHousehold',
