@@ -4,14 +4,16 @@ scenario: 'Basis'
 database_host: "http://opendata.ffe.de:4000/"
 dict_source: database
 # Set the maximum number of cpu threads to be used. Logic:
-# If max_cpu_count exceeds the number of available threads OR
-# if max_cpu_count is under the negative of available threads OR
-# if max_cpu_count equals zero:
-#     => use all available threads.
-# ElseIf max_cpu_count is above zero but below the number of available threads:
-#     => use max_cpu_count
-# ElseIf max_cpu_count is below zero but above the negative of available threads:
-#     => lower the available threads (so: all available threads + max_cpu_count)
+#   If max_cpu_count exceeds the number of available threads OR
+#   if max_cpu_count is under the negative of available threads OR
+#   if max_cpu_count equals zero:
+#       => use all available threads.
+#   ElseIf max_cpu_count is above zero but below the number of available threads:
+#       => use max_cpu_count
+#   ElseIf max_cpu_count is below zero but above the negative of available threads:
+#       => lower the available threads (so: all available threads + max_cpu_count)
+#
+#   Example: If max_cpu_count == -1, and the computer has 8 available threads, 7 = 8 + (-1) are being used.
 max_cpu_count: -1
 use_nuts_2016: True
 
