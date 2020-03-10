@@ -24,9 +24,9 @@ import numpy as np
 import logging
 import holidays
 import datetime
-from .config import (get_config, data_in, database_raw, region_id_to_nuts3,
-                     literal_converter, wz_dict, hist_weather_year,
-                     gas_load_profile_parameters_dict)
+from .config import (get_config, data_in, database_raw, dict_region_code,
+                     literal_converter, wz_dict,
+                     hist_weather_year, gas_load_profile_parameters_dict)
 logger = logging.getLogger(__name__)
 cfg = get_config()
 
@@ -181,7 +181,7 @@ def t_allo(**kwargs):
     """
     year = kwargs.get('year', cfg['base_year'])
     hist_year = hist_weather_year().get(year)
-    dic_nuts3 = (region_id_to_nuts3(raw=True)[['natcode_nuts3', 'ags_lk']]
+    dic_nuts3 = (dict_region_code(raw=True)[['natcode_nuts3', 'ags_lk']]
                  .set_index('natcode_nuts3'))
     dic_nuts3['ags_lk'] = dic_nuts3['ags_lk'].astype(str).str.zfill(5)
     if ((hist_year % 4 == 0)
@@ -786,7 +786,7 @@ def population(**kwargs):
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
 
-    df = (df.assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()))
+    df = (df.assign(nuts3=lambda x: x.id_region.map(dict_region_code()))
             .set_index('nuts3').sort_index(axis=0))['value']
     df = plausibility_check_nuts3(df)
     return df
@@ -817,7 +817,7 @@ def elc_consumption_HH_spatial(**kwargs):
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
 
-    df = (df.assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()))
+    df = (df.assign(nuts3=lambda x: x.id_region.map(dict_region_code()))
             .set_index('nuts3').sort_index(axis=0))['value']
     df = plausibility_check_nuts3(df)
     return df
@@ -856,7 +856,7 @@ def households_per_size(original=False, **kwargs):
                        ' `local` or `database` but is: {}'.format(source))
 
     df = (df.assign(internal_id=lambda x: x.internal_id.astype(str))
-            .assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()),
+            .assign(nuts3=lambda x: x.id_region.map(dict_region_code()),
                     hh_size=lambda x: x.internal_id.str[1].astype(int))
             .loc[lambda x: x.hh_size != 0]
             .pivot_table(values='value', index='nuts3', columns='hh_size',
@@ -948,7 +948,7 @@ def living_space(aggregate=True, **kwargs):
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
 
-    df = (df.assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()),
+    df = (df.assign(nuts3=lambda x: x.id_region.map(dict_region_code()),
                     building_type=lambda x: x.internal_id.str[0],
                     vintage_class=lambda x: x.internal_id.str[1],
                     heating_system=lambda x: x.internal_id.str[2],
@@ -1005,7 +1005,7 @@ def income(**kwargs):
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
 
-    df = (df.assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()))
+    df = (df.assign(nuts3=lambda x: x.id_region.map(dict_region_code()))
             .set_index('nuts3', drop=True)
             .sort_index())['value']
     df = plausibility_check_nuts3(df)
@@ -1111,7 +1111,7 @@ def heat_demand_buildings(**kwargs):
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
 
-    df = (df.assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()),
+    df = (df.assign(nuts3=lambda x: x.id_region.map(dict_region_code()),
                     building_type=lambda x: x.internal_id.str[0],
                     vintage_class=lambda x: x.internal_id.str[1],
                     heat_parameter=lambda x: x.internal_id.str[2],
@@ -1641,7 +1641,7 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
     elif source == 'database':
         df = (database_get('temporal', table_id=table_id, year=year,
                            internal_id=internal_id, force_update=force_update)
-              .assign(nuts3=lambda x: x.id_region.map(region_id_to_nuts3()))
+              .assign(nuts3=lambda x: x.id_region.map(dict_region_code()))
               .loc[lambda x: (~(x.nuts3.isna()))]
               .set_index('nuts3').sort_index(axis=0)
               .loc[:, 'values']
@@ -1805,7 +1805,7 @@ def database_shapes():
     geom = [wkt.loads(mp_str) for mp_str in df.geom_as_text]
     return (gpd.GeoDataFrame(df.drop('geom_as_text', axis=1),
                              crs={'init': 'epsg:3857'}, geometry=geom)
-               .assign(nuts3=lambda x: x.id_ags.map(region_id_to_nuts3()))
+               .assign(nuts3=lambda x: x.id_ags.map(dict_region_code()))
                .set_index('nuts3').sort_index(axis=0))
 
 
@@ -1835,7 +1835,7 @@ def plausibility_check_nuts3(df, check_zero=True):
         Holding the values (required index: NUTS-3 codes)
     """
     # 1. Check if there are unknown regions
-    A_db = set(region_id_to_nuts3().values())
+    A_db = set(dict_region_code().values())
     B_check = set(df.index)
     C_diff = B_check - A_db
     if len(C_diff) > 0:
@@ -1887,7 +1887,7 @@ def append_region_name(df):
     Parameters
     ----------
     df : pd.DataFrame or pd.Series
-        required index: NUTS-3 codes
+        required index: NUTS-1 or NUTS-3 codes
 
     Returns
     -------
@@ -1896,8 +1896,13 @@ def append_region_name(df):
     """
     if isinstance(df, pd.Series):
         df = df.to_frame()
+    if (df.index.str.len().max() == 3 or df.index.name == 'nuts1'):
+        level, keys = ['bl', 'natcode_nuts1']
+    else:
+        level, keys = ['lk', 'natcode_nuts3']
     return df.assign(region_name=lambda x:
-                     x.index.map(region_id_to_nuts3(nuts3_to_name=True)))
+                     x.index.map(dict_region_code(keys=keys, values='name',
+                                                  level=level)))
 
 
 def transpose_spatiotemporal(df, freq='1H', **kwargs):

@@ -134,40 +134,64 @@ def clear_local_cache():
         logger.info('Local cache already empty.')
 
 
-def region_id_to_nuts3(raw=False, nuts3_to_name=False, agslk_to_nuts3=False):
+def dict_region_code(keys='id_ags', values='natcode_nuts3', level='lk',
+                     raw=False, **kwargs):
     """
     Read and return a dictionary with regional information.
 
+    Examples
+    --------
+    keys='id_ags', values='natcode_nuts3', level='lk':
+        return <region_id>: <nuts3> e.g. '1001000': 'DEF01'
+
+    keys='natcode_nuts3', values='name', level='lk':
+        return <nuts3>: <name> e.g. 'DEF01': 'Flensburg, Kreisfreie Stadt'
+
     Parameters
     ----------
+    keys : str
+        The column label for the keys.
+    values : str
+        The column label for the values.
+    level : str, default 'lk'
+        must be in ['lk', 'bl']. 'lk'=Landkreise=nuts3, 'bl'=Bundesländer=nuts1
     raw : bool, default False
-        If True, return untouched pd.DataFrame.
-        If False (default), return dict.
-    nuts3_to_name : bool, default False
-        Determines the dict data to be returned.
-        If True,  return <region_id>: <nuts3> e.g. '1001000': 'DEF01'
-        If False, return <nuts3>: <name> e.g. 'DEF01': 'Flensburg, Kreisfre...'
+        return untouched pd.DataFrame if True else dict
 
     Returns
     -------
     dict or pd.DataFrame
     """
-    dict_source = get_config()['dict_source']
-    if dict_source == 'local':
-        df = pd.read_csv(data_in('regional/t_nuts3_lk.csv'), encoding='utf-8')
+    dict_source = kwargs.get('dict_source', get_config()['dict_source'])
+    # Argument error handling
+    assert dict_source in ['local', 'database'], (
+        "`dict_source` must be in ['local', 'database']")
+    if level == 'lk':
+        columns = ['id_t_nuts3_lk', 'id_nuts3', 'natcode_nuts3', 'name',
+                   'id_ags_lk', 'ags_lk', 'id_ags', 'ags_bl', 'bl']
+    elif level == 'bl':
+        columns = ['id_t_nuts1_bl', 'id_nuts1', 'natcode_nuts1', 'name',
+                   'id_ags_bl', 'ags_bl', 'id_ags']
     else:
+        raise ValueError("`level` must be in ['lk', 'bl']")
+    assert keys in columns, "`keys` must be in {}".format(columns)
+    assert values in columns, "`values` must be in {}".format(columns)
+    # Read the requested data
+    if dict_source == 'local' and level == 'lk':
+        df = pd.read_csv(data_in('regional/t_nuts3_lk.csv'), encoding='utf-8')
+    elif dict_source == 'local' and level == 'bl':
+        df = pd.read_csv(data_in('regional/t_nuts1_bl.csv'), encoding='utf-8')
+    elif dict_source == 'database' and level == 'lk':
         df = database_raw('t_nuts3_lk')
-
+    elif dict_source == 'database' and level == 'bl':
+        df = database_raw('t_nuts1_bl')
+    else:
+        raise ValueError("ELSE reached, this cannot be!")
+    # Filter and return
     if raw:
         return df
-
-    if agslk_to_nuts3:     # e.g. 1001: 'DEF01'
-        return df.set_index('ags_lk').loc[:, 'natcode_nuts3'].to_dict()
     else:
-        if nuts3_to_name:  # e.g. 'DEF01': 'Flensburg, Kreisfreie Stadt'
-            return df.set_index('natcode_nuts3').loc[:, 'name'].to_dict()
-        else:              # e.g. '1001000': 'DEF01'
-            return df.set_index('id_ags').loc[:, 'natcode_nuts3'].to_dict()
+        return df.set_index(keys).loc[:, values].to_dict()
 
 
 def literal_converter(val):

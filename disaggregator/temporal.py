@@ -21,7 +21,7 @@ Provides functions for temporal disaggregations.
 
 from .config import (get_config, data_out, bl_dict, shift_profile_industry,
                      slp_branch_cts_gas as slp_wz_g, data_in,
-                     slp_branch_cts_power as slp_wz_p, region_id_to_nuts3)
+                     slp_branch_cts_power as slp_wz_p, dict_region_code)
 from .data import (elc_consumption_HH, households_per_size, population,
                    living_space, h_value, zve_percentages_applications,
                    zve_percentages_baseload, zve_application_profiles,
@@ -501,7 +501,8 @@ def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
     assert np.isclose(total_sum, disagg_sum), msg.format(total_sum, disagg_sum)
 
     if use_nuts3code:
-        DF = DF.rename(columns=region_id_to_nuts3(agslk_to_nuts3=True),
+        DF = DF.rename(columns=dict_region_code(level='lk', keys='ags_lk',
+                                                values='natcode_nuts3'),
                        level=(0 if detailed else None))
     return DF
 
