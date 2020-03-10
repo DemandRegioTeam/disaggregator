@@ -1710,7 +1710,7 @@ def database_get(dimension, table_id, internal_id=None, year=None,
         Either 'spatial' or 'temporal'.
     table_id : int or str, optional
         ID of table to be queried.
-    internal_id : int or str, optional
+    internal_id : int or str or list, optional
         internal ID belonging to table_id to be queried (default: NoneType)
     year : int or str, optional
         Either the data year (spatial) or weather year (temporal)
@@ -1752,17 +1752,18 @@ def database_get(dimension, table_id, internal_id=None, year=None,
         if isinstance(internal_id, list):
             internal_id = ','.join([str(s) for s in internal_id])
         query += '&&' + 'internal_id' + '=eq.{' + str(internal_id) + '}'
+    #HACK: Can we remove this old hack?! Should be working without...
     if table == 'v_demandregio_spatial_lk401':
         if int_id_1 is not None:
             query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_1) + '}'
         if int_id_2 is not None:
-            query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_2) + '}'
+            query += '&&' + 'internal_id_2' + '=eq.{' + str(int_id_2) + '}'
         if int_id_3 is not None:
-            query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_3) + '}'
+            query += '&&' + 'internal_id_3' + '=eq.{' + str(int_id_3) + '}'
         if int_id_4 is not None:
-            query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_4) + '}'
+            query += '&&' + 'internal_id_4' + '=eq.{' + str(int_id_4) + '}'
         if int_id_5 is not None:
-            query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_5) + '}'
+            query += '&&' + 'internal_id_5' + '=eq.{' + str(int_id_5) + '}'
     if allow_zero_negative is False:
         if dimension == 'spatial':
             query += '&&value=gt.0.0'
