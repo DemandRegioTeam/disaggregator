@@ -935,10 +935,10 @@ def living_space(aggregate=True, **kwargs):
     source = kwargs.get('source', cfg['living_space']['source'])
     table_id = kwargs.get('table_id', cfg['living_space']['table_id'])
     force_update = kwargs.get('force_update', False)
-    bt = kwargs.get('internal_id_0', cfg['living_space']['internal_id'][0])
-    vc = kwargs.get('internal_id_1', cfg['living_space']['internal_id'][1])
-    hs = kwargs.get('internal_id_2', cfg['living_space']['internal_id'][2])
-    ne = kwargs.get('internal_id_3', cfg['living_space']['internal_id'][3])
+    bt = kwargs.get('internal_id', cfg['living_space']['internal_id'])[0]
+    vc = kwargs.get('internal_id', cfg['living_space']['internal_id'])[1]
+    hs = kwargs.get('internal_id', cfg['living_space']['internal_id'])[2]
+    ne = kwargs.get('internal_id', cfg['living_space']['internal_id'])[3]
 
     if source == 'local':
         df = read_local(data_in('regional', cfg['living_space']['filename']))
@@ -1163,10 +1163,10 @@ def heat_demand_buildings(**kwargs):
     source = kwargs.get('source', cfg['heat_dem_bld']['source'])
     table_id = kwargs.get('table_id', cfg['heat_dem_bld']['table_id'])
     force_update = kwargs.get('force_update', False)
-    bt = kwargs.get('internal_id_0', cfg['heat_dem_bld']['internal_id'][0])
-    vc = kwargs.get('internal_id_1', cfg['heat_dem_bld']['internal_id'][1])
-    hp = kwargs.get('internal_id_2', cfg['heat_dem_bld']['internal_id'][2])
-    va = kwargs.get('internal_id_3', cfg['heat_dem_bld']['internal_id'][3])
+    bt = kwargs.get('internal_id', cfg['heat_dem_bld']['internal_id'])[0]
+    vc = kwargs.get('internal_id', cfg['heat_dem_bld']['internal_id'])[1]
+    hp = kwargs.get('internal_id', cfg['heat_dem_bld']['internal_id'])[2]
+    va = kwargs.get('internal_id', cfg['heat_dem_bld']['internal_id'])[3]
 
     if source == 'local':
         raise NotImplementedError('Not here yet!')
@@ -1790,11 +1790,6 @@ def database_get(dimension, table_id, internal_id=None, year=None,
     -------
     pd.DataFrame
     """
-    int_id_1 = kwargs.get('internal_id_1', None)
-    int_id_2 = kwargs.get('internal_id_2', None)
-    int_id_3 = kwargs.get('internal_id_3', None)
-    int_id_4 = kwargs.get('internal_id_4', None)
-    int_id_5 = kwargs.get('internal_id_5', None)
     if dimension in ['spatial', 'temporal']:
         id_name = 'id_' + dimension
         if dimension == 'spatial':
@@ -1819,18 +1814,6 @@ def database_get(dimension, table_id, internal_id=None, year=None,
         if isinstance(internal_id, list):
             internal_id = ','.join([str(s) for s in internal_id])
         query += '&&' + 'internal_id' + '=eq.{' + str(internal_id) + '}'
-    #HACK: Can we remove this old hack?! Should be working without...
-    if table == 'v_demandregio_spatial_lk401':
-        if int_id_1 is not None:
-            query += '&&' + 'internal_id_1' + '=eq.{' + str(int_id_1) + '}'
-        if int_id_2 is not None:
-            query += '&&' + 'internal_id_2' + '=eq.{' + str(int_id_2) + '}'
-        if int_id_3 is not None:
-            query += '&&' + 'internal_id_3' + '=eq.{' + str(int_id_3) + '}'
-        if int_id_4 is not None:
-            query += '&&' + 'internal_id_4' + '=eq.{' + str(int_id_4) + '}'
-        if int_id_5 is not None:
-            query += '&&' + 'internal_id_5' + '=eq.{' + str(int_id_5) + '}'
     if allow_zero_negative is False:
         if dimension == 'spatial':
             query += '&&value=gt.0.0'
