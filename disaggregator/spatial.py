@@ -302,3 +302,32 @@ def disagg_CTS_industry(source, sector):
 def adjust_by_income(df):
     income_keys = income() / income().mean()
     return df.multiply(income_keys, axis=0)
+
+
+def aggregate_to_nuts1(df, agg='sum'):
+    """
+    Re-aggregate to NUTS-1 level from NUTS-3 level data.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        index: nuts3-codes
+    agg : str
+        The aggregation function key. The default is 'sum'.
+
+    Returns
+    -------
+    pd.DataFrame
+    """
+    # Check if passed df is actually a Series and convert to DataFrame
+    was_series = False
+    if isinstance(df, pd.Series):
+        name = df.name
+        df = df.to_frame()
+        was_series = True
+    # Aggregate
+    df = df.assign(nuts1=lambda x: x.index.str[0:3]).groupby('nuts1').agg(agg)
+    # Restore Series if it was one.
+    if was_series:
+        df = df[name]
+    return df
