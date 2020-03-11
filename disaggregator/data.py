@@ -1049,16 +1049,18 @@ def energy_balance_values(**kwargs):
     force_update = kwargs.get('force_update', False)
 
     # handle the multiple internal_id's
-    if not isinstance(internal_id, Iterable) or isinstance(internal_id, str):
-        raise TypeError('The passed `internal_id` must be an iterable (a list,'
-                        ' dict or tuple), but is {}'.format(type(internal_id)))
-    if isinstance(internal_id, dict):
-        internal_id = list(OrderedDict(internal_id).values())
-    assert sum(x <= 0 for x in internal_id) == 0, (
-        "There are non-positive values given as internal_id's. Please "
-        "pass or set in config.yaml correct line and column id's for the "
-        "energy balances. An explanation can be found in the "
-        "`internal_id_description` column in data.database_description().")
+    if internal_id is not None:
+        if not is_real_iterable(internal_id):
+            raise TypeError('The passed `internal_id` must be an iterable (a '
+                            'list, a dict or a tuple), but is a {}'
+                            .format(type(internal_id)))
+        if isinstance(internal_id, dict):
+            internal_id = list(OrderedDict(internal_id).values())
+        assert sum(x <= 0 for x in internal_id) == 0, (
+            "There are non-positive values given as internal_id's. Please "
+            "pass or set in config.yaml correct line and column id's for the "
+            "energy balances. An explanation can be found in the "
+            "`internal_id_description` column in data.database_description().")
 
     if source == 'local':
         df = read_local(data_in('regional',
@@ -1926,7 +1928,11 @@ def read_local(file, internal_id=None, year=None):
     if year is not None:
         df = df.loc[lambda x: x.year == year]
     if internal_id is not None:
-        df = df.loc[lambda x: x.internal_id.str[0] == internal_id]
+        if is_real_iterable(internal_id):
+            for i, int_id in enumerate(internal_id):
+                df = df.loc[lambda x: x.internal_id.str[i] == int_id]
+        else:
+            df = df.loc[lambda x: x.internal_id == internal_id]
     return df
 
 
@@ -1980,3 +1986,17 @@ def transpose_spatiotemporal(df, freq='1H', **kwargs):
         idx = pd.date_range(start=str(year), periods=len(df.columns),
                             freq=freq)
         return df.T.set_index(idx)
+
+
+def is_real_iterable(obj):
+    """
+    Check if passed `obj` of any type is a real iterable.
+
+    Returns
+    -------
+    bool
+    """
+    if (isinstance(obj, Iterable) and not isinstance(obj, str)):
+        return True
+    else:
+        return False
