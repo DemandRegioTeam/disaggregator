@@ -288,11 +288,13 @@ def disagg_CTS_industry(source, sector):
               91, 92, 93, 94, 95, 96, 97, 98, 99]
 
     spez_vb = spez_vb.loc[wz]
-    df = (pd.DataFrame(employees_per_branch_district()
-                       .loc[spez_vb.index].values * spez_vb.values,
-                       index=spez_vb.index, columns=spez_vb.columns))
-    df = (df.multiply(efficiency_enhancement(source)
-                      .transpose().loc[df.index], axis=0))
+    df = (pd.DataFrame(
+        data=(employees_per_branch_district().loc[spez_vb.index].values
+              * spez_vb.values),
+        index=spez_vb.index,
+        columns=spez_vb.columns))
+    df = df.multiply(efficiency_enhancement(source).transpose().loc[df.index],
+                     axis=0)
     return df
 
 
