@@ -171,7 +171,7 @@ def dict_region_code(keys='id_ags', values='natcode_nuts3', level='lk',
                    'id_ags_lk', 'ags_lk', 'id_ags', 'ags_bl', 'bl']
     elif level == 'bl':
         columns = ['id_t_nuts1_bl', 'id_nuts1', 'natcode_nuts1', 'name',
-                   'id_ags_bl', 'ags_bl', 'id_ags']
+                   'id_ags_bl', 'ags_bl', 'id_ags', 'bl']
     else:
         raise ValueError("`level` must be in ['lk', 'bl']")
     assert keys in columns, "`keys` must be in {}".format(columns)
