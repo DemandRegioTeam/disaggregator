@@ -24,7 +24,7 @@ from .data import (elc_consumption_HH, heat_consumption_HH, gas_consumption_HH,
                    living_space, hotwater_shares, heat_demand_buildings,
                    employees_per_branch_district, efficiency_enhancement,
                    generate_specific_consumption_per_branch_and_district)
-from .config import data_in
+from .config import (data_in, dict_region_code)
 
 import pandas as pd
 import os
@@ -251,7 +251,7 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
     return df
 
 
-def disagg_CTS_industry(source, sector):
+def disagg_CTS_industry(source, sector, use_nuts3code=False):
     """
     Perform spatial disaggregation of electric power or gas in [MWh/a]
 
@@ -275,7 +275,7 @@ def disagg_CTS_industry(source, sector):
     # Read -- and if necessary pre-generate -- specific consumptions
     f = data_in('regional', 'specific_{}_consumption.csv'.format(source))
     if not os.path.isfile(f):
-        generate_specific_consumption_per_branch_and_district(20, 20)
+        generate_specific_consumption_per_branch_and_district(8, 8)
     spez_vb = pd.read_csv(f, index_col=0)
     spez_vb.columns = spez_vb.columns.astype(int)
 
@@ -295,6 +295,9 @@ def disagg_CTS_industry(source, sector):
         columns=spez_vb.columns))
     df = df.multiply(efficiency_enhancement(source).transpose().loc[df.index],
                      axis=0)
+    if use_nuts3code:
+        df = df.rename(columns=dict_region_code(keys='ags_lk',
+                                                values='natcode_nuts3'))
     return df
 
 
