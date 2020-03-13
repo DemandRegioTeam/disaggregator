@@ -189,26 +189,26 @@ Please uncomment the sections you don't need and run the entire script in an
 external (!) console.
 """
 if __name__ == '__main__':
-    # invoke_batch_creation(ambient_T().reset_index(drop=True),
-    #                       name='Ambient_Temperature', fps=6,
-    #                       relative=False, interval=(-12, 40), cmap='jet',
-    #                       unit='°C')
+    invoke_batch_creation(ambient_T().reset_index(drop=True),
+                          name='Ambient_Temperature', fps=6,
+                          relative=False, interval=(-12, 40), cmap='jet',
+                          unit='°C')
 
-    # invoke_batch_creation(solar_irradiation().reset_index(drop=True),
-    #                       name='Solar_Irradiation', fps=24,
-    #                       relative=False, interval=(0, 245), cmap='jet',
-    #                       unit='Wh/m²', tspd=96)
+    invoke_batch_creation(solar_irradiation().reset_index(drop=True),
+                          name='Solar_Irradiation', fps=24,
+                          relative=False, interval=(0, 245), cmap='jet',
+                          unit='Wh/m²', tspd=96)
 
-    # invoke_batch_creation(elc_consumption_HH_spatiotemporal()
-    #                       .reset_index(drop=True),
-    #                       name='Electricity_Consumption', fps=6,
-    #                       relative=True, interval=(0, 1.54), cmap='jet',
-    #                       unit='MW')
-    # # Exemplaric user_generated file:
-    # df = pd.read_csv(data_out('gas_disagg.csv'), index_col=0, engine='c')
-    # invoke_batch_creation(df, name='Gas_Consumption', fps=6,
-    #                       relative=True, interval=(0, 3.25), cmap='jet',
-    #                       unit='MWh/h')
+    invoke_batch_creation(elc_consumption_HH_spatiotemporal()
+                          .reset_index(drop=True),
+                          name='Electricity_Consumption', fps=6,
+                          relative=True, interval=(0, 1.54), cmap='jet',
+                          unit='MW')
+    # Exemplaric user_generated file:
+    df = pd.read_csv(data_out('gas_disagg.csv'), index_col=0, engine='c')
+    invoke_batch_creation(df, name='Gas_Consumption', fps=6,
+                          relative=True, interval=(0, 3.25), cmap='jet',
+                          unit='MWh/h')
     # Exemplaric user_generated file:
     df = pd.read_csv(data_out('CTS_Power_May_2015_MWh.csv'), index_col=0,
                      engine='c')
