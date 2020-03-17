@@ -586,7 +586,7 @@ def disagg_temporal_gas_CTS(state, **kwargs):
     gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
     gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[:-3]))
                               for x in gv_lk.index.astype(str)]))
-    t_allo_df = temp_df[gv_lk.loc[gv_lk['BL'] == state].index]
+    t_allo_df = temp_df[gv_lk.loc[gv_lk['BL'] == state].index.astype(str)]
     for col in t_allo_df.columns:
         t_allo_df[col].values[t_allo_df[col].values < -15] = -15
         t_allo_df[col].values[(t_allo_df[col].values > -15)
@@ -612,7 +612,7 @@ def disagg_temporal_gas_CTS(state, **kwargs):
     calender_df = gas_slp_weekday_params(state).drop(columns=f_wd)
     temp_calender_df = (pd.concat([calender_df, t_allo_df], axis=1)
                           .reset_index())
-    list_lk = gv_lk.loc[gv_lk['BL'] == state].index
+    list_lk = gv_lk.loc[gv_lk['BL'] == state].index.astype(str)
     for lk in list_lk:
         lk_df = pd.DataFrame(index=pd.date_range((str(year) + '-01-01'),
                                                  periods=hours, freq='H'))

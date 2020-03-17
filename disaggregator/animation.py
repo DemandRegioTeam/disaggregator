@@ -209,3 +209,9 @@ if __name__ == '__main__':
     invoke_batch_creation(df, name='Gas_Consumption', fps=6,
                           relative=True, interval=(0, 3.25), cmap='jet',
                           unit='MWh/h')
+    # Exemplaric user_generated file:
+    df = pd.read_csv(data_out('CTS_Power_May_2015_MWh.csv'), index_col=0,
+                     engine='c')
+    invoke_batch_creation(df.reset_index(drop=True), name='CTS_Power_May_2015',
+                          fps=6, relative=True, interval=(0, 3.25), cmap='jet',
+                          unit='MWh/h')
