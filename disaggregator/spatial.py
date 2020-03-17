@@ -200,6 +200,8 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
                         SpaceHeating=df_spaceheat))
 
     elif how == 'bottom-up_2':
+        logger.warning("This feature is currently experimental and should not "
+                       "be used as long as you don't know what you're doing!")
         # The bottom-up_2 logic requires the heat demand of households
         df_heat_dem = disagg_households_heat(by='households')
 
