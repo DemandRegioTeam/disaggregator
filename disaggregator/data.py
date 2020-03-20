@@ -201,8 +201,9 @@ def t_allo(**kwargs):
     df = (pd.merge(df.transpose(), dic_nuts3, how='right',
                    left_index=True, right_index=True)
             .set_index('ags_lk').transpose())
-    df['03159'] = (df['03152'] + df['03156']) / 2
-    df.drop(columns=['03152', '03156'], inplace=True)
+    # dropping districts '03152' and '03156' which do not exist anymore
+    df = df.dropna(axis='columns')
+    # Workaround for dropping leading Zeros
     df.columns = df.columns.astype(int).astype(str)
     for district in df.columns:
         te = df[district].values
