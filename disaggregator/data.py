@@ -195,8 +195,7 @@ def t_allo(**kwargs):
         periods = 35040
     df = ambient_T(year=hist_year, internal_id=2)
     df = (df.assign(date=pd.date_range((str(hist_year) + '-01-01'),
-                    periods=periods / 4, freq='H',
-                    tz='Europe/Berlin'))
+                    periods=periods / 4, freq='H'))
             .set_index('date').resample('D').mean())
     df = (pd.merge(df.transpose(), dic_nuts3, how='right',
                    left_index=True, right_index=True)
@@ -1354,16 +1353,20 @@ def standard_load_profile_elc(which='H0', freq='1H', **kwargs):
         raise NotImplementedError('Not here yet!')
 
 
-def shift_load_profile_generator(state, **kwargs):
+def shift_load_profile_generator(state, low=0.35, **kwargs):
     """
     Return shift load profiles in normalized units
-    ('normalized' means here that the sum over all time steps equals to one).
+    ('normalized' means that the sum over all time steps equals to one).
 
     Parameters
     ----------
     state : str
         Must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
                         'NI','NW','RP','SL','SN','ST','SH','TH']
+    low : float
+        Load level during "low" loads. Industry loads have two levels:
+            "low" outside of working hours and "high" during working hours.
+        Default is set to 0.35 for low, which was deduced from real load data.
 
     Returns
     -------
@@ -1371,23 +1374,17 @@ def shift_load_profile_generator(state, **kwargs):
     """
     year = kwargs.get('year', cfg['base_year'])
     validity_check_nuts1(state)
-    low = 0.35
-    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
-       & (year % 100 == 0) & (year % 400 == 0)):
-        periods = 35136
-    else:
-        periods = 35040
-    df = (pd.DataFrame(data={"Date": pd.date_range((str(year)+'-01-01'),
-                                                   periods=periods,
-                                                   freq='15T',
-                                                   tz='Europe/Berlin')}))
-    df['Tag'] = pd.DatetimeIndex(df['Date']).date
-    df['Stunde'] = pd.DatetimeIndex(df['Date']).time
-    df['DayOfYear'] = pd.DatetimeIndex(df['Date']).dayofyear.astype(int)
+    idx = pd.date_range(start=str(year), end=str(year+1), freq='15T')[:-1]
+    df = (pd.DataFrame(data={'Date': idx})
+            .assign(Day=lambda x: pd.DatetimeIndex(x['Date']).date)
+            .assign(Hour=lambda x: pd.DatetimeIndex(x['Date']).time)
+            .assign(DayOfYear=lambda x:
+                    pd.DatetimeIndex(x['Date']).dayofyear.astype(int)))
+    periods = len(df)
     mask_holiday = []
     for i in range(0, len(holidays.DE(state=state, years=year))):
         mask_holiday.append('Null')
-        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state=state,
+        mask_holiday[i] = ((df['Day'] == [x for x in holidays.DE(state=state,
                             years=year).items()][i][0]))
     hd = mask_holiday[0]
     for i in range(1, len(holidays.DE(state=state, years=year))):
@@ -1400,7 +1397,7 @@ def shift_load_profile_generator(state, **kwargs):
     df['SO'] = df['SO'] | hd
     # 24th and 31st of december are treated like a saturday
     hld = [datetime.date(year, 12, 24), datetime.date(year, 12, 31)]
-    mask = df['Tag'].isin(hld)
+    mask = df['Day'].isin(hld)
     df.loc[mask, ['WT', 'SO']] = False
     df.loc[mask, 'SA'] = True
     for sp in ['S1_WT', 'S1_WT_SA', 'S1_WT_SA_SO', 'S2_WT',
@@ -1415,8 +1412,8 @@ def shift_load_profile_generator(state, **kwargs):
             mask = (df['SO'] | df['SA'])
             df.loc[mask, sp] = low * anteil
             mask = ((df['WT'])
-                    & ((df['Stunde'] < pd.to_datetime('08:00:00').time())
-                    | (df['Stunde'] >= pd.to_datetime('16:30:00').time())))
+                    & ((df['Hour'] < pd.to_datetime('08:00:00').time())
+                    | (df['Hour'] >= pd.to_datetime('16:30:00').time())))
             df.loc[mask, sp] = low * anteil
         elif(sp == 'S1_WT_SA'):
             anzahl_wz = (17 / 48 * len(df[df['WT']])
@@ -1427,12 +1424,12 @@ def shift_load_profile_generator(state, **kwargs):
             df[sp] = anteil
             mask = df['SO']
             df.loc[mask, sp] = low * anteil
-            mask = ((df['WT']) & ((df['Stunde'] < pd.to_datetime('08:00:00')
-                    .time()) | (df['Stunde'] >= pd.to_datetime('16:30:00')
+            mask = ((df['WT']) & ((df['Hour'] < pd.to_datetime('08:00:00')
+                    .time()) | (df['Hour'] >= pd.to_datetime('16:30:00')
                                 .time())))
             df.loc[mask, sp] = low * anteil
-            mask = ((df['SA']) & ((df['Stunde'] < pd.to_datetime('08:00:00')
-                    .time()) | (df['Stunde'] >= pd.to_datetime('16:30:00')
+            mask = ((df['SA']) & ((df['Hour'] < pd.to_datetime('08:00:00')
+                    .time()) | (df['Hour'] >= pd.to_datetime('16:30:00')
                                 .time())))
             df.loc[mask, sp] = low * anteil
         elif(sp == 'S1_WT_SA_SO'):
@@ -1442,8 +1439,8 @@ def shift_load_profile_generator(state, **kwargs):
                           + len(df[df['SA']])))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            mask = ((df['Stunde'] < pd.to_datetime('08:00:00').time())
-                    | (df['Stunde'] >= pd.to_datetime('16:30:00').time()))
+            mask = ((df['Hour'] < pd.to_datetime('08:00:00').time())
+                    | (df['Hour'] >= pd.to_datetime('16:30:00').time()))
             df.loc[mask, sp] = low * anteil
         elif(sp == 'S2_WT'):
             anzahl_wz = 17/24 * len(df[df['WT']])
@@ -1454,8 +1451,8 @@ def shift_load_profile_generator(state, **kwargs):
             mask = (df['SO'] | df['SA'])
             df.loc[mask, sp] = low * anteil
             mask = ((df['WT'])
-                    & ((df['Stunde'] < pd.to_datetime('06:00:00').time())
-                    | (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
+                    & ((df['Hour'] < pd.to_datetime('06:00:00').time())
+                    | (df['Hour'] >= pd.to_datetime('23:00:00').time())))
             df.loc[mask, sp] = low * anteil
         elif(sp == 'S2_WT_SA'):
             anzahl_wz = 17/24 * (len(df[df['WT']]) + len(df[df['SA']]))
@@ -1466,8 +1463,8 @@ def shift_load_profile_generator(state, **kwargs):
             mask = df['SO']
             df.loc[mask, sp] = low * anteil
             mask = (((df['WT']) | (df['SA']))
-                    & ((df['Stunde'] < pd.to_datetime('06:00:00').time())
-                    | (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
+                    & ((df['Hour'] < pd.to_datetime('06:00:00').time())
+                    | (df['Hour'] >= pd.to_datetime('23:00:00').time())))
             df.loc[mask, sp] = low * anteil
         elif(sp == 'S2_WT_SA_SO'):
             anzahl_wz = (17/24 * (len(df[df['WT']]) + len(df[df['SA']])
@@ -1476,8 +1473,8 @@ def shift_load_profile_generator(state, **kwargs):
                                   + len(df[df['SA']])))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            mask = (((df['Stunde'] < pd.to_datetime('06:00:00').time())
-                    | (df['Stunde'] >= pd.to_datetime('23:00:00').time())))
+            mask = (((df['Hour'] < pd.to_datetime('06:00:00').time())
+                    | (df['Hour'] >= pd.to_datetime('23:00:00').time())))
             df.loc[mask, sp] = low * anteil
         elif(sp == 'S3_WT_SA_SO'):
             anteil = 1 / periods
@@ -1519,23 +1516,18 @@ def gas_slp_weekday_params(state, **kwargs):
     """
     year = kwargs.get('year', cfg['base_year'])
     validity_check_nuts1(state)
-    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
-       & (year % 100 == 0) & (year % 400 == 0)):
-        days = 366
-    else:
-        days = 365
 
-    df = (pd.DataFrame(data={"Date": pd.date_range((str(year) + '-01-01'),
-                                                   periods=days,
-                                                   freq='d',
-                                                   tz='Europe/Berlin')}))
-    df = df.assign(Tag=pd.DatetimeIndex(df['Date']).date,
-                   DayOfYear=pd.DatetimeIndex(df['Date'])
-                   .dayofyear.astype(int))
+    idx = pd.date_range(start=str(year), end=str(year+1), freq='d')[:-1]
+    df = (pd.DataFrame(data={'Date': idx})
+            .assign(Day=lambda x: pd.DatetimeIndex(x['Date']).date)
+            .assign(DayOfYear=lambda x:
+                    pd.DatetimeIndex(x['Date']).dayofyear.astype(int)))
+    days = len(df)
+
     mask_holiday = []
     for i in range(0, len(holidays.DE(state=state, years=year))):
         mask_holiday.append('Null')
-        mask_holiday[i] = ((df['Tag'] == [x for x in holidays.DE(state=state,
+        mask_holiday[i] = ((df['Day'] == [x for x in holidays.DE(state=state,
                                           years=year).items()][i][0]))
     hd = mask_holiday[0]
     for i in range(1, len(holidays.DE(state=state, years=year))):
@@ -1556,7 +1548,7 @@ def gas_slp_weekday_params(state, **kwargs):
     df['SO'] = df['SO'] | hd
     hld = [(datetime.date(int(year), 12, 24)),
            (datetime.date(int(year), 12, 31))]
-    mask = df['Tag'].isin(hld)
+    mask = df['Day'].isin(hld)
     df.loc[mask, ['MO', 'DI', 'MI', 'DO', 'FR', 'SO']] = False
     df.loc[mask, 'SA'] = True
     par = pd.DataFrame.from_dict(gas_load_profile_parameters_dict())
@@ -1566,7 +1558,7 @@ def gas_slp_weekday_params(state, **kwargs):
             df.loc[df[wd], ['FW_'+str(slp)]] = par.loc[slp, wd]
         summe = df['FW_'+str(slp)].sum()
         df['FW_'+str(slp)] *= days/summe
-    return df.drop(columns=['DayOfYear']).set_index('Tag')
+    return df.drop(columns=['DayOfYear']).set_index('Day')
 
 
 def CTS_power_slp_generator(state, **kwargs):
