@@ -733,7 +733,7 @@ def disagg_temporal_gas_CTS(state, use_nuts3code=False, **kwargs):
 
 
 def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
-                               **kwargs):
+                             low = 0.35, **kwargs):
     """
     Disagreggate spatial data of industrie's power or gas demand temporally.
 
@@ -771,7 +771,7 @@ def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
                     .assign(SP=lambda x:
                             [shift_profile_industry()[i] for i in x.index]))
         logger.info('... creating state-specific load-profiles')
-        sp_bl = shift_load_profile_generator(state)
+        sp_bl = shift_load_profile_generator(state, low)
         # Plausibility check:
         assert sp_bl.index.equals(idx), "The time-indizes are not aligned"
         # Create 15min-index'ed DataFrames for current state
