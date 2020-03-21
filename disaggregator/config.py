@@ -242,8 +242,8 @@ def slp_branch_cts_power():
     This dictionary assignes a power load profile (SLP) to every CTS branch
     """
     return {1: 'L0', 2: 'L0', 3: 'G3', 35: 'G3', 36: 'G3', 37: 'G3',
-            38: 'G1', 39: 'G1', 41: 'G1', 42: 'G1', 43: 'G1', 45: 'G4',
-            46: 'G1', 47: 'G4', 49: 'G3', 50: 'G3', 51: 'G3', 52: 'G3',
+            38: 'G3', 39: 'G3', 41: 'G1', 42: 'G1', 43: 'G1', 45: 'G4',
+            46: 'G0', 47: 'G0', 49: 'G3', 50: 'G3', 51: 'G3', 52: 'G3',
             53: 'G4', 55: 'G2', 56: 'G2', 58: 'G1', 59: 'G0', 60: 'G3',
             61: 'G3', 62: 'G3', 63: 'G3', 64: 'G1', 65: 'G1', 66: 'G1',
             68: 'G1', 69: 'G1', 70: 'G1', 71: 'G1', 72: 'G1', 73: 'G1',
@@ -274,13 +274,13 @@ def shift_profile_industry():
     This dictionary assignes a shift profile to every industry branch
     """
     return {5: 'S3_WT_SA', 6: 'S3_WT_SA_SO', 7: 'S3_WT_SA', 8: 'S3_WT_SA',
-            9: 'S3_WT_SA', 10: 'S3_WT_SA', 11: 'S3_WT_SA', 12: 'S2_WT_SA',
+            9: 'S3_WT_SA', 10: 'S3_WT', 11: 'S3_WT', 12: 'S3_WT_SA',
             13: 'S2_WT', 14: 'S2_WT', 15: 'S2_WT_SA', 16: 'S2_WT_SA',
             17: 'S3_WT_SA_SO', 18: 'S3_WT_SA_SO', 19: 'S3_WT_SA_SO',
             20: 'S3_WT_SA_SO', 21: 'S3_WT_SA_SO', 22: 'S2_WT_SA',
-            23: 'S3_WT_SA_SO', 24: 'S3_WT_SA_SO', 25: 'S2_WT_SA',
-            26: 'S2_WT_SA', 27: 'S2_WT_SA', 28: 'S2_WT_SA', 29: 'S3_WT_SA',
-            30: 'S3_WT_SA', 31: 'S1_WT_SA', 32: 'S1_WT_SA', 33: 'S2_WT_SA'}
+            23: 'S3_WT', 24: 'S3_WT_SA_SO', 25: 'S3_WT', 26: 'S2_WT_SA',
+            27: 'S2_WT_SA', 28: 'S3_WT', 29: 'S3_WT_SA_SO', 30: 'S3_WT_SA_SO',
+            31: 'S1_WT_SA', 32: 'S3_WT_SA_SO', 33: 'S2_WT_SA'}
 
 
 def gas_load_profile_parameters_dict():
