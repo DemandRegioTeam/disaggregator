@@ -732,77 +732,7 @@ def disagg_temporal_gas_CTS(state, use_nuts3code=False, **kwargs):
     return df
 
 
-def disagg_temporal_industry(source, branch=False, **kwargs):
-    """
-    Disagreggate spatial data of industrie's power or gas demand temporally.
-
-    Parameters
-    ----------
-    source : str
-        Must be either 'power' or 'gas'
-    branch : bool
-        choose depth of dissolution
-        True: demand per district and branch
-        False: demand per district
-
-    Returns
-    -------
-    pd.DataFrame or Tuple
-    """
-    year = kwargs.get('year', cfg['base_year'])
-    bl_dic = bl_dict()
-    shift_profiles = shift_profile_industry()
-    vb_wz_lk = disagg_CTS_industry(source, 'industry').transpose()
-    vb_wz_lk = (vb_wz_lk.assign(BL=[bl_dic.get(int(x[:-3]))
-                                    for x in vb_wz_lk.index.astype(str)]))
-    if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
-            & (year % 100 == 0) & (year % 400 == 0)):
-        periods = 35136
-    else:
-        periods = 35040
-    VB_Dtl = pd.DataFrame(index=range(periods))
-    liste = []
-    for state in bl_dic.values():
-        print('Working on state: ' + state + '.')
-        vb_BL = (vb_wz_lk.loc[vb_wz_lk['BL'].replace(bl_dict) == state]
-                        .drop(columns=['BL']).fillna(value=0)
-                        .transpose().reset_index())
-        sp_bl = shift_load_profile_generator(state)
-        sv_timestamp = pd.DataFrame(index=sp_bl.index)
-        sv_lk_timestamp = (pd.DataFrame(0, index=sp_bl.index,
-                                           columns=vb_BL.set_index('WZ')
-                                                        .columns))
-        for sp in list(dict.fromkeys(shift_profiles.values())):
-            SV_df = (vb_BL.loc[(vb_BL.reset_index()['WZ']
-                                .replace(shift_profiles) == sp)]
-                          .set_index('WZ'))
-            SV_df = SV_df.stack().reset_index().dropna()
-            SV_Dtl_df = SV_df.groupby(by=['level_1'])[[0]].sum().transpose()
-            SV_df['LK_WZ'] = SV_df['level_1'] + '_'+SV_df['WZ'].astype(str)
-            SV_df = SV_df.set_index('LK_WZ')[[0]]
-            SV_df = SV_df.loc[SV_df[0] != 0].transpose()
-            lk_sv = (pd.DataFrame(np.multiply(sp_bl[[sp]].values,
-                                              SV_Dtl_df.values),
-                                              index=sp_bl.index,
-                                              columns=SV_Dtl_df.columns))
-            sp_sv = (pd.DataFrame(np.multiply(sp_bl[[sp]].values,
-                                              SV_df.values),
-                                  index=sp_bl.index, columns=SV_df.columns))
-            sv_timestamp = (sv_timestamp.merge(sp_sv, left_index=True,
-                                               right_index=True))
-            #  TODO: make this list available without memory errors,
-            #  3 GB of memory needed
-            # if branch:
-            #    liste.append(sv_timestamp)
-            sv_lk_timestamp = sv_lk_timestamp + lk_sv
-        VB_Dtl = pd.concat([VB_Dtl, sv_lk_timestamp], axis=1).dropna()
-    if(branch):
-        return liste
-    else:
-        return VB_Dtl
-
-
-def disagg_temporal_industry_2(source, detailed=False, use_nuts3code=False,
+def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
                                **kwargs):
     """
     Disagreggate spatial data of industrie's power or gas demand temporally.
