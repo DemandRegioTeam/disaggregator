@@ -26,8 +26,8 @@ import holidays
 import datetime
 from collections import OrderedDict
 from collections.abc import Iterable
-from .config import (get_config, data_in, database_raw, dict_region_code,
-                     literal_converter, wz_dict,
+from .config import (get_config, data_in, data_out, database_raw,
+                     dict_region_code, literal_converter, wz_dict,
                      hist_weather_year, gas_load_profile_parameters_dict)
 logger = logging.getLogger(__name__)
 cfg = get_config()
@@ -1351,6 +1351,19 @@ def standard_load_profile_elc(which='H0', freq='1H', **kwargs):
             raise NotImplementedError('`freq` must be either `1H` or `15min`.')
     else:
         raise NotImplementedError('Not here yet!')
+
+
+def zve_load_profile_elc(region='AllRegions', year=2015, **kwargs):
+    """
+    Return the ZVE load profile, which was generated in
+        temporal.make_zve_load_profiles()
+
+    Since the underlying input data cannot be made public, not everyone can run
+    this on their own. Therefore we publish the result for all Regions in 2015.
+    """
+    fn = data_out('ZVE_timeseries_{}_{}.csv'.format(region, year))
+    return pd.read_csv(fn, index_col=0, encoding='utf-8', parse_dates=True,
+                       infer_datetime_format=True, engine='c')
 
 
 def shift_load_profile_generator(state, low=0.35, **kwargs):
