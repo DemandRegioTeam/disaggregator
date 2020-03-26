@@ -1353,13 +1353,36 @@ def standard_load_profile_elc(which='H0', freq='1H', **kwargs):
         raise NotImplementedError('Not here yet!')
 
 
+def standard_load_profile_gas(which='H0', typ='EFH', normalized=True,
+                              **kwargs):
+    """
+    Return the gas standard load profile H0 in normalized units
+    ('normalized' means here that the sum over all time steps equals one).
+    """
+    if which != 'H0':
+        raise NotImplementedError('Not here yet!')
+
+    if typ == 'EFH':
+        kwargs['internal_id'] = 0
+    elif typ == 'MFH':
+        kwargs['internal_id'] = 1
+    else:
+        raise ValueError("`typ` must be in ['EFH', 'MFH']")
+
+    df_slp = reshape_spatiotemporal(key='slp_H0_1H_gas', **kwargs)
+    if normalized:
+        df_slp /= df_slp.sum(axis=0)
+
+    return df_slp
+
+
 def zve_load_profile_elc(region='AllRegions', year=2015, **kwargs):
     """
     Return the ZVE load profile, which was generated in
         temporal.make_zve_load_profiles()
 
     Since the underlying input data cannot be made public, not everyone can run
-    this on their own. Therefore we publish the result for all Regions in 2015.
+    this on their own. Therefore we publish the result for all regions in 2015.
     """
     fn = data_out('ZVE_timeseries_{}_{}.csv'.format(region, year))
     return pd.read_csv(fn, index_col=0, encoding='utf-8', parse_dates=True,

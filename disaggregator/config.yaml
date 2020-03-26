@@ -124,6 +124,12 @@ slp_H0_15min:
     table_id: 24
     freq: 15T
 
+slp_H0_1H_gas:
+    source: database
+    table_id: 28
+    internal_id: 0   # 0=EFH, 1=MFH
+    freq: 1H
+
 ambient_T:
     source: database
     # table_id: 11=centroid of the region, 12=biggest settlement/area (village, town)
