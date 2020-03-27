@@ -547,8 +547,7 @@ def disagg_daily_gas_slp(state, **kwargs):
             gv_slp = (gv_df.loc[gv_df['level_1'] == lk]
                            .drop(columns=['level_1'])
                            .set_index('WZ').transpose()
-                           .rename(columns=lambda x: str(lk) + '_'
-                                   + str(slp) + '_' + str(x)))
+                           .rename(columns=lambda x: str(lk) + '_' + str(x)))
             tw_lk_wz_slp = (pd.DataFrame(np.multiply(h_slp[
                                                      [str(lk)]
                                                      * len(gv_slp.columns)]
@@ -558,10 +557,14 @@ def disagg_daily_gas_slp(state, **kwargs):
             tw_lk_wz = pd.concat([tw_lk_wz, tw_lk_wz_slp], axis=1)
         tageswerte = pd.concat([tageswerte, tw_lk_wz], axis=1)
     df = pd.concat([df, tageswerte.iloc[:days]], axis=1)
-    return df.iloc[days:]
+    df = df.iloc[days:]
+    df.columns =\
+                pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
+                                           df.columns.str.split('_')])
+    return df
 
 
-def disagg_temporal_gas_CTS(state, use_nuts3code=False, **kwargs):
+def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
     """
     Disagreggate spatial data of CTS' gas demand temporally.
 
@@ -582,149 +585,145 @@ def disagg_temporal_gas_CTS(state, use_nuts3code=False, **kwargs):
     df = pd.DataFrame(0, columns=temp_df.columns,
                       index=pd.date_range((str(year) + '-01-01'),
                                            periods=hours, freq='H'))
-    tw_df = disagg_daily_gas_slp(state)
-    gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
-    gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[:-3]))
-                              for x in gv_lk.index.astype(str)]))
-    t_allo_df = temp_df[gv_lk.loc[gv_lk['BL'] == state].index.astype(str)]
-    for col in t_allo_df.columns:
-        t_allo_df[col].values[t_allo_df[col].values < -15] = -15
-        t_allo_df[col].values[(t_allo_df[col].values > -15)
-                              & (t_allo_df[col].values < -10)] = -10
-        t_allo_df[col].values[(t_allo_df[col].values > -10)
-                              & (t_allo_df[col].values < -5)] = -5
-        t_allo_df[col].values[(t_allo_df[col].values > -5)
-                              & (t_allo_df[col].values < 0)] = 0
-        t_allo_df[col].values[(t_allo_df[col].values > 0)
-                              & (t_allo_df[col].values < 5)] = 5
-        t_allo_df[col].values[(t_allo_df[col].values > 5)
-                              & (t_allo_df[col].values < 10)] = 10
-        t_allo_df[col].values[(t_allo_df[col].values > 10)
-                              & (t_allo_df[col].values < 15)] = 15
-        t_allo_df[col].values[(t_allo_df[col].values > 15)
-                              & (t_allo_df[col].values < 20)] = 20
-        t_allo_df[col].values[(t_allo_df[col].values > 20)
-                              & (t_allo_df[col].values < 25)] = 25
-        t_allo_df[col].values[(t_allo_df[col].values > 25)] = 100
-        t_allo_df = t_allo_df.astype('int32')
-    f_wd = ['FW_BA', 'FW_BD', 'FW_BH', 'FW_GA', 'FW_GB', 'FW_HA', 'FW_KO',
-            'FW_MF', 'FW_MK', 'FW_PD', 'FW_WA']
-    calender_df = gas_slp_weekday_params(state).drop(columns=f_wd)
-    temp_calender_df = (pd.concat([calender_df, t_allo_df], axis=1)
-                          .reset_index())
-    list_lk = gv_lk.loc[gv_lk['BL'] == state].index.astype(str)
-    for lk in list_lk:
-        lk_df = pd.DataFrame(index=pd.date_range((str(year) + '-01-01'),
-                                                 periods=hours, freq='H'))
-        for slp in list(dict.fromkeys(slp_wz_g().values())):
-            f = ('Lastprofil_{}.xls'.format(slp))
-            slp_profil = pd.read_excel(data_in('temporal',
-                                               'Gas Load Profiles', f))
-            slp_profil_mo = (slp_profil.loc[slp_profil['Tagestyp'] == 'MO']
-                                       .drop(columns=['Tagestyp'])
-                                       .set_index('Temperatur\nin °C\nkleiner')
-                                       .transpose().reset_index())
-            slp_profil_di = (slp_profil.loc[slp_profil['Tagestyp'] == 'DI']
-                                       .drop(columns=['Tagestyp'])
-                                       .set_index('Temperatur\nin °C\nkleiner')
-                                       .transpose().reset_index())
-            slp_profil_mi = (slp_profil.loc[slp_profil['Tagestyp'] == 'MI']
-                                       .drop(columns=['Tagestyp'])
-                                       .set_index('Temperatur\nin °C\nkleiner')
-                                       .transpose().reset_index())
-            slp_profil_do = (slp_profil.loc[slp_profil['Tagestyp'] == 'DO']
-                                       .drop(columns=['Tagestyp'])
-                                       .set_index('Temperatur\nin °C\nkleiner')
-                                       .transpose().reset_index())
-            slp_profil_fr = (slp_profil.loc[slp_profil['Tagestyp'] == 'FR']
-                                       .drop(columns=['Tagestyp'])
-                                       .set_index('Temperatur\nin °C\nkleiner')
-                                       .transpose().reset_index())
-            slp_profil_sa = (slp_profil.loc[slp_profil['Tagestyp'] == 'SA']
-                                       .drop(columns=['Tagestyp'])
-                                       .set_index('Temperatur\nin °C\nkleiner')
-                                       .transpose().reset_index())
-            slp_profil_so = (slp_profil.loc[slp_profil['Tagestyp'] == 'SO']
-                                       .drop(columns=['Tagestyp'])
-                                       .set_index('Temperatur\nin °C\nkleiner')
-                                       .transpose().reset_index())
-            for wz in slp_wz_g().keys():
-                profil_df = pd.DataFrame()
-                try:
-                    for index in range(len(temp_calender_df)):
-                        if(temp_calender_df['SO'][index]):
-                            profil_df = pd.concat([profil_df,
-                                                   slp_profil_so[
-                                                       temp_calender_df[
-                                                           str(lk)][
-                                                               index]] / 100
-                                                   * tw_df[str(lk) + '_'
-                                                           + str(slp) + '_'
-                                                           + str(wz)][index]])
-                        elif(temp_calender_df['FR'][index]):
-                            profil_df = pd.concat([profil_df,
-                                                   slp_profil_fr[
-                                                       temp_calender_df[
-                                                           str(lk)][
-                                                               index]] / 100
-                                                   * tw_df[str(lk) + '_'
-                                                           + str(slp) + '_'
-                                                           + str(wz)][index]])
-                        elif(temp_calender_df['MO'][index]):
-                            profil_df = pd.concat([profil_df,
-                                                   slp_profil_mo[
-                                                       temp_calender_df[
-                                                           str(lk)][
-                                                               index]] / 100
-                                                   * tw_df[str(lk) + '_'
-                                                           + str(slp) + '_'
-                                                           + str(wz)][index]])
-                        elif(temp_calender_df['DI'][index]):
-                            profil_df = pd.concat([profil_df,
-                                                   slp_profil_di[
-                                                       temp_calender_df[
-                                                           str(lk)][
-                                                               index]] / 100
-                                                   * tw_df[str(lk) + '_'
-                                                           + str(slp) + '_'
-                                                           + str(wz)][index]])
-                        elif(temp_calender_df['MI'][index]):
-                            profil_df = pd.concat([profil_df,
-                                                   slp_profil_mi[
-                                                       temp_calender_df[
-                                                           str(lk)][
-                                                               index]] / 100
-                                                   * tw_df[str(lk) + '_'
-                                                           + str(slp) + '_'
-                                                           + str(wz)][index]])
-                        elif(temp_calender_df['DO'][index]):
-                            profil_df = pd.concat([profil_df,
-                                                   slp_profil_do[
-                                                       temp_calender_df[
-                                                           str(lk)][
-                                                               index]] / 100
-                                                   * tw_df[str(lk) + '_'
-                                                           + str(slp) + '_'
-                                                           + str(wz)][index]])
-                        elif(temp_calender_df['SA'][index]):
-                            profil_df = pd.concat([profil_df,
-                                                   slp_profil_sa[
-                                                       temp_calender_df[
-                                                           str(lk)][
-                                                               index]] / 100
-                                                   * tw_df[str(lk) + '_'
-                                                           + str(slp) + '_'
-                                                           + str(wz)][index]])
+    for state in bl_dict().values():
+        tw_df = disagg_daily_gas_slp(state)
+        gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
+        gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[:-3]))
+                                  for x in gv_lk.index.astype(str)]))
+        t_allo_df = temp_df[gv_lk.loc[gv_lk['BL'] == state].index.astype(str)]
+        for col in t_allo_df.columns:
+            t_allo_df[col].values[t_allo_df[col].values < -15] = -15
+            t_allo_df[col].values[(t_allo_df[col].values > -15)
+                                  & (t_allo_df[col].values < -10)] = -10
+            t_allo_df[col].values[(t_allo_df[col].values > -10)
+                                  & (t_allo_df[col].values < -5)] = -5
+            t_allo_df[col].values[(t_allo_df[col].values > -5)
+                                  & (t_allo_df[col].values < 0)] = 0
+            t_allo_df[col].values[(t_allo_df[col].values > 0)
+                                  & (t_allo_df[col].values < 5)] = 5
+            t_allo_df[col].values[(t_allo_df[col].values > 5)
+                                  & (t_allo_df[col].values < 10)] = 10
+            t_allo_df[col].values[(t_allo_df[col].values > 10)
+                                  & (t_allo_df[col].values < 15)] = 15
+            t_allo_df[col].values[(t_allo_df[col].values > 15)
+                                  & (t_allo_df[col].values < 20)] = 20
+            t_allo_df[col].values[(t_allo_df[col].values > 20)
+                                  & (t_allo_df[col].values < 25)] = 25
+            t_allo_df[col].values[(t_allo_df[col].values > 25)] = 100
+            t_allo_df = t_allo_df.astype('int32')
+        f_wd = ['FW_BA', 'FW_BD', 'FW_BH', 'FW_GA', 'FW_GB', 'FW_HA', 'FW_KO',
+                'FW_MF', 'FW_MK', 'FW_PD', 'FW_WA']
+        calender_df = gas_slp_weekday_params(state).drop(columns=f_wd)
+        temp_calender_df = (pd.concat([calender_df, t_allo_df], axis=1)
+                              .reset_index())
+        list_lk = gv_lk.loc[gv_lk['BL'] == state].index.astype(str)
+        for lk in list_lk:
+            lk_df = pd.DataFrame(index=pd.date_range((str(year) + '-01-01'),
+                                                     periods=hours, freq='H'))
+            tw_df_lk = tw_df.loc[:, int(lk)]
+            for slp in list(dict.fromkeys(slp_wz_g().values())):
+                f = ('Lastprofil_{}.xls'.format(slp))
+                slp_profil = pd.read_excel(data_in('temporal',
+                                                   'Gas Load Profiles', f))
+                slp_profil_mo = (slp_profil.loc[slp_profil['Tagestyp'] == 'MO']
+                                           .drop(columns=['Tagestyp'])
+                                           .set_index('Temperatur\nin °C\nkleiner')
+                                           .transpose().reset_index())
+                slp_profil_di = (slp_profil.loc[slp_profil['Tagestyp'] == 'DI']
+                                           .drop(columns=['Tagestyp'])
+                                           .set_index('Temperatur\nin °C\nkleiner')
+                                           .transpose().reset_index())
+                slp_profil_mi = (slp_profil.loc[slp_profil['Tagestyp'] == 'MI']
+                                           .drop(columns=['Tagestyp'])
+                                           .set_index('Temperatur\nin °C\nkleiner')
+                                           .transpose().reset_index())
+                slp_profil_do = (slp_profil.loc[slp_profil['Tagestyp'] == 'DO']
+                                           .drop(columns=['Tagestyp'])
+                                           .set_index('Temperatur\nin °C\nkleiner')
+                                           .transpose().reset_index())
+                slp_profil_fr = (slp_profil.loc[slp_profil['Tagestyp'] == 'FR']
+                                           .drop(columns=['Tagestyp'])
+                                           .set_index('Temperatur\nin °C\nkleiner')
+                                           .transpose().reset_index())
+                slp_profil_sa = (slp_profil.loc[slp_profil['Tagestyp'] == 'SA']
+                                           .drop(columns=['Tagestyp'])
+                                           .set_index('Temperatur\nin °C\nkleiner')
+                                           .transpose().reset_index())
+                slp_profil_so = (slp_profil.loc[slp_profil['Tagestyp'] == 'SO']
+                                           .drop(columns=['Tagestyp'])
+                                           .set_index('Temperatur\nin °C\nkleiner')
+                                           .transpose().reset_index())
+                for wz in [k for k, v in slp_wz_g().items()
+                                      if v.startswith(slp)]:
+                    profil_df = pd.DataFrame()
+                    try:
+                        for index in range(len(temp_calender_df)):
+                            if(temp_calender_df['SO'][index]):
+                                profil_df = pd.concat([profil_df,
+                                                       slp_profil_so[
+                                                           temp_calender_df[
+                                                               str(lk)][
+                                                                   index]]/100
+                                                       * tw_df_lk[wz][index]])
+                            elif(temp_calender_df['FR'][index]):
+                                profil_df = pd.concat([profil_df,
+                                                       slp_profil_fr[
+                                                           temp_calender_df[
+                                                               str(lk)][
+                                                                   index]]/100
+                                                       * tw_df_lk[wz][index]])
+                            elif(temp_calender_df['MO'][index]):
+                                profil_df = pd.concat([profil_df,
+                                                       slp_profil_mo[
+                                                           temp_calender_df[
+                                                               str(lk)][
+                                                                   index]]/100
+                                                       * tw_df_lk[wz][index]])
+                            elif(temp_calender_df['DI'][index]):
+                                profil_df = pd.concat([profil_df,
+                                                       slp_profil_di[
+                                                           temp_calender_df[
+                                                               str(lk)][
+                                                                   index]]/100
+                                                       * tw_df_lk[wz][index]])
+                            elif(temp_calender_df['MI'][index]):
+                                profil_df = pd.concat([profil_df,
+                                                       slp_profil_mi[
+                                                           temp_calender_df[
+                                                               str(lk)][
+                                                                   index]]/100
+                                                       * tw_df_lk[wz][index]])
+                            elif(temp_calender_df['DO'][index]):
+                                profil_df = pd.concat([profil_df,
+                                                       slp_profil_do[
+                                                           temp_calender_df[
+                                                               str(lk)][
+                                                                   index]]/100
+                                                       * tw_df_lk[wz][index]])
+                            elif(temp_calender_df['SA'][index]):
+                                profil_df = pd.concat([profil_df,
+                                                       slp_profil_sa[
+                                                           temp_calender_df[
+                                                               str(lk)][
+                                                                   index]]/100
+                                                       * tw_df_lk[wz][index]])
 
-                    profil_df['Date'] = pd.date_range((str(year) + '-01-01'),
-                                                      periods=hours, freq='H')
-                    profil_df.set_index('Date', inplace=True)
-                    lk_df[str(lk) + '_' + str(wz)] = profil_df.values
-                    df[str(lk) + '_' + str(wz)] = profil_df.values
-                except KeyError:
-                    pass
-        df[str(lk)] = lk_df.sum(axis=1)
-    df = df[list_lk]
+                        profil_df['Date'] = pd.date_range((str(year)+'-01-01'),
+                                                          periods=hours,
+                                                          freq='H')
+                        profil_df.set_index('Date', inplace=True)
+                        lk_df[str(lk) + '_' + str(wz)] = profil_df.values
+                        df[str(lk) + '_' + str(wz)] = profil_df.values
+                    except KeyError:
+                        pass
+            df[str(lk)] = lk_df.sum(axis=1)
+    if detailed:
+        df = df.drop(columns=gv_lk.index.astype(str))
+        df.columns =\
+                    pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
+                                               df.columns.str.split('_')])
+    else:
+        df = df[gv_lk.index.astype(str)]
     if use_nuts3code:
         df.columns = df.columns.astype(int)
         df = df.rename(columns=dict_region_code(keys='ags_lk',
@@ -733,7 +732,7 @@ def disagg_temporal_gas_CTS(state, use_nuts3code=False, **kwargs):
 
 
 def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
-                             low = 0.35, **kwargs):
+                             low=0.35, **kwargs):
     """
     Disagreggate spatial data of industrie's power or gas demand temporally.
 
