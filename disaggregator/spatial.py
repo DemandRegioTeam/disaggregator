@@ -115,8 +115,8 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
     """
     gas_nuts0 = gas_consumption_HH()
     # Derive distribution keys
-    df_ls_gas = living_space(aggregate=True, internal_id_2=11,
-                             internal_id_3=1).sum(axis=1)
+    df_ls_gas = living_space(aggregate=True,
+                             internal_id=[None, None, 11, 1]).sum(axis=1)
     df_pop = population()
     df_HH = households_per_size().sum(axis=1)
     d_keys_hotwater = df_pop / df_pop.sum()
@@ -124,8 +124,6 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
 
     if how == 'top-down':
         logger.info('Calculating regional gas demands top-down.')
-        df_ls_gas = living_space(aggregate=True, internal_id_2=11,
-                                 internal_id_3=1).sum(axis=1)
         d_keys_space = df_ls_gas / df_ls_gas.sum()
         # Calculate
         df = (pd.DataFrame(index=df_ls_gas.index)
@@ -166,21 +164,20 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
                             'J_2002-2009': 'F_>2000'}
 
         # load the to-be-heated m² in spatial resolution
-        df_ls_gas = (living_space(aggregate=False, internal_id_2=11,
-                                  internal_id_3=1, year=2018)
-                     .drop(['heating_system', 'non_empty_building'],
-                           axis=1)
+        df_ls_gas = (living_space(aggregate=False, year=2018,
+                                  internal_id=[None, None, 11, 1])
+                     .drop(['heating_system', 'non_empty_building'], axis=1)
                      .replace(dict(vintage_class=new_m2_vintages)))
 
         # load the specific heating demands
         # df1 = not refurbished buildings
         df1 = (heat_demand_buildings(table_id=56, year=2018,
-                                     internal_id_2=1, internal_id_3=1)
+                                     internal_id=[None, None, 1, 1])
                .replace(dict(vintage_class=new_dem_vintages))
                .loc[lambda x: x.vintage_class != 'A_<1948'])
         # df2 = refurbished buildings
         df2 = (heat_demand_buildings(table_id=56, year=2018,
-                                     internal_id_2=1, internal_id_3=2)
+                                     internal_id=[None, None, 1, 2])
                .replace(dict(vintage_class=new_dem_vintages))
                .loc[lambda x: x.vintage_class == 'A_<1948'])
         df_heat_dem = pd.concat([df1, df2])
@@ -225,8 +222,6 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
 
         logger.info('3. Space heating + hot water (centralised) based on '
                     'living space in [MWh/a]')
-        df_ls_gas = living_space(aggregate=True, internal_id_2=11,
-                                 internal_id_3=1)
 
         df_hc_only = (heat_consumption_HH(by='buildings')
                       .T.loc[:, 'SpaceHeatingOnly'])
