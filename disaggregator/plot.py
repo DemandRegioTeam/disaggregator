@@ -117,11 +117,15 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
     else:
         unit = '[${}$]'.format(unit)
 
+    if isinstance(cmap, str):
+        cmap = [cmap for c in cols]
     if len(cols) == 1:
         colorbar_each_subplot = False
     if colorbar_each_subplot:
         if isinstance(interval, tuple):
             intervals = [interval for c in cols]
+        elif isinstance(interval, list):
+            intervals = interval
         else:
             intervals = []
     else:
@@ -152,7 +156,7 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
         DE.plot(ax=ax[i, j], color='grey')
         # Second layer: make subplot
         (DF.dropna(subset=[col], axis=0)
-           .plot(ax=ax[i, j], column=col, cmap=cmap,
+           .plot(ax=ax[i, j], column=col, cmap=cmap[a],
                  vmin=intervals[a][0], vmax=intervals[a][1]))
         if not shape_source_api:
             ax[i, j].set_xlim(5.5, 15.3)
@@ -211,8 +215,8 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
     fig.tight_layout()
     if colorbar_each_subplot:
         for a, axes in enumerate(ax.ravel().tolist()):
-            sm = ScaMap(cmap=cmap, norm=plt.Normalize(vmin=intervals[a][0],
-                                                      vmax=intervals[a][1]))
+            sm = ScaMap(cmap=cmap[a], norm=plt.Normalize(vmin=intervals[a][0],
+                                                         vmax=intervals[a][1]))
             sm._A = []
             cbar = fig.colorbar(sm, ax=axes, shrink=1.0, pad=0.01,
                                 fraction=0.046,
@@ -220,8 +224,8 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
                                 format=mticker.StrMethodFormatter('{x:,g}'))
             cbar.set_label(unit)
     else:
-        sm = ScaMap(cmap=cmap, norm=plt.Normalize(vmin=intervals[0][0],
-                                                  vmax=intervals[0][1]))
+        sm = ScaMap(cmap=cmap[0], norm=plt.Normalize(vmin=intervals[0][0],
+                                                     vmax=intervals[0][1]))
         sm._A = []
         shr = 1.0 if ncols <= 2 else 0.5
         cbar = fig.colorbar(sm, ax=ax.ravel().tolist(), shrink=shr, pad=0.01,
