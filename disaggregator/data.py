@@ -214,7 +214,7 @@ def t_allo(**kwargs):
     return df
 
 
-def h_value(slp, districts, normalize=True):
+def h_value(slp, districts, temperatur_df, normalize=True):
     """
     Returns normalized h-values depending on allocation temperature  for every
     district.
@@ -234,7 +234,7 @@ def h_value(slp, districts, normalize=True):
     -------
     pd.DataFrame
     """
-    temp_df = t_allo()[[x for x in districts]]
+    temp_df = temperatur_df.copy()[[x for x in districts]]
     par = gas_load_profile_parameters_dict()
     A = par['A'][slp]
     B = par['B'][slp]
