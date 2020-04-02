@@ -891,10 +891,10 @@ def plausibility_check_nuts3(df, check_zero=True):
     # 3. Check if values below zero
     if isinstance(df, pd.Series):
         if check_zero and df.loc[lambda x: x <= 0.0].any():
-            logger.warn('There are values less or equal to zero.')
+            logger.warning('There are values less or equal to zero.')
     elif isinstance(df, pd.DataFrame):
         if check_zero and df[df <= 0.0].any().any():
-            logger.warn('There are values less or equal to zero.')
+            logger.warning('There are values less or equal to zero.')
     else:
         raise NotImplementedError('Check for given type! Other than pd.Series '
                                   'or pd.DataFrame are not yet possible.')
