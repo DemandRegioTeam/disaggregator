@@ -260,6 +260,7 @@ def disagg_households_heatload(year, weight_by_income=False):
     pd.DataFrame or pd.Series
     """
     # Derive distribution keys
+    gas_nuts0 = gas_consumption_HH()
     df_ls = living_space(aggregate=True, internal_id_3=1).sum(axis=1)
     df_pop = population()
     df_HH = households_per_size().sum(axis=1)
@@ -298,7 +299,7 @@ def disagg_households_heatload(year, weight_by_income=False):
                         'J_2002-2009': 'F_>2000'}
 
     # load the to-be-heated m² in spatial resolution
-    df_ls = (living_space(aggregate=False, internal_id_3=1, year=year)
+    df_ls = (living_space(aggregate=False, year=2018)   #internal_id_3=1
                  .drop(['heating_system', 'non_empty_building'],
                        axis=1)
                  .replace(dict(vintage_class=new_m2_vintages)))
@@ -314,7 +315,11 @@ def disagg_households_heatload(year, weight_by_income=False):
                                  internal_id_2=1, internal_id_3=2)
            .replace(dict(vintage_class=new_dem_vintages))
            .loc[lambda x: x.vintage_class == 'A_<1948'])
-    df_heat_dem = pd.concat([df1, df2])
+    #df_heat_dem = pd.concat([df1, df2])
+    df_heat_dem = (heat_demand_buildings(table_id=56, year=year,
+                                 internal_id_3=1)
+           .replace(dict(vintage_class=new_dem_vintages))
+           .loc[lambda x: x.vintage_class != 'A_<1948'])
 
     piv_dem = df_heat_dem.pivot_table(values='value', index='nuts3',
                                       columns='vintage_class',
