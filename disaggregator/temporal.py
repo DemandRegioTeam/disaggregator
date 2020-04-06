@@ -539,7 +539,7 @@ def disagg_daily_gas_slp(state, temperatur_df, **kwargs):
     calender_df = (gas_slp_weekday_params(state)
                    .drop(columns=['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO']))
     tageswerte = pd.DataFrame(index=calender_df['Date'])
-    #temperatur_df = t_allo()
+    # temperatur_df = t_allo()
     for slp in gv_lk['SLP'].unique():
         h_slp = h_value(slp, list_ags, temperatur_df)
         gv_df = (gv_lk.loc[gv_lk['SLP'] == slp].drop(columns=['SLP'])
@@ -559,11 +559,12 @@ def disagg_daily_gas_slp(state, temperatur_df, **kwargs):
             tw_lk_wz = pd.concat([tw_lk_wz, tw_lk_wz_slp], axis=1)
         tageswerte = pd.concat([tageswerte, tw_lk_wz], axis=1)
     df = pd.concat([df, tageswerte.iloc[:days]], axis=1)
-    df =  df.iloc[days:]
+    df = df.iloc[days:]
     df.columns =\
                 pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
                                            df.columns.str.split('_')])
     return df
+
 
 def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
     """
@@ -591,7 +592,8 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
         gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
         gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[:-3]))
                                   for x in gv_lk.index.astype(str)]))
-        t_allo_df = temperatur_df[gv_lk.loc[gv_lk['BL'] == state].index.astype(str)]
+        t_allo_df = (temperatur_df[gv_lk.loc[gv_lk['BL'] == state]
+                                   .index.astype(str)])
         for col in t_allo_df.columns:
             t_allo_df[col].values[t_allo_df[col].values < -15] = -15
             t_allo_df[col].values[(t_allo_df[col].values > -15)
@@ -618,8 +620,8 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
         temp_calender_df = (pd.concat([calender_df, t_allo_df], axis=1)
                               .reset_index())
         temp_calender_df['Tagestyp'] = 'MO'
-        for typ in ['DI','MI','DO','FR','SA','SO']:
-            temp_calender_df['Tagestyp'].loc[temp_calender_df[typ]] = typ
+        for typ in ['DI', 'MI', 'DO', 'FR', 'SA', 'SO']:
+            temp_calender_df.loc[temp_calender_df[typ], 'Tagestyp'] = typ
         list_lk = gv_lk.loc[gv_lk['BL'] == state].index.astype(str)
         for lk in list_lk:
             lk_df = pd.DataFrame(index=pd.date_range((str(year) + '-01-01'),
@@ -631,52 +633,56 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
             tw_df_lk = tw_df_lk.append(last_hour)
             tw_df_lk = tw_df_lk.resample('H').pad()
             tw_df_lk = tw_df_lk[:-1]
-            
+
             temp_cal = temp_calender_df.copy()
-            temp_cal = temp_cal[['Date','Tagestyp',lk]].set_index("Date")
+            temp_cal = temp_cal[['Date', 'Tagestyp', lk]].set_index("Date")
             last_hour = temp_cal.copy()[-1:]
             last_hour.index = last_hour.index + timedelta(1)
             temp_cal = temp_cal.append(last_hour)
             temp_cal = temp_cal.resample('H').pad()
             temp_cal = temp_cal[:-1]
             temp_cal['Stunde'] = pd.DatetimeIndex(temp_cal.index).time
-            temp_cal = temp_cal.set_index(["Tagestyp",lk,'Stunde'])
-                
+            temp_cal = temp_cal.set_index(["Tagestyp", lk, 'Stunde'])
+
             for slp in list(dict.fromkeys(slp_wz_g().values())):
                 f = ('Lastprofil_{}.xls'.format(slp))
                 slp_profil = pd.read_excel(data_in('temporal',
                                                    'Gas Load Profiles', f))
                 slp_profil = pd.DataFrame(slp_profil.set_index(['Tagestyp',
-                                            'Temperatur\nin °C\nkleiner']))
-                slp_profil.columns = pd.to_datetime(slp_profil.columns, 
+                                          'Temperatur\nin °C\nkleiner']))
+                slp_profil.columns = pd.to_datetime(slp_profil.columns,
                                                     format='%H:%M:%S')
                 slp_profil.columns = pd.DatetimeIndex(slp_profil.columns).time
                 slp_profil = slp_profil.stack()
                 temp_cal['Prozent'] = [slp_profil[x] for x in temp_cal.index]
-                for wz in [k for k, v in slp_wz_g().items() 
+                for wz in [k for k, v in slp_wz_g().items()
                                       if v.startswith(slp)]:
                     lk_df[str(lk) + '_' + str(wz)] = (tw_df_lk[wz].values
-                                        * temp_cal['Prozent'].values/100)
+                                                      * temp_cal['Prozent']
+                                                        .values/100)
                     df[str(lk) + '_' + str(wz)] = (tw_df_lk[wz].values
-                                     * temp_cal['Prozent'].values/100)
+                                                   * temp_cal['Prozent']
+                                                     .values/100)
             df[str(lk)] = lk_df.sum(axis=1)
+#    df.columns = df.columns.astype(int)
     if detailed:
-        df = df.drop(columns = gv_lk.index.astype(str))
+        df = df.drop(columns=gv_lk.index.astype(str))
         df.columns =\
                     pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
                                                df.columns.str.split('_')])
     else:
         df = df[gv_lk.index.astype(str)]
-        
+        df.columns = df.columns.astype(int)
+
     if use_nuts3code:
-        df = df.rename(columns=dict_region_code(level='lk', keys='ags_lk',
+        df = df.rename(columns=dict_region_code(keys='ags_lk',
                                                 values='natcode_nuts3'),
                        level=(0 if detailed else None))
     return df
 
 
 def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
-                             low = 0.35, **kwargs):
+                             low=0.35, **kwargs):
     """
     Disagreggate spatial data of industrie's power or gas demand temporally.
 
