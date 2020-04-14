@@ -45,8 +45,8 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
     ----------
     df : pd.DataFrame or pd.Series
         Holding the values (required index: NUTS-3 codes)
-    cmap : str, optional
-        matplotlib colormap code
+    cmap : str or list, optional
+        matplotlib colormap code(s)
     interval : tuple or str, optional
         if tuple: min/max-range e.g. (0, 1) | if str: find min/max autom.
     annotate: None, str or list
