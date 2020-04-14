@@ -1032,6 +1032,25 @@ def energy_balance_households_power(**kwargs):
     return pd.concat([df_HH_DE1_DE2, df_HH], axis=0)
 
 
+def energy_balance_households_gas(**kwargs):
+    """
+    Currently, DE1 and DE2 do not report specific values only for households,
+    but aggregated for households+CTS in their energy balances. Therefore, we
+    estimate the percentage of households based on the mean of the relation in
+    the other regions.
+
+    Returns
+    -------
+    pd.Series
+        index: NUTS-1 codes
+    """
+    df_HH = energy_balance_values(internal_id=[52, 21], **kwargs)
+    df_HH_CTS = energy_balance_values(internal_id=[54, 21], **kwargs)
+    factor = df_HH.div(df_HH_CTS).mean()
+    df_HH_DE1_DE2 = df_HH_CTS.loc[['DE1', 'DE2']].multiply(factor)
+    return pd.concat([df_HH_DE1_DE2, df_HH], axis=0)
+
+
 def energy_balance_values(**kwargs):
     """
     Read, transform and return energy balance values in [TWh] per NUTS-1 area.
