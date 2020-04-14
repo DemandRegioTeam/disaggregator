@@ -40,7 +40,7 @@ Once the environment is activated, you can start a Jupyter Notebook from there
 (disaggregator) $ jupyter notebook
 ```
 
-As soon as the Jupyter Notebook opens in your browser, click on the `01_Introduction_data.ipynb` file to start with a demonstration:
+As soon as the Jupyter Notebook opens in your browser, click on the `01_Demo_data-and-config.ipynb` file to start with a demonstration:
 
 ![Jupyter_View][img_01]
 
