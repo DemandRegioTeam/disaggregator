@@ -51,6 +51,9 @@ def disagg_temporal(spat, temp, time_indexed=False, **kwargs):
         Container for the time series containing the temporal data.
         If pd.Series: pd.DatetimeIndex'ed
         If pd.DataFrame: NUTS-3-index'ed
+    time_indexed : bool, default False
+        Option to return the timesteps in index and regions in columns
+
     """
     # Make sure spat is a pd.DataFrame and determine dimension
     if isinstance(spat, pd.DataFrame):
@@ -123,8 +126,10 @@ def make_zve_load_profiles(return_profile_by_typeday=False,
     l_app_activity = df_perc_baseload[:-3].index.tolist()
     l_app_baseload = df_perc_baseload[-3:].index.tolist()
 
-    # TODO: Only valid for 2012. Make this dynamic for user-defined years,
-    # e.g. by instantiating a class for each time slice!
+    # WARNING: Only valid for 2012.
+    # Future TODO: Make this dynamic for user-defined years,
+    # e.g. by instantiating a class for each time slice
+    # to achieve a little more accuracy.
     time_slices_to_days = {'WD_Win': 103,
                            'WD_Tra': 61,
                            'WD_Sum': 85,
@@ -417,9 +422,10 @@ def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
 
     Parameters
     ----------
-    detailed : bool
+    detailed : bool, default False
         If True return 'per district and branch' else only 'per district'
-
+    use_nuts3code : bool, default False
+        If True use NUTS-3 codes as region identifiers.
     Returns
     -------
     pd.DataFrame
@@ -570,9 +576,11 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
     """
     Disagreggate spatial data of CTS' gas demand temporally.
 
-    state: str
-        must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
-                        'NI','NW','RP','SL','SN','ST','SH','TH']
+    detailed : bool, default False
+        If True return 'per district and branch' else only 'per district'
+    use_nuts3code : bool, default False
+        If True use NUTS-3 codes as region identifiers.
+
     Returns
     -------
     pd.DataFrame
@@ -690,10 +698,14 @@ def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
     ----------
     source : str
         Must be either 'power' or 'gas'
-    detailed : bool
+    detailed : bool, default False
         choose depth of dissolution
         True: demand per district and detailed
         False: demand per district
+    use_nuts3code : bool, default False
+        If True use NUTS-3 codes as region identifiers.
+    low : float
+        throughput for data.shift_load_profile_generator(low)
 
     Returns
     -------
