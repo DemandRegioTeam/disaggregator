@@ -981,6 +981,48 @@ def living_space(aggregate=True, **kwargs):
     return df
 
 
+def percentage_EFH_MFH(MFH=False, **kwargs):
+    """
+    Return either the percentages of single family houses (EFH) or those of
+    multi family houses (MFH) for each region.
+
+    Parameters
+    ----------
+    MFH : bool, default False
+        If True: return MFH values
+        If False: return EFH values
+
+    Returns
+    -------
+    pd.Series
+    """
+    year = kwargs.get('year', 2011)
+    source = kwargs.get('source', cfg['percentage_EFH_MFH']['source'])
+    table_id = kwargs.get('table_id', cfg['percentage_EFH_MFH']['table_id'])
+    force_update = kwargs.get('force_update', False)
+
+    if year != 2011:
+        logger.warn('Currently, there is only data for year 2011 available!')
+
+    if source == 'local':
+        fn = data_in('regional', cfg['percentage_EFH_MFH']['filename'])
+        df = read_local(fn, year=year)
+    elif source == 'database':
+        df = database_get('spatial', table_id=table_id, year=year,
+                          force_update=force_update)
+    else:
+        raise KeyError('Wrong source key given in config.yaml - must be either'
+                       ' `local` or `database` but is: {}'.format(source))
+
+    df = (df.assign(nuts3=lambda x: x.id_region.map(dict_region_code()))
+            .set_index('nuts3').sort_index(axis=0))['value']
+    df = plausibility_check_nuts3(df)
+    if MFH:
+        return 1 - df
+    else:
+        return df
+
+
 def income(**kwargs):
     """
     Read, transform and return incomes in [Euro/cap] per NUTS-3 area.

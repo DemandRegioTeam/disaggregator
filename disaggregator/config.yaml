@@ -73,6 +73,12 @@ living_space:
         2: -1   # heating system or id_et: 9=Steinkohle; 10=Braunkohle; 11=Erdgas; 34=Heizoel; 35=Biomasse (fest); 68=Umgebungswaerme; 69=Solarwaerme; 71=Fernwaerme; 72=Elektrische Energie; 218=Biomasse (außer Holz, Biogas)
         3: -1   # non empty building. 0/False: building empty, 1/True: building not empty
 
+percentage_EFH_MFH:
+    source: database
+    filename: percentage_EFH_MFH.csv
+    table_id: 61
+
+
 energy_balance_values:
     source: database
     filename: energy_balance_values.csv
@@ -164,7 +170,7 @@ dtypes:
     sum: float
 
 # contains all table_id's of those tables with spatially high data on nuts 3 level
-nuts3_tables: [1, 4, 5, 12, 14, 15, 16, 17, 18, 19, 20, 26, 27, 28, 29, 30, 31, 32, 33, 34, 39, 40, 41, 42, 43, 44, 45, 48, 49, 50, 55, 56, 57]
+nuts3_tables: [1, 4, 5, 12, 14, 15, 16, 17, 18, 19, 20, 26, 27, 28, 29, 30, 31, 32, 33, 34, 39, 40, 41, 42, 43, 44, 45, 48, 49, 50, 55, 56, 57, 61]
 
 # load table sectionwise:
 load_sectionwise:
