@@ -1904,6 +1904,10 @@ def database_get(dimension, table_id, internal_id=None, year=None,
         query += '&&' + year_var + '=eq.' + str(year)
     if internal_id is not None:
         if isinstance(internal_id, list):
+            if not all([isinstance(x, int) for x in internal_id]):
+                raise ValueError("If `internal_id` is passed as a list, all "
+                                 "items must be integers. Passing wildcards "
+                                 "e.g. (*) or (?) is currently not possible!")
             internal_id = ','.join([str(s) for s in internal_id])
         query += '&&' + 'internal_id' + '=eq.{' + str(internal_id) + '}'
     if allow_zero_negative is False:
