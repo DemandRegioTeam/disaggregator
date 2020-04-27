@@ -214,9 +214,9 @@ def t_allo(**kwargs):
     return df
 
 
-def h_value(slp, districts, temperatur_df, normalize=True):
+def h_value(slp, districts, temperatur_df):
     """
-    Returns normalized h-values depending on allocation temperature  for every
+    Returns h-values depending on allocation temperature  for every
     district.
 
     Parameter
@@ -225,10 +225,6 @@ def h_value(slp, districts, temperatur_df, normalize=True):
         Must be one of ['BA', 'BD', 'BH', 'GA', 'GB', 'HA',
                         'KO', 'MF', 'MK', 'PD', 'WA']
     districts : list of district keys in state e.g. ['11000'] for Berlin
-    normalize : bool, optional, default = True
-        If True: return normalized h-values for later use as disaggregation
-                 parameter from yearly to daily gas consumption
-        If False: return absolute h-values
 
     Returns
     -------
@@ -248,11 +244,7 @@ def h_value(slp, districts, temperatur_df, normalize=True):
         te = temp_df[landkreis].values
         for i in range(len(te)):
             temp_df[landkreis][i] = ((A / (1 + pow(B / (te[i] - 40), C)) + D)
-                                     + max(mH * te[i] + bH, mW * te[i] + bW))
-        if (normalize):
-            # normalize h-values for disaggregated daily gas consumption
-            summe = temp_df[landkreis].sum()
-            temp_df[landkreis] = temp_df[landkreis] / summe
+                                + max(mH * te[i] + bH, mW * te[i] + bW))
     return temp_df
 
 
@@ -1598,9 +1590,7 @@ def shift_load_profile_generator(state, low=0.35, **kwargs):
 
 def gas_slp_weekday_params(state, **kwargs):
     """
-    Return the weekday-parameters of the gas standard load profiles in
-    normalized units ('normalized' means here that the sum over all time steps
-    equals 365 (or 366 in a leapyear)).
+    Return the weekday-parameters of the gas standard load profiles 
 
     Parameters
     ----------
@@ -1653,8 +1643,6 @@ def gas_slp_weekday_params(state, **kwargs):
         df['FW_'+str(slp)] = 0
         for wd in ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO']:
             df.loc[df[wd], ['FW_'+str(slp)]] = par.loc[slp, wd]
-        summe = df['FW_'+str(slp)].sum()
-        df['FW_'+str(slp)] *= days/summe
     return df.drop(columns=['DayOfYear']).set_index('Day')
 
 
