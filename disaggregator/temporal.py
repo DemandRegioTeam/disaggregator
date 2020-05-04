@@ -550,7 +550,7 @@ def disagg_daily_gas_slp(state, temperatur_df, **kwargs):
         F_wd_slp = F_wd[['FW_'+slp]]
         h_slp = h_value(slp, list_ags, temperatur_df)
         tw = pd.DataFrame(np.multiply(h_slp.values, F_wd_slp.values),
-                                         index=h_slp.index, columns=h_slp.columns)
+                          index=h_slp.index, columns=h_slp.columns)
         tw_norm = tw/tw.sum()
         gv_df = (gv_lk.loc[gv_lk['SLP'] == slp].drop(columns=['SLP'])
                       .stack().reset_index())
@@ -569,7 +569,7 @@ def disagg_daily_gas_slp(state, temperatur_df, **kwargs):
             tw_lk_wz = pd.concat([tw_lk_wz, tw_lk_wz_slp], axis=1)
         tageswerte = pd.concat([tageswerte, tw_lk_wz], axis=1)
     df = pd.concat([df, tageswerte.iloc[:days]], axis=1)
-    df =  df.iloc[days:]
+    df = df.iloc[days:]
     df.columns =\
                 pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
                                            df.columns.str.split('_')])
@@ -604,7 +604,8 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
         gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
         gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[:-3]))
                                   for x in gv_lk.index.astype(str)]))
-        t_allo_df = temperatur_df[gv_lk.loc[gv_lk['BL'] == state].index.astype(str)]
+        t_allo_df = temperatur_df[gv_lk.loc[gv_lk['BL'] == state]
+                                       .index.astype(str)]
         for col in t_allo_df.columns:
             t_allo_df[col].values[t_allo_df[col].values < -15] = -15
             t_allo_df[col].values[(t_allo_df[col].values > -15)
@@ -631,7 +632,7 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
         temp_calender_df = (pd.concat([calender_df, t_allo_df], axis=1)
                               .reset_index())
         temp_calender_df['Tagestyp'] = 'MO'
-        for typ in ['DI','MI','DO','FR','SA','SO']:
+        for typ in ['DI', 'MI', 'DO', 'FR', 'SA', 'SO']:
             temp_calender_df['Tagestyp'].loc[temp_calender_df[typ]] = typ
         list_lk = gv_lk.loc[gv_lk['BL'] == state].index.astype(str)
         for lk in list_lk:
@@ -644,29 +645,29 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
             tw_df_lk = tw_df_lk.append(last_hour)
             tw_df_lk = tw_df_lk.resample('H').pad()
             tw_df_lk = tw_df_lk[:-1]
-            
+
             temp_cal = temp_calender_df.copy()
-            temp_cal = temp_cal[['Date','Tagestyp',lk]].set_index("Date")
+            temp_cal = temp_cal[['Date', 'Tagestyp', lk]].set_index("Date")
             last_hour = temp_cal.copy()[-1:]
             last_hour.index = last_hour.index + timedelta(1)
             temp_cal = temp_cal.append(last_hour)
             temp_cal = temp_cal.resample('H').pad()
             temp_cal = temp_cal[:-1]
             temp_cal['Stunde'] = pd.DatetimeIndex(temp_cal.index).time
-            temp_cal = temp_cal.set_index(["Tagestyp",lk,'Stunde'])
-                
+            temp_cal = temp_cal.set_index(["Tagestyp", lk, 'Stunde'])
+
             for slp in list(dict.fromkeys(slp_wz_g().values())):
                 f = ('Lastprofil_{}.xls'.format(slp))
                 slp_profil = pd.read_excel(data_in('temporal',
                                                    'Gas Load Profiles', f))
                 slp_profil = pd.DataFrame(slp_profil.set_index(['Tagestyp',
                                             'Temperatur\nin °C\nkleiner']))
-                slp_profil.columns = pd.to_datetime(slp_profil.columns, 
+                slp_profil.columns = pd.to_datetime(slp_profil.columns,
                                                     format='%H:%M:%S')
                 slp_profil.columns = pd.DatetimeIndex(slp_profil.columns).time
                 slp_profil = slp_profil.stack()
                 temp_cal['Prozent'] = [slp_profil[x] for x in temp_cal.index]
-                for wz in [k for k, v in slp_wz_g().items() 
+                for wz in [k for k, v in slp_wz_g().items()
                                       if v.startswith(slp)]:
                     lk_df[str(lk) + '_' + str(wz)] = (tw_df_lk[wz].values
                                         * temp_cal['Prozent'].values/100)
@@ -674,13 +675,13 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
                                      * temp_cal['Prozent'].values/100)
             df[str(lk)] = lk_df.sum(axis=1)
     if detailed:
-        df = df.drop(columns = gv_lk.index.astype(str))
+        df = df.drop(columns=gv_lk.index.astype(str))
         df.columns =\
                     pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
                                                df.columns.str.split('_')])
     else:
         df = df[gv_lk.index.astype(str)]
-        
+
     if use_nuts3code:
         df = df.rename(columns=dict_region_code(level='lk', keys='ags_lk',
                                                 values='natcode_nuts3'),
@@ -689,7 +690,7 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
 
 
 def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
-                             low=0.35, **kwargs):
+                             low=0.35, no_self_gen=False, **kwargs):
     """
     Disagreggate spatial data of industrie's power or gas demand temporally.
 
@@ -705,14 +706,18 @@ def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
         If True use NUTS-3 codes as region identifiers.
     low : float
         throughput for data.shift_load_profile_generator(low)
-
+    no_self_gen : bool, default False
+        throughput for spatial.disagg_CTS_industry(no_self_gen=False)
+        If True: returns specific power and gas consumption without self
+                 generation, resulting energy consumption will be lower
     Returns
     -------
     pd.DataFrame or Tuple
     """
     year = kwargs.get('year', cfg['base_year'])
     # Obtain yearly power consumption per WZ per LK
-    ec_yearly = (disagg_CTS_industry(source, 'industry')
+    ec_yearly = (disagg_CTS_industry(source, 'industry',
+                                     no_self_gen=no_self_gen)
                  .transpose()
                  .assign(BL=lambda x: [bl_dict().get(int(i[: -3]))
                                        for i in x.index.astype(str)]))
