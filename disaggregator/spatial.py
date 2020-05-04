@@ -248,7 +248,8 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
     return df
 
 
-def disagg_CTS_industry(source, sector, use_nuts3code=False):
+def disagg_CTS_industry(source, sector,
+                        use_nuts3code=False, no_self_gen=False):
     """
     Perform spatial disaggregation of electric power or gas in [MWh/a]
 
@@ -258,6 +259,11 @@ def disagg_CTS_industry(source, sector, use_nuts3code=False):
         must be one of ['power', 'gas']
     sector : str
         must be one of ['CTS', 'industry']
+    use_nuts3code : bool, default False
+        If True use NUTS-3 codes as region identifiers.
+    no_self_gen : bool, default False
+        throughput for
+        data.generate_specific_consumption_per_branch_and_district(no_self_gen=False)
 
     Returns
     -------
@@ -272,7 +278,8 @@ def disagg_CTS_industry(source, sector, use_nuts3code=False):
     # Read -- and if necessary pre-generate -- specific consumptions
     f = data_in('regional', 'specific_{}_consumption.csv'.format(source))
     if not os.path.isfile(f):
-        generate_specific_consumption_per_branch_and_district(8, 8)
+        generate_specific_consumption_per_branch_and_district(8, 8,
+                                                              no_self_gen)
     spez_vb = pd.read_csv(f, index_col=0)
     spez_vb.columns = spez_vb.columns.astype(int)
 
