@@ -244,7 +244,7 @@ def h_value(slp, districts, temperatur_df):
         te = temp_df[landkreis].values
         for i in range(len(te)):
             temp_df[landkreis][i] = ((A / (1 + pow(B / (te[i] - 40), C)) + D)
-                                + max(mH * te[i] + bH, mW * te[i] + bW))
+                                     + max(mH * te[i] + bH, mW * te[i] + bW))
     return temp_df
 
 
@@ -355,8 +355,8 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
     spez_sv.index = spez_sv.index.astype(int)
 
     # original source (table_id = 38) gives sum of natural gas and other gases
-    # use factor form sheet to decompose energy consumption
-    f = ('Decomposition Factors Industrial Energy Demand_2.xlsx')
+    # use factor from sheet to decompose energy consumption
+    f = ('Decomposition Factors Industrial Energy Demand.xlsx')
     df_decom = pd.read_excel(data_in('dimensionless', f),
                                sheet_name='Tabelle1')
     df_decom.set_index('WZ', inplace=True)
@@ -365,8 +365,6 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
     df_decom['Strom Eigenerzeugung'].fillna(0, inplace=True)
     df_decom.fillna(1, inplace=True)
     spez_gv['spez. GV'] = spez_gv['spez. GV'] * df_decom['Anteil Erdgas']
-    if (no_self_gen):
-        spez_sv['spez. SV'] = spez_sv['spez. SV'] * df_decom['Strom Netzbezug']
 
     # original source (table_id = 38) does not include gas consumption for
     # self generation in industrial sector
@@ -381,7 +379,10 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
     df_balance.drop([0, 1, 2], inplace=True)
     df_balance.set_index('Zeile', inplace=True)
     # locate natural gas consumption for self generation in energy balance
+    # Unit is in GWh (Mio kWh) is transformed to MWh
     GV_slf_gen_global = df_balance['Erdgas in Mio kWh'].loc[12]*1000
+    # assign global gas consumption fo self gen to industry branches with
+    # highest electricity generation from industrial powerplants
     df_help_sv = spez_sv.assign(BZE=bze_je_lk_wz.sum(axis=1),
                                 SV_WZ_MWh=lambda x: x['spez. SV'] * x['BZE'],
                                 f_SV_self_gen=df_decom['Strom Eigenerzeugung'],
@@ -395,10 +396,30 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
                                     x.GV_self_gen / x.BZE)
     df_help_gv = spez_gv.assign(spez_GV_self_gen=df_help_sv.spez_GV_self_gen,
                                 spez_GV_final=lambda x:
-                                    x['spez. GV'] + x.spez_GV_self_gen)
+                                    x['spez. GV'] + x.spez_GV_self_gen,
+                                f_GV_WZ_no_self_gen=lambda x:
+                                    x['spez. GV'] / (x['spez_GV_final']))
+           
     spez_gv['spez. GV'] = df_help_gv.spez_GV_final
+    df_f_sv_no_self_gen = df_decom['Strom Netzbezug']
+    df_f_gv_no_self_gen = df_help_gv.f_GV_WZ_no_self_gen
+    # if (no_self_gen):
+    #     # spez_sv is changed since it does consider electricity generation
+    #     # from self gen at the moment
+    #     spez_sv['spez. SV'] = spez_sv['spez. SV'] * df_decom['Strom Netzbezug']
+    #     # spez_gv stays as it is, since it does not consider gas consumption
+    #     # from industrial self gen yet
+    # else:
+    #     # spez_gv is changed so it does include gas consumption from self gen
+    #     spez_gv['spez. GV'] = df_help_gv.spez_GV_final
+    #     # spez_sv remains unchanged since it does already include electricity
+    #     # generation from self gen
+    # Entweder wir übergeben eine geupdatete gesamtmenge an die nächste funktion
+    # oder wir rechnen das self_gen später raus
 
-    return spez_sv.sort_index(), spez_gv.sort_index(), vb_wz, bze_je_lk_wz
+    
+    return spez_sv.sort_index(), spez_gv.sort_index(), vb_wz, bze_je_lk_wz,
+    df_f_sv_no_self_gen, df_f_gv_no_self_gen
 
 
 def generate_specific_consumption_per_branch_and_district(iterations_power,
@@ -1590,7 +1611,7 @@ def shift_load_profile_generator(state, low=0.35, **kwargs):
 
 def gas_slp_weekday_params(state, **kwargs):
     """
-    Return the weekday-parameters of the gas standard load profiles 
+    Return the weekday-parameters of the gas standard load profiles
 
     Parameters
     ----------
@@ -1609,7 +1630,6 @@ def gas_slp_weekday_params(state, **kwargs):
             .assign(Day=lambda x: pd.DatetimeIndex(x['Date']).date)
             .assign(DayOfYear=lambda x:
                     pd.DatetimeIndex(x['Date']).dayofyear.astype(int)))
-    days = len(df)
 
     mask_holiday = []
     for i in range(0, len(holidays.DE(state=state, years=year))):
