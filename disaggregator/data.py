@@ -248,21 +248,15 @@ def h_value(slp, districts, temperatur_df):
     return temp_df
 
 
-def generate_specific_consumption_per_branch(no_self_gen=False):
+def generate_specific_consumption_per_branch():
     """
     Returns specific power and gas consumption per branch. Also returns total
     power and gas consumption per branch and also the amount of workers per
     branch and district.
 
-    Parameter
-    -------
-    no_self_gen : bool, optional, default = False,
-        If True: returns specific power consumption without self generation,
-                 resulting energy consumption will be lower
-
     Returns
     ------------
-    Tuple that contains four pd.DataFrames
+    Tuple that contains six pd.DataFrames
     """
     # get electricity and gas consumption from database
     vb_wz = database_get('spatial', table_id=38, year=2015)
@@ -399,27 +393,13 @@ def generate_specific_consumption_per_branch(no_self_gen=False):
                                     x['spez. GV'] + x.spez_GV_self_gen,
                                 f_GV_WZ_no_self_gen=lambda x:
                                     x['spez. GV'] / (x['spez_GV_final']))
-           
+
     spez_gv['spez. GV'] = df_help_gv.spez_GV_final
     df_f_sv_no_self_gen = df_decom['Strom Netzbezug']
     df_f_gv_no_self_gen = df_help_gv.f_GV_WZ_no_self_gen
-    # if (no_self_gen):
-    #     # spez_sv is changed since it does consider electricity generation
-    #     # from self gen at the moment
-    #     spez_sv['spez. SV'] = spez_sv['spez. SV'] * df_decom['Strom Netzbezug']
-    #     # spez_gv stays as it is, since it does not consider gas consumption
-    #     # from industrial self gen yet
-    # else:
-    #     # spez_gv is changed so it does include gas consumption from self gen
-    #     spez_gv['spez. GV'] = df_help_gv.spez_GV_final
-    #     # spez_sv remains unchanged since it does already include electricity
-    #     # generation from self gen
-    # Entweder wir übergeben eine geupdatete gesamtmenge an die nächste funktion
-    # oder wir rechnen das self_gen später raus
 
-    
-    return spez_sv.sort_index(), spez_gv.sort_index(), vb_wz, bze_je_lk_wz,
-    df_f_sv_no_self_gen, df_f_gv_no_self_gen
+    return [spez_sv.sort_index(), spez_gv.sort_index(), vb_wz, bze_je_lk_wz,
+            df_f_sv_no_self_gen, df_f_gv_no_self_gen]
 
 
 def generate_specific_consumption_per_branch_and_district(iterations_power,
@@ -441,7 +421,6 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     iteration_gas: int
         The amount of iterations to generate specific gas consumption per
         branch and district, 8 recommended.
-
     no_self_gen : bool, optional, default = False,
         If True: returns specific power consumption without self generation,
                  resulting energy consumption will be lower
@@ -449,8 +428,8 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     ------------
     Tuple that contains two pd.DataFrames
     """
-    spez_sv, spez_gv, vb_wz, bze_je_lk_wz = (
-        generate_specific_consumption_per_branch(no_self_gen))
+    [spez_sv, spez_gv, vb_wz, bze_je_lk_wz, df_f_sv_no_self_gen,
+     df_f_gv_no_self_gen] = (generate_specific_consumption_per_branch())
     # get "Regionalstatistik" from Database
     vb_LK = database_get('spatial', table_id=15, year=2015)
     vb_LK.loc[:, 'Verbrauch in MWh'] = vb_LK['value'] / 3.6
@@ -636,6 +615,7 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
                                              columns=['SV WZ Modell [MWh]'])
                     else:
                         z = False
+
         elif (et == 4):  # start adjusting loop for gas
             gv_LK = pd.DataFrame(gv_LK_real.loc[:, 'Verbrauch e-int WZ'])
             mean_value = gv_LK['Verbrauch e-int WZ'].sum() / len(gv_LK)
@@ -744,12 +724,25 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     #  HACK for Wolfsburg: There is no energy demand available Wolfsburg in the
     #  Regionalstatistik. Therefore, specific demand is set on the average.
     spez_gv_lk[3103] = spez_gv['spez. GV']
-    spez_sv_lk.sort_index(axis=1).to_csv(
-        data_in('regional', 'specific_power_consumption.csv'),
-        index_label='WZ')
-    spez_gv_lk.sort_index(axis=1).to_csv(
-        data_in('regional', 'specific_gas_consumption.csv'),
-        index_label='WZ')
+    # if no_self_gen==True adjust spezific consumption (both power and gas)
+    # by multiplying with no_self_gen-factor determined in function
+    # 'generate_specific_consumption_per_branch()'
+    if(no_self_gen):
+        spez_sv_lk = spez_sv_lk.multiply(df_f_sv_no_self_gen, axis=0)
+        spez_gv_lk = spez_gv_lk.multiply(df_f_gv_no_self_gen, axis=0)
+        spez_sv_lk.sort_index(axis=1).to_csv(data_in('regional',
+                             'specific_power_consumption_no_self_gen.csv'),
+                                             index_label='WZ')
+        spez_gv_lk.sort_index(axis=1).to_csv(data_in('regional',
+                             'specific_gas_consumption_no_self_gen.csv'),
+                                             index_label='WZ')
+    else:
+        spez_sv_lk.sort_index(axis=1).to_csv(
+            data_in('regional', 'specific_power_consumption.csv'),
+            index_label='WZ')
+        spez_gv_lk.sort_index(axis=1).to_csv(
+            data_in('regional', 'specific_gas_consumption.csv'),
+            index_label='WZ')
     return spez_sv_lk.sort_index(axis=1), spez_gv_lk.sort_index(axis=1)
 
 # --- Spatial data ------------------------------------------------------------
