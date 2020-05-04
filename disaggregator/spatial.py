@@ -263,7 +263,10 @@ def disagg_CTS_industry(source, sector,
         If True use NUTS-3 codes as region identifiers.
     no_self_gen : bool, default False
         throughput for
-        data.generate_specific_consumption_per_branch_and_district(no_self_gen=False)
+        data.generate_specific_consumption_per_branch_and_district(
+                                                            no_self_gen=False)
+        If True: returns specific power and gas consumption without self
+                 generation, resulting energy consumption will be lower
 
     Returns
     -------
@@ -276,7 +279,11 @@ def disagg_CTS_industry(source, sector,
         "`sector` must be in ['CTS', 'industry']"
 
     # Read -- and if necessary pre-generate -- specific consumptions
-    f = data_in('regional', 'specific_{}_consumption.csv'.format(source))
+    if(no_self_gen):
+        f = data_in('regional', ('specific_{}_consumption_no_self_gen.csv'
+                                 .format(source)))
+    else:
+        f = data_in('regional', 'specific_{}_consumption.csv'.format(source))
     if not os.path.isfile(f):
         generate_specific_consumption_per_branch_and_district(8, 8,
                                                               no_self_gen)
