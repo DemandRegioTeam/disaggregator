@@ -278,7 +278,7 @@ def shift_profile_industry():
             13: 'S2_WT', 14: 'S2_WT', 15: 'S2_WT_SA', 16: 'S2_WT_SA',
             17: 'S3_WT_SA_SO', 18: 'S3_WT_SA_SO', 19: 'S3_WT_SA_SO',
             20: 'S3_WT_SA_SO', 21: 'S3_WT_SA_SO', 22: 'S2_WT_SA',
-            23: 'S3_WT', 24: 'S3_WT_SA_SO', 25: 'S3_WT', 26: 'S2_WT_SA',
+            23: 'S3_WT_SA_SO', 24: 'S3_WT_SA_SO', 25: 'S3_WT', 26: 'S2_WT_SA',
             27: 'S2_WT_SA', 28: 'S3_WT', 29: 'S3_WT_SA_SO', 30: 'S3_WT_SA_SO',
             31: 'S1_WT_SA', 32: 'S3_WT_SA_SO', 33: 'S2_WT_SA'}
 
