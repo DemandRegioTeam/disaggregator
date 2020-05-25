@@ -257,16 +257,16 @@ def slp_branch_cts_gas():
     """
     This dictionary assignes a gas load profile to every CTS branch
     """
-    return {1: 'GB', 2: 'GB', 3: 'GB', 36: 'GA', 37: 'GA', 38: 'BD', 39: 'BD',
+    return {1: 'GB', 2: 'GB', 3: 'GB', 36: 'MF', 37: 'MF', 38: 'BD', 39: 'BD',
             41: 'MK', 42: 'MK', 43: 'MK', 45: 'MK', 46: 'HA', 47: 'HA',
-            49: 'GA', 50: 'GA', 51: 'GA', 52: 'GA', 53: 'MF', 55: 'BH',
-            56: 'GA', 58: 'PD', 59: 'BD', 60: 'BD', 61: 'GA', 62: 'BD',
+            49: 'BD', 50: 'GA', 51: 'GA', 52: 'BD', 53: 'KO', 55: 'BH',
+            56: 'GA', 58: 'PD', 59: 'BD', 60: 'KO', 61: 'BD', 62: 'BD',
             63: 'BD', 64: 'KO', 65: 'KO', 66: 'KO', 68: 'BD', 69: 'BD',
-            70: 'BD', 71: 'GA', 72: 'KO', 73: 'KO', 74: 'BD', 75: 'BD',
+            70: 'BD', 71: 'BD', 72: 'KO', 73: 'KO', 74: 'BD', 75: 'BD',
             77: 'BD', 78: 'KO', 79: 'BD', 80: 'BD', 81: 'BD', 82: 'BD',
-            84: 'KO', 85: 'KO', 86: 'BH', 87: 'KO', 88: 'GA', 90: 'MF',
-            91: 'KO', 92: 'BD', 93: 'KO', 94: 'KO', 95: 'BD', 96: 'BD',
-            97: 'GA', 98: 'GA', 99: 'KO'}
+            84: 'KO', 85: 'KO', 86: 'BH', 87: 'KO', 88: 'MF', 90: 'BD',
+            91: 'KO', 92: 'BD', 93: 'KO', 94: 'KO', 95: 'MK', 96: 'BD',
+            97: 'MF', 98: 'MF', 99: 'KO'}
 
 
 def shift_profile_industry():
