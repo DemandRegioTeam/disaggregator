@@ -2,7 +2,7 @@
 
 This project aims at setting up both a database and a python toolkit called `disaggregator` for
 - temporal and
-- spatial dissagregation
+- spatial disagregation
 
 of demands of 
 - electricity,
@@ -51,6 +51,14 @@ As soon as the Jupyter Notebook opens in your browser, click on the `01_Demo_dat
 ![Jupyter_View][img_02]
 
 [img_02]: img/spatial_elc_by_household_sizes.png "Year Electricity Consumption of Private Households"
+
+## How does it work?
+
+For each of the three sectors 'private households', 'commerce, trade & services' and 'industry' the spatial and temporal disaggregation is accomplished through application of various functions. These functions take input data from a database and return the desired output as shwon in the diagram. There are four Demo-Notebooks to present these functions and demonstrate their execution.
+
+![Jupyter_View][img_03]
+
+[img_03]: img/model_overview.png "Schematic diagram of modelling approach"
 
 ## Acknowledgements
 
