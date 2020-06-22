@@ -24,12 +24,14 @@ from .data import (elc_consumption_HH, heat_consumption_HH, gas_consumption_HH,
                    living_space, hotwater_shares, heat_demand_buildings,
                    employees_per_branch_district, efficiency_enhancement,
                    generate_specific_consumption_per_branch_and_district)
-from .config import (data_in, dict_region_code)
+from .config import (data_in, dict_region_code, get_config)
 
 import pandas as pd
 import os
+import datetime
 import logging
 logger = logging.getLogger(__name__)
+cfg = get_config()
 
 
 def disagg_households_power(by, weight_by_income=False):
@@ -278,16 +280,13 @@ def disagg_CTS_industry(source, sector,
     assert (sector in ['CTS', 'industry']),\
         "`sector` must be in ['CTS', 'industry']"
 
-    # Read -- and if necessary pre-generate -- specific consumptions
-    if(no_self_gen):
-        f = data_in('regional', ('specific_{}_consumption_no_self_gen.csv'
-                                 .format(source)))
+    # generate specific consumptions
+    [spez_sv, spez_gv] = generate_specific_consumption_per_branch_and_district(
+                                                              8, 8,no_self_gen)
+    if source == 'power':
+        spez_vb = spez_sv
     else:
-        f = data_in('regional', 'specific_{}_consumption.csv'.format(source))
-    if not os.path.isfile(f):
-        generate_specific_consumption_per_branch_and_district(8, 8,
-                                                              no_self_gen)
-    spez_vb = pd.read_csv(f, index_col=0)
+        spez_vb = spez_gv
     spez_vb.columns = spez_vb.columns.astype(int)
 
     if sector == 'industry':
