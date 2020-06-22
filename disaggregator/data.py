@@ -248,7 +248,7 @@ def h_value(slp, districts, temperatur_df):
     return temp_df
 
 
-def generate_specific_consumption_per_branch():
+def generate_specific_consumption_per_branch(**kwargs):
     """
     Returns specific power and gas consumption per branch. Also returns total
     power and gas consumption per branch and also the amount of workers per
@@ -258,8 +258,20 @@ def generate_specific_consumption_per_branch():
     ------------
     Tuple that contains six pd.DataFrames
     """
+    year = kwargs.get('year', cfg['base_year']) 
     # get electricity and gas consumption from database
-    vb_wz = database_get('spatial', table_id=38, year=2015)
+    x = True
+    year1 = year
+    while(x):
+        try:
+            vb_wz = database_get('spatial', table_id=38, year=year1)
+            x=False
+        except ValueError:
+            try:
+                vb_wz = database_get('spatial', table_id=63, year=year1)
+                x=False
+            except ValueError:
+                year1-=1
     vb_wz = (vb_wz.assign(WZ=[x[0] for x in vb_wz['internal_id']],
                           ET=[x[1] for x in vb_wz['internal_id']]))
     vb_wz = (vb_wz[(vb_wz['ET'] == 12)
@@ -275,7 +287,7 @@ def generate_specific_consumption_per_branch():
                        .groupby(by='WZ')[['value']].sum()
                        .rename(columns={'value': 'GV WZ [MWh]'}))
     # get number of employees (bze) from database
-    bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=2015))
+    bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=year1))
     bze_lk_wz = (pd.DataFrame(0.0, index=bze_je_lk_wz.columns,
                               columns=wz_dict().values()))
     # arrange employees DataFrame accordingly to energy consumption statistics
@@ -363,8 +375,16 @@ def generate_specific_consumption_per_branch():
     # original source (table_id = 38) does not include gas consumption for
     # self generation in industrial sector
     # get gas consumption for self_generation from German energy balance
-    df_balance = pd.read_excel(data_in('dimensionless', 'bilanz15d.xlsx'),
-                               sheet_name='nat', skiprows=3)
+    x=True
+    year1=year
+    while(x):
+        try:
+            df_balance = pd.read_excel(data_in('dimensionless', 
+                                               'bilanz'+str(year1)[-2:]+'d.xlsx'),
+                                   sheet_name='nat', skiprows=3)
+            x = False
+        except FileNotFoundError:
+            year1 -= 1
     # tbd import energy balance from database
     df_balance.rename(columns={"Unnamed: 1": "Zeile",
                                "Unnamed: 24": "Grubengas",
@@ -402,9 +422,10 @@ def generate_specific_consumption_per_branch():
             df_f_sv_no_self_gen, df_f_gv_no_self_gen]
 
 
-def generate_specific_consumption_per_branch_and_district(iterations_power,
-                                                          iterations_gas,
-                                                          no_self_gen=False):
+def generate_specific_consumption_per_branch_and_district(iterations_power=8,
+                                                          iterations_gas=8,
+                                                          no_self_gen=False,
+                                                          **kwargs):
     """
     Returns specific power and gas consumption per branch and district.
     This function adjusts the specific consumption of all branches from the
@@ -428,10 +449,18 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     ------------
     Tuple that contains two pd.DataFrames
     """
+    year = kwargs.get('year', cfg['base_year']) 
     [spez_sv, spez_gv, vb_wz, bze_je_lk_wz, df_f_sv_no_self_gen,
      df_f_gv_no_self_gen] = (generate_specific_consumption_per_branch())
-    # get "Regionalstatistik" from Database
-    vb_LK = database_get('spatial', table_id=15, year=2015)
+    # get latest "Regionalstatistik" from Database
+    x = True
+    year1 = year
+    while(x):
+        try:
+            vb_LK = database_get('spatial', table_id=15, year=year1)
+            x = False
+        except ValueError:
+            year1 -= 1
     vb_LK.loc[:, 'Verbrauch in MWh'] = vb_LK['value'] / 3.6
     vb_LK.loc[:, 'id_region'] = vb_LK['id_region'].astype(str)
     vb_LK = (vb_LK.assign(ags=[int(x[:-3]) for x in vb_LK['id_region']],
@@ -730,19 +759,7 @@ def generate_specific_consumption_per_branch_and_district(iterations_power,
     if(no_self_gen):
         spez_sv_lk = spez_sv_lk.multiply(df_f_sv_no_self_gen, axis=0)
         spez_gv_lk = spez_gv_lk.multiply(df_f_gv_no_self_gen, axis=0)
-        spez_sv_lk.sort_index(axis=1).to_csv(data_in('regional',
-                             'specific_power_consumption_no_self_gen.csv'),
-                                             index_label='WZ')
-        spez_gv_lk.sort_index(axis=1).to_csv(data_in('regional',
-                             'specific_gas_consumption_no_self_gen.csv'),
-                                             index_label='WZ')
-    else:
-        spez_sv_lk.sort_index(axis=1).to_csv(
-            data_in('regional', 'specific_power_consumption.csv'),
-            index_label='WZ')
-        spez_gv_lk.sort_index(axis=1).to_csv(
-            data_in('regional', 'specific_gas_consumption.csv'),
-            index_label='WZ')
+
     return spez_sv_lk.sort_index(axis=1), spez_gv_lk.sort_index(axis=1)
 
 # --- Spatial data ------------------------------------------------------------
