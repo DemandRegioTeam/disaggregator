@@ -558,7 +558,7 @@ def disagg_daily_gas_slp(state, temperatur_df, **kwargs):
         for lk in gv_df['level_1'].unique():
             gv_slp = (gv_df.loc[gv_df['level_1'] == lk]
                            .drop(columns=['level_1'])
-                           .set_index('WZ').transpose()
+                           .set_index('level_0').transpose()
                            .rename(columns=lambda x: str(lk) + '_' + str(x)))
             tw_lk_wz_slp = (pd.DataFrame(np.multiply(tw_norm[
                                                      [str(lk)]
@@ -752,9 +752,9 @@ def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
                              .drop(columns=['SP']).stack().reset_index())
             sv_dtl_df = sv_lk.groupby(by=['level_1'])[[0]].sum().transpose()
             sv_lk = (sv_lk.assign(LK_WZ=lambda x: x.level_1.astype(str) + '_'
-                                                  + x.WZ.astype(str))
+                                                  + x.level_0.astype(str))
                      .set_index('LK_WZ')
-                     .drop(['WZ', 'level_1'], axis=1)
+                     .drop(['level_0', 'level_1'], axis=1)
                      .loc[lambda x: x[0] >= 0]
                      .transpose())
 
