@@ -154,8 +154,8 @@ def make_zve_load_profiles(return_profile_by_typeday=False,
     if reg is not None:
         DE = DE.loc[reg].to_frame().T
     DF = pd.DataFrame(index=idx, columns=DE.index)
-    for reg, row in DE.iterrows():
-        logger.info('Creating ZVE-profile for {} ({})'.format(row['gen'], reg))
+    for region, row in DE.iterrows():
+        logger.info('Creating ZVE-profile for {} ({})'.format(row['gen'], region))
         lat = row.coords[1]
         lon = row.coords[0]
         prob_night = probability_light_needed(lat=lat, lon=lon, nTsLP=nTsLP)
@@ -201,7 +201,7 @@ def make_zve_load_profiles(return_profile_by_typeday=False,
             # Normalize something.
             # TODO: Understand what is intended here - just copy&pasted yet.
             norm_factor_0 = (nTsLP / 24.) * 1000000. / 366.
-            norm_factor = norm_factor_0 * df_elc_HH_share.loc[reg, HH_size]
+            norm_factor = norm_factor_0 * df_elc_HH_share.loc[region, HH_size]
             # Loop over activity-based applications
             for i_app, app in enumerate(l_app_activity):
                 for i_ts, ts in enumerate(time_slices):
@@ -250,7 +250,7 @@ def make_zve_load_profiles(return_profile_by_typeday=False,
             df_new.loc[i, 'value'] = df_erg.loc[ind, col]
         # generate distribution keys
         df_new = df_new['value'] / df_new['value'].sum()
-        DF.loc[:, reg] = df_new
+        DF.loc[:, region] = df_new
 
     # Looping over all regions is done. Now save and return
     if reg is None:

@@ -258,20 +258,20 @@ def generate_specific_consumption_per_branch(**kwargs):
     ------------
     Tuple that contains six pd.DataFrames
     """
-    year = kwargs.get('year', cfg['base_year']) 
+    year = kwargs.get('year', cfg['base_year'])
     # get electricity and gas consumption from database
     x = True
     year1 = year
     while(x):
         try:
             vb_wz = database_get('spatial', table_id=38, year=year1)
-            x=False
+            x = False
         except ValueError:
             try:
                 vb_wz = database_get('spatial', table_id=63, year=year1)
-                x=False
+                x = False
             except ValueError:
-                year1-=1
+                year1 -= 1
     vb_wz = (vb_wz.assign(WZ=[x[0] for x in vb_wz['internal_id']],
                           ET=[x[1] for x in vb_wz['internal_id']]))
     vb_wz = (vb_wz[(vb_wz['ET'] == 12)
@@ -375,8 +375,8 @@ def generate_specific_consumption_per_branch(**kwargs):
     # original source (table_id = 38) does not include gas consumption for
     # self generation in industrial sector
     # get gas consumption for self_generation from German energy balance
-    x=True
-    year1=year
+    x = True
+    year1 = year
     while(x):
         try:
             df_balance = pd.read_excel(data_in('dimensionless', 
@@ -395,8 +395,8 @@ def generate_specific_consumption_per_branch(**kwargs):
     # locate natural gas consumption for self generation in energy balance
     # Unit is in GWh (Mio kWh) is transformed to MWh
     GV_slf_gen_global = df_balance['Erdgas in Mio kWh'].loc[12]*1000
-    # assign global gas consumption fo self gen to industry branches with
-    # highest electricity generation from industrial powerplants
+    # assign global gas consumption fo self gen to industry branches 
+    # according to their electricity generation from industrial powerplants
     df_help_sv = spez_sv.assign(BZE=bze_je_lk_wz.sum(axis=1),
                                 SV_WZ_MWh=lambda x: x['spez. SV'] * x['BZE'],
                                 f_SV_self_gen=df_decom['Strom Eigenerzeugung'],
