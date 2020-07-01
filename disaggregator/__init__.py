@@ -25,13 +25,14 @@ A set of tools for processing of spatial and temporal disaggregations.
 from __future__ import absolute_import
 import sys
 import logging
-from .config import _data_out
+from .config import data_out
 
 
 # Logging: General Settings
 class LogFilter(logging.Filter):
     """Filters (lets through) all messages with level < LEVEL"""
     # http://stackoverflow.com/a/24956305/408556
+
     def __init__(self, level):
         self.level = level
 
@@ -62,9 +63,9 @@ logging.basicConfig(level=10)
 logger.setLevel('INFO')
 
 # Logging to File
-logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] " +
+logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] "
                                  "[%(levelname)-5.5s]  %(message)s")
-fileHandler = logging.FileHandler(_data_out('disaggregator.log'))
+fileHandler = logging.FileHandler(data_out('disaggregator.log'))
 fileHandler.setLevel(logging.DEBUG)
 fileHandler.setFormatter(logFormatter)
 rootLogger.addHandler(fileHandler)

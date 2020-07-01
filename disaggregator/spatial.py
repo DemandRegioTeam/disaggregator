@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Written by Fabian P. Gotzens, 2019.
+# Written by Fabian P. Gotzens, Paul Verwiebe, Maike Held 2019/2020.
 
 # This file is part of disaggregator.
 
@@ -21,10 +21,17 @@ Provides functions for spatial disaggregation
 
 from .data import (elc_consumption_HH, heat_consumption_HH, gas_consumption_HH,
                    population, households_per_size, income, stove_assumptions,
-                   living_space, hotwater_shares, heat_demand_buildings)
+                   living_space, hotwater_shares, heat_demand_buildings,
+                   employees_per_branch_district, efficiency_enhancement,
+                   generate_specific_consumption_per_branch_and_district)
+from .config import (data_in, dict_region_code, get_config)
+
 import pandas as pd
+import os
+import datetime
 import logging
 logger = logging.getLogger(__name__)
+cfg = get_config()
 
 
 def disagg_households_power(by, weight_by_income=False):
@@ -110,8 +117,8 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
     """
     gas_nuts0 = gas_consumption_HH()
     # Derive distribution keys
-    df_ls_gas = living_space(aggregate=True, internal_id_2=11,
-                             internal_id_3=1).sum(axis=1)
+    df_ls_gas = living_space(aggregate=True,
+                             internal_id=[None, None, 11, 1]).sum(axis=1)
     df_pop = population()
     df_HH = households_per_size().sum(axis=1)
     d_keys_hotwater = df_pop / df_pop.sum()
@@ -119,8 +126,6 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
 
     if how == 'top-down':
         logger.info('Calculating regional gas demands top-down.')
-        df_ls_gas = living_space(aggregate=True, internal_id_2=11,
-                                 internal_id_3=1).sum(axis=1)
         d_keys_space = df_ls_gas / df_ls_gas.sum()
         # Calculate
         df = (pd.DataFrame(index=df_ls_gas.index)
@@ -161,21 +166,20 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
                             'J_2002-2009': 'F_>2000'}
 
         # load the to-be-heated m² in spatial resolution
-        df_ls_gas = (living_space(aggregate=False, internal_id_2=11,
-                                  internal_id_3=1, year=2018)
-                     .drop(['heating_system', 'non_empty_building'],
-                           axis=1)
+        df_ls_gas = (living_space(aggregate=False, year=2018,
+                                  internal_id=[None, None, 11, 1])
+                     .drop(['heating_system', 'non_empty_building'], axis=1)
                      .replace(dict(vintage_class=new_m2_vintages)))
 
         # load the specific heating demands
         # df1 = not refurbished buildings
         df1 = (heat_demand_buildings(table_id=56, year=2018,
-                                     internal_id_2=1, internal_id_3=1)
+                                     internal_id=[None, None, 1, 1])
                .replace(dict(vintage_class=new_dem_vintages))
                .loc[lambda x: x.vintage_class != 'A_<1948'])
         # df2 = refurbished buildings
         df2 = (heat_demand_buildings(table_id=56, year=2018,
-                                     internal_id_2=1, internal_id_3=2)
+                                     internal_id=[None, None, 1, 2])
                .replace(dict(vintage_class=new_dem_vintages))
                .loc[lambda x: x.vintage_class == 'A_<1948'])
         df_heat_dem = pd.concat([df1, df2])
@@ -195,6 +199,8 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
                         SpaceHeating=df_spaceheat))
 
     elif how == 'bottom-up_2':
+        logger.warning("This feature is currently experimental and should not "
+                       "be used as long as you don't know what you're doing!")
         # The bottom-up_2 logic requires the heat demand of households
         df_heat_dem = disagg_households_heat(by='households')
 
@@ -218,8 +224,6 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
 
         logger.info('3. Space heating + hot water (centralised) based on '
                     'living space in [MWh/a]')
-        df_ls_gas = living_space(aggregate=True, internal_id_2=11,
-                                 internal_id_3=1)
 
         df_hc_only = (heat_consumption_HH(by='buildings')
                       .T.loc[:, 'SpaceHeatingOnly'])
@@ -340,14 +344,65 @@ def disagg_households_heatload(year, weight_by_income=False):
 
     return df
 
-def disagg_CTS():
-    raise NotImplementedError('Not here yet, to be done by TU Berlin.')
-    return
+def disagg_CTS_industry(source, sector,
+                        use_nuts3code=False, no_self_gen=False):
+    """
+    Perform spatial disaggregation of electric power or gas in [MWh/a]
 
+    Parameters
+    ----------
+    source : str
+        must be one of ['power', 'gas']
+    sector : str
+        must be one of ['CTS', 'industry']
+    use_nuts3code : bool, default False
+        If True use NUTS-3 codes as region identifiers.
+    no_self_gen : bool, default False
+        throughput for
+        data.generate_specific_consumption_per_branch_and_district(
+                                                            no_self_gen=False)
+        If True: returns specific power and gas consumption without self
+                 generation, resulting energy consumption will be lower
 
-def disagg_industry():
-    raise NotImplementedError('Not here yet, to be done by TU Berlin.')
-    return
+    Returns
+    -------
+    pd.DataFrame
+        index = Branches
+        columns = Districts
+    """
+    assert (source in ['power', 'gas']), "`source` must be in ['power', 'gas']"
+    assert (sector in ['CTS', 'industry']),\
+        "`sector` must be in ['CTS', 'industry']"
+
+    # generate specific consumptions
+    [spez_sv, spez_gv] = generate_specific_consumption_per_branch_and_district(
+                                                              8, 8,no_self_gen)
+    if source == 'power':
+        spez_vb = spez_sv
+    else:
+        spez_vb = spez_gv
+    spez_vb.columns = spez_vb.columns.astype(int)
+
+    if sector == 'industry':
+        wz = list(range(5, 34))  # = [5, 6, ..., 33]
+    if sector == 'CTS':
+        wz = [1, 2, 3, 36, 37, 38, 39, 41, 42, 43, 45, 46, 47, 49, 50, 51, 52,
+              53, 55, 56, 58, 59, 60, 61, 62, 63, 64, 65, 66, 68, 69, 70, 71,
+              72, 73, 74, 75, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 90,
+              91, 92, 93, 94, 95, 96, 97, 98, 99]
+
+    spez_vb = spez_vb.loc[wz]
+    df = (pd.DataFrame(
+        data=(employees_per_branch_district().loc[spez_vb.index].values
+              * spez_vb.values),
+        index=spez_vb.index,
+        columns=spez_vb.columns))
+    df = df.multiply(efficiency_enhancement(source).transpose().loc[df.index],
+                     axis=0)
+    if use_nuts3code:
+        df = df.rename(columns=dict_region_code(keys='ags_lk',
+                                                values='natcode_nuts3'))
+    return df
 
 
 # --- Utility functions -------------------------------------------------------
@@ -356,3 +411,32 @@ def disagg_industry():
 def adjust_by_income(df):
     income_keys = income() / income().mean()
     return df.multiply(income_keys, axis=0)
+
+
+def aggregate_to_nuts1(df, agg='sum'):
+    """
+    Re-aggregate to NUTS-1 level from NUTS-3 level data.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        index: nuts3-codes
+    agg : str
+        The aggregation function key. The default is 'sum'.
+
+    Returns
+    -------
+    pd.DataFrame
+    """
+    # Check if passed df is actually a Series and convert to DataFrame
+    was_series = False
+    if isinstance(df, pd.Series):
+        name = df.name
+        df = df.to_frame()
+        was_series = True
+    # Aggregate
+    df = df.assign(nuts1=lambda x: x.index.str[0:3]).groupby('nuts1').agg(agg)
+    # Restore Series if it was one.
+    if was_series:
+        df = df[name]
+    return df

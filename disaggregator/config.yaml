@@ -1,16 +1,19 @@
 # --- General settings ---
 base_year: 2015
+scenario: 'Basis'
 database_host: "http://opendata.ffe.de:4000/"
 dict_source: database
 # Set the maximum number of cpu threads to be used. Logic:
-# If max_cpu_count exceeds the number of available threads OR
-# if max_cpu_count is under the negative of available threads OR
-# if max_cpu_count equals zero:
-#     => use all available threads.
-# ElseIf max_cpu_count is above zero but below the number of available threads:
-#     => use max_cpu_count
-# ElseIf max_cpu_count is below zero but above the negative of available threads:
-#     => lower the available threads (so: all available threads + max_cpu_count)
+#   If max_cpu_count exceeds the number of available threads OR
+#   if max_cpu_count is under the negative of available threads OR
+#   if max_cpu_count equals zero:
+#       => use all available threads.
+#   ElseIf max_cpu_count is above zero but below the number of available threads:
+#       => use max_cpu_count
+#   ElseIf max_cpu_count is below zero but above the negative of available threads:
+#       => lower the available threads (so: all available threads + max_cpu_count)
+#
+#   Example: If max_cpu_count == -1, and the computer has 8 available threads, 7 = 8 + (-1) are being used.
 max_cpu_count: -1
 use_nuts_2016: True
 
@@ -70,6 +73,21 @@ living_space:
         2: -1   # heating system or id_et: 9=Steinkohle; 10=Braunkohle; 11=Erdgas; 34=Heizoel; 35=Biomasse (fest); 68=Umgebungswaerme; 69=Solarwaerme; 71=Fernwaerme; 72=Elektrische Energie; 218=Biomasse (außer Holz, Biogas)
         3: -1   # non empty building. 0/False: building empty, 1/True: building not empty
 
+percentage_EFH_MFH:
+    source: database
+    filename: percentage_EFH_MFH.csv
+    table_id: 61
+
+
+energy_balance_values:
+    source: database
+    filename: energy_balance_values.csv
+    table_id: 59
+    internal_id:
+        0: -1  # line in balance sheet, e.g. 52=private households
+        1: -1  # column in balance sheet, e.g. 29=power
+    
+
 elc_cons_HH_spatial:
     source: database
     filename: elc_consumption_HH_spatial.csv
@@ -112,6 +130,12 @@ slp_H0_15min:
     table_id: 24
     freq: 15T
 
+slp_H0_1H_gas:
+    source: database
+    table_id: 28
+    internal_id: 0   # 0=EFH, 1=MFH
+    freq: 1H
+
 ambient_T:
     source: database
     # table_id: 11=centroid of the region, 12=biggest settlement/area (village, town)
@@ -146,7 +170,7 @@ dtypes:
     sum: float
 
 # contains all table_id's of those tables with spatially high data on nuts 3 level
-nuts3_tables: [1, 4, 5, 12, 14, 15, 16, 17, 18, 19, 20, 26, 27, 28, 29, 30, 31, 32, 33, 34, 39, 40, 41, 42, 43, 44, 45, 48, 49, 50, 55, 56, 57]
+nuts3_tables: [1, 4, 5, 12, 14, 15, 16, 17, 18, 19, 20, 26, 27, 28, 29, 30, 31, 32, 33, 34, 39, 40, 41, 42, 43, 44, 45, 48, 49, 50, 55, 56, 57, 61]
 
 # load table sectionwise:
 load_sectionwise:
