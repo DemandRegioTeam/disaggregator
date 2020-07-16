@@ -1968,7 +1968,7 @@ def database_shapes():
                       '16-12-31%27&&select=id_ags,gen,geom_as_text,fl_km2')
     geom = [wkt.loads(mp_str) for mp_str in df.geom_as_text]
     return (gpd.GeoDataFrame(df.drop('geom_as_text', axis=1),
-                             crs={'init': 'epsg:3857'}, geometry=geom)
+                             crs={'init': 'epsg:25832'}, geometry=geom)
                .assign(nuts3=lambda x: x.id_ags.map(dict_region_code()))
                .set_index('nuts3').sort_index(axis=0))
 
