@@ -262,16 +262,14 @@ def generate_specific_consumption_per_branch(**kwargs):
     # get electricity and gas consumption from database
     x = True
     year1 = year
+    if year1 not in range(2000, 2036):
+        raise ValueError("`year` must be between 2000 and 2035")
     while(x):
         try:
-            vb_wz = database_get('spatial', table_id=38, year=year1)
+            vb_wz = database_get('spatial', table_id=71, year=year1)
             x = False
         except ValueError:
-            try:
-                vb_wz = database_get('spatial', table_id=63, year=year1)
-                x = False
-            except ValueError:
-                year1 -= 1
+            year1 -= 1
     vb_wz = (vb_wz.assign(WZ=[x[0] for x in vb_wz['internal_id']],
                           ET=[x[1] for x in vb_wz['internal_id']]))
     vb_wz = (vb_wz[(vb_wz['ET'] == 12)
@@ -287,7 +285,7 @@ def generate_specific_consumption_per_branch(**kwargs):
                        .groupby(by='WZ')[['value']].sum()
                        .rename(columns={'value': 'GV WZ [MWh]'}))
     # get number of employees (bze) from database
-    bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=year1))
+    bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=year))
     bze_lk_wz = (pd.DataFrame(0.0, index=bze_je_lk_wz.columns,
                               columns=wz_dict().values()))
     # arrange employees DataFrame accordingly to energy consumption statistics
@@ -379,9 +377,9 @@ def generate_specific_consumption_per_branch(**kwargs):
     year1 = year
     while(x):
         try:
-            df_balance = pd.read_excel(data_in('dimensionless', 
+            df_balance = pd.read_excel(data_in('dimensionless',
                                                'bilanz'+str(year1)[-2:]+'d.xlsx'),
-                                   sheet_name='nat', skiprows=3)
+                                       sheet_name='nat', skiprows=3)
             x = False
         except FileNotFoundError:
             year1 -= 1
@@ -395,7 +393,7 @@ def generate_specific_consumption_per_branch(**kwargs):
     # locate natural gas consumption for self generation in energy balance
     # Unit is in GWh (Mio kWh) is transformed to MWh
     GV_slf_gen_global = df_balance['Erdgas in Mio kWh'].loc[12]*1000
-    # assign global gas consumption fo self gen to industry branches 
+    # assign global gas consumption fo self gen to industry branches
     # according to their electricity generation from industrial powerplants
     df_help_sv = spez_sv.assign(BZE=bze_je_lk_wz.sum(axis=1),
                                 SV_WZ_MWh=lambda x: x['spez. SV'] * x['BZE'],
@@ -449,7 +447,7 @@ def generate_specific_consumption_per_branch_and_district(iterations_power=8,
     ------------
     Tuple that contains two pd.DataFrames
     """
-    year = kwargs.get('year', cfg['base_year']) 
+    year = kwargs.get('year', cfg['base_year'])
     [spez_sv, spez_gv, vb_wz, bze_je_lk_wz, df_f_sv_no_self_gen,
      df_f_gv_no_self_gen] = (generate_specific_consumption_per_branch())
     # get latest "Regionalstatistik" from Database
@@ -1335,7 +1333,21 @@ def employees_per_branch_district(**kwargs):
     year = kwargs.get('year', cfg['base_year'])
     scenario = kwargs.get('scenario', cfg['scenario'])
 
-    if year in range(2015, 2019):
+    if year in range(2000, 2008):
+        df = database_get('spatial', table_id=18, year=2008)
+        df = (df.assign(ags=[int(x[:-3]) for x in
+                             df['id_region'].astype(str)],
+                        WZ=[x[1] for x in df['internal_id']]))
+        bool_list = np.array(df['id_region'].astype(str))
+        for i in range(0, len(df)):
+            bool_list[i] = (df['internal_id'][i][0] == 9)
+        df = (df[((bool_list) & (df['WZ'] > 0))][['ags', 'value', 'WZ']]
+              .rename(columns={'value': 'BZE'}))
+        df = (pd.pivot_table(df, values='BZE', index='WZ',
+                             columns='ags', fill_value=0, dropna=False))
+        print("number of employees was taken from 2008, as there is no earlier\
+               data available")
+    elif year in range(2008, 2019):
         df = database_get('spatial', table_id=18, year=year)
         df = (df.assign(ags=[int(x[:-3]) for x in
                              df['id_region'].astype(str)],
@@ -1361,7 +1373,7 @@ def employees_per_branch_district(**kwargs):
         df = (pd.pivot_table(df, values='value', index='WZ',
                              columns='ags', fill_value=0, dropna=False))
     else:
-        raise ValueError("`year` must be between 2015 and 2035")
+        raise ValueError("`year` must be between 2000 and 2035")
 
     return df
 
