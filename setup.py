@@ -26,5 +26,6 @@ setup(
         'requests',
         'geopandas',
         'xarray',
-        'matplotlib'
+        'matplotlib',
+        'holidays'
     ])

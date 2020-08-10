@@ -465,10 +465,9 @@ def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
             sv_lk = (sv_lk_wz.loc[sv_lk_wz['SLP'] == slp]
                              .drop(columns=['SLP']).stack().reset_index())
             sv_dtl_df = sv_lk.groupby(by=['level_1'])[[0]].sum().transpose()
-            sv_lk = (sv_lk.assign(LK_WZ=lambda x: x.level_1.astype(str) + '_'
-                                                  + x.WZ.astype(str))
+            sv_lk = (sv_lk.assign(LK_WZ=lambda x: x.level_1.astype(str) + '_' + x.level_0.astype(str))
                      .set_index('LK_WZ')
-                     .drop(['WZ', 'level_1'], axis=1)
+                     .drop(['level_0', 'level_1'], axis=1)
                      .loc[lambda x: x[0] >= 0]
                      .transpose())
 

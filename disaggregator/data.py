@@ -984,8 +984,8 @@ def living_space(aggregate=True, **kwargs):
         df = df.loc[lambda x: x.building_type == bt]
     if vc is not None and (1 <= vc <= 11 or vc >= 2000):
         df = df.loc[lambda x: x.vintage_class == vc]
-    if hs is not None and (0 <= hs):
-        df = df.loc[lambda x: x.heating_system == hs]
+#    if hs is not None and (0 <= hs):
+#        df = df.loc[lambda x: x.heating_system == hs]
     if ne is not None and (0 <= ne <= 1):
         df = df.loc[lambda x: x.non_empty_building == ne]
     # Replace internal_ids by human readables of
@@ -1968,7 +1968,7 @@ def database_shapes():
                       '16-12-31%27&&select=id_ags,gen,geom_as_text,fl_km2')
     geom = [wkt.loads(mp_str) for mp_str in df.geom_as_text]
     return (gpd.GeoDataFrame(df.drop('geom_as_text', axis=1),
-                             crs={'init': 'epsg:3857'}, geometry=geom)
+                             crs={'init': 'epsg:25832'}, geometry=geom)
                .assign(nuts3=lambda x: x.id_ags.map(dict_region_code()))
                .set_index('nuts3').sort_index(axis=0))
 
