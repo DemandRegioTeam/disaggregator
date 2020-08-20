@@ -535,20 +535,30 @@ def disagg_daily_gas_slp(state, temperatur_df, **kwargs):
         days = 366
     else:
         days = 365
-    gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
+    gv_lk = disagg_CTS_industry('gas', 'CTS', year=year).transpose()
+    gv_lk_return = gv_lk.copy()
     gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[: -3]))
                           for x in gv_lk.index.astype(str)]))
     df = pd.DataFrame(index=range(days))
     gv_lk = gv_lk.loc[gv_lk['BL'] == state].drop(columns=['BL']).transpose()
     list_ags = gv_lk.columns.astype(str)
     gv_lk['SLP'] = [slp_wz_g()[x] for x in (gv_lk.index)]
-    F_wd = (gas_slp_weekday_params(state)
+    F_wd = (gas_slp_weekday_params(state, year=year)
                .drop(columns=['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO'])
                 .set_index('Date'))
     tageswerte = pd.DataFrame(index=F_wd.index)
+    logger.info('... creating state-specific load-profiles')
     for slp in gv_lk['SLP'].unique():
         F_wd_slp = F_wd[['FW_'+slp]]
         h_slp = h_value(slp, list_ags, temperatur_df)
+
+        if (len(h_slp) != len(F_wd_slp)):
+            raise KeyError('The chosen historical weather year and the chosen '
+                           'projected year have mismatching lengths.'
+                           'This could be due to gap years. Please change the '
+                           'historical year in hist_weather_year() in '
+                           'config.py to a year of matching length.')
+
         tw = pd.DataFrame(np.multiply(h_slp.values, F_wd_slp.values),
                           index=h_slp.index, columns=h_slp.columns)
         tw_norm = tw/tw.sum()
@@ -573,7 +583,7 @@ def disagg_daily_gas_slp(state, temperatur_df, **kwargs):
     df.columns =\
                 pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
                                            df.columns.str.split('_')])
-    return df
+    return [df, gv_lk_return]
 
 
 def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
@@ -595,13 +605,14 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
         hours = 8784
     else:
         hours = 8760
-    temperatur_df = t_allo()
+    temperatur_df = t_allo(year=year)
     df = pd.DataFrame(0, columns=temperatur_df.columns,
                       index=pd.date_range((str(year) + '-01-01'),
                                            periods=hours, freq='H'))
     for state in bl_dict().values():
-        tw_df = disagg_daily_gas_slp(state, temperatur_df)
-        gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
+        logger.info('Working on state: {}.'.format(state))
+        tw_df, gv_lk = disagg_daily_gas_slp(state, temperatur_df, year=year)
+        # gv_lk = disagg_CTS_industry('gas', 'CTS', year=year).transpose()
         gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[:-3]))
                                   for x in gv_lk.index.astype(str)]))
         t_allo_df = temperatur_df[gv_lk.loc[gv_lk['BL'] == state]
@@ -628,12 +639,21 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
             t_allo_df = t_allo_df.astype('int32')
         f_wd = ['FW_BA', 'FW_BD', 'FW_BH', 'FW_GA', 'FW_GB', 'FW_HA', 'FW_KO',
                 'FW_MF', 'FW_MK', 'FW_PD', 'FW_WA']
-        calender_df = gas_slp_weekday_params(state).drop(columns=f_wd)
-        temp_calender_df = (pd.concat([calender_df, t_allo_df], axis=1)
-                              .reset_index())
+        calender_df = (gas_slp_weekday_params(state, year=year)
+                       .drop(columns=f_wd))
+        temp_calender_df = (pd.concat([calender_df.reset_index(),
+                                       t_allo_df.reset_index()], axis=1))
+
+        if temp_calender_df.isnull().values.any():
+            raise KeyError('The chosen historical weather year and the chosen '
+                           'projected year have mismatching lengths.'
+                           'This could be due to gap years. Please change the '
+                           'historical year in hist_weather_year() in '
+                           'config.py to a year of matching length.')
+
         temp_calender_df['Tagestyp'] = 'MO'
         for typ in ['DI', 'MI', 'DO', 'FR', 'SA', 'SO']:
-            temp_calender_df['Tagestyp'].loc[temp_calender_df[typ]] = typ
+            (temp_calender_df.loc[temp_calender_df[typ], 'Tagestyp']) = typ
         list_lk = gv_lk.loc[gv_lk['BL'] == state].index.astype(str)
         for lk in list_lk:
             lk_df = pd.DataFrame(index=pd.date_range((str(year) + '-01-01'),
@@ -717,7 +737,7 @@ def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
     year = kwargs.get('year', cfg['base_year'])
     # Obtain yearly power consumption per WZ per LK
     ec_yearly = (disagg_CTS_industry(source, 'industry',
-                                     no_self_gen=no_self_gen)
+                                     no_self_gen=no_self_gen, year=year)
                  .transpose()
                  .assign(BL=lambda x: [bl_dict().get(int(i[: -3]))
                                        for i in x.index.astype(str)]))
@@ -736,7 +756,7 @@ def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
                     .assign(SP=lambda x:
                             [shift_profile_industry()[i] for i in x.index]))
         logger.info('... creating state-specific load-profiles')
-        sp_bl = shift_load_profile_generator(state, low)
+        sp_bl = shift_load_profile_generator(state, low, year=year)
         # Plausibility check:
         assert sp_bl.index.equals(idx), "The time-indizes are not aligned"
         # Create 15min-index'ed DataFrames for current state
