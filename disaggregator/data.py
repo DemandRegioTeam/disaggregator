@@ -181,7 +181,11 @@ def t_allo(**kwargs):
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
+    # tbd in the future. hist weather year can be chosen via config.py
+    # hist_year = kwargs.get('weather_year', hist_weather_year().get(year))
+    # old
     hist_year = hist_weather_year().get(year)
+    # end
     dic_nuts3 = (dict_region_code(raw=True)[['natcode_nuts3', 'ags_lk']]
                  .set_index('natcode_nuts3'))
     dic_nuts3['ags_lk'] = dic_nuts3['ags_lk'].astype(str).str.zfill(5)
@@ -193,7 +197,7 @@ def t_allo(**kwargs):
         periods = 35136
     else:
         periods = 35040
-    df = ambient_T(year=hist_year, internal_id=2)
+    df = ambient_T(year=hist_year, internal_id=1)
     df = (df.assign(date=pd.date_range((str(hist_year) + '-01-01'),
                     periods=periods / 4, freq='H'))
             .set_index('date').resample('D').mean())
