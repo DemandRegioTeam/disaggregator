@@ -251,7 +251,7 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
 
 
 def disagg_CTS_industry(source, sector,
-                        use_nuts3code=False, no_self_gen=False):
+                        use_nuts3code=False, no_self_gen=False, **kwargs):
     """
     Perform spatial disaggregation of electric power or gas in [MWh/a]
 
@@ -281,8 +281,9 @@ def disagg_CTS_industry(source, sector,
         "`sector` must be in ['CTS', 'industry']"
 
     # generate specific consumptions
+    year = kwargs.get('year', cfg['base_year'])
     [spez_sv, spez_gv] = generate_specific_consumption_per_branch_and_district(
-                                                              8, 8,no_self_gen)
+                                                  8, 8, no_self_gen, year=year)
     if source == 'power':
         spez_vb = spez_sv
     else:
@@ -299,12 +300,13 @@ def disagg_CTS_industry(source, sector,
 
     spez_vb = spez_vb.loc[wz]
     df = (pd.DataFrame(
-        data=(employees_per_branch_district().loc[spez_vb.index].values
+        data=(employees_per_branch_district(year=year).loc[spez_vb.index]
+                                                      .values
               * spez_vb.values),
         index=spez_vb.index,
         columns=spez_vb.columns))
-    df = df.multiply(efficiency_enhancement(source).transpose().loc[df.index],
-                     axis=0)
+    df = df.multiply(efficiency_enhancement(source, year=year).transpose()
+                     .loc[df.index], axis=0)
     if use_nuts3code:
         df = df.rename(columns=dict_region_code(keys='ags_lk',
                                                 values='natcode_nuts3'))
