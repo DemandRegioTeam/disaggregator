@@ -453,10 +453,17 @@ def generate_specific_consumption_per_branch_and_district(iterations_power=8,
     """
     year = kwargs.get('year', cfg['base_year'])
     [spez_sv, spez_gv, vb_wz, bze_je_lk_wz, df_f_sv_no_self_gen,
-     df_f_gv_no_self_gen] = (generate_specific_consumption_per_branch())
+     df_f_gv_no_self_gen] = (generate_specific_consumption_per_branch(year=year))
     # get latest "Regionalstatistik" from Database
     x = True
     year1 = year
+    if year1 not in range(2000, 2036):
+        raise ValueError("`year` must be between 2000 and 2035")
+    if year1 < 2003:
+        vb_LK = database_get('spatial', table_id=15, year=2003)
+        x = False
+        print('Regional energy consumption of 2003 was used for calibration \n'
+               'of industrial energy consumption.')
     while(x):
         try:
             vb_LK = database_get('spatial', table_id=15, year=year1)
