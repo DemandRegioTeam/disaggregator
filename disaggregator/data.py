@@ -1291,8 +1291,11 @@ def heat_demand_buildings(**kwargs):
 
 def efficiency_enhancement(source, **kwargs):
     """
-    Read and return the efficienicy enhancement for power or gas consumption
-    per branch.
+    Read and return the efficiency enhancement for power or gas consumption
+    per branch. Positive efficiency enhancement will decrease specific energy
+    consumption. Negative efficiency enhancement will increase specific energy
+    consumption. Efficiency enhancement rates are only considered from year
+    2018 onwards.
 
     Parameters
     ----------
@@ -1304,17 +1307,34 @@ def efficiency_enhancement(source, **kwargs):
         index: Branches
     """
     year = kwargs.get('year', cfg['base_year'])
-    es_rate = (pd.read_excel(data_in('temporal',
-                                     'Efficiency_Enhancement_Rates.xlsx'))
-                 .set_index('WZ'))
-    df = pow((-es_rate + 1), (year - 2015))
-    if source == 'power':
-        df = df['Effizienzsteigerungsrate Strom']
-    elif source == 'gas':
-        df = df['Effizienzsteigerungsrate Gas']
+    if year in range(2019, 2036):
+        # if year is in the future, function returns a df with calculated
+        # enhancemen-rates based on year 2018
+        es_rate = (pd.read_excel(data_in('temporal',
+                                         'Efficiency_Enhancement_Rates.xlsx'))
+                   .set_index('WZ'))
+        df = pow((-es_rate + 1), (year - 2018))
+        if source == 'power':
+            df = df['Effizienzsteigerungsrate Strom']
+        elif source == 'gas':
+            df = df['Effizienzsteigerungsrate Gas']
+        else:
+            raise ValueError("`source` must be in ['power', 'gas']")
+        return df
     else:
-        raise ValueError("`source` must be in ['power', 'gas']")
-    return df
+        # if year is below 2019, function returns df with the same format as
+        # above, but only with "1"-entries. This could be done more elegantly.
+        es_rate = (pd.read_excel(data_in('temporal',
+                                         'Efficiency_Enhancement_Rates.xlsx'))
+                   .set_index('WZ'))
+        df = pow((-es_rate + 1), (1))
+        if source == 'power':
+            df = df['Effizienzsteigerungsrate Strom']
+        elif source == 'gas':
+            df = df['Effizienzsteigerungsrate Gas']
+        else:
+            raise ValueError("`source` must be in ['power', 'gas']")
+        return df
 
 
 def employees_per_branch_district(**kwargs):
