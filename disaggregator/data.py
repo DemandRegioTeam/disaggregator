@@ -289,7 +289,7 @@ def generate_specific_consumption_per_branch(**kwargs):
                        .groupby(by='WZ')[['value']].sum()
                        .rename(columns={'value': 'GV WZ [MWh]'}))
     # get number of employees (bze) from database
-    bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=year))
+    bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=year1))
     bze_lk_wz = (pd.DataFrame(0.0, index=bze_je_lk_wz.columns,
                               columns=wz_dict().values()))
     # arrange employees DataFrame accordingly to energy consumption statistics
