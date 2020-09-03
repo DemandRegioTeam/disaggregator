@@ -1378,7 +1378,7 @@ def employees_per_branch_district(**kwargs):
                              columns='ags', fill_value=0, dropna=False))
         print("number of employees was taken from 2008, as there is no earlier\
                data available")
-    elif year in range(2008, 2019):
+    elif year in range(2008, 2018):
         df = database_get('spatial', table_id=18, year=year)
         df = (df.assign(ags=[int(x[:-3]) for x in
                              df['id_region'].astype(str)],
@@ -1390,7 +1390,7 @@ def employees_per_branch_district(**kwargs):
               .rename(columns={'value': 'BZE'}))
         df = (pd.pivot_table(df, values='BZE', index='WZ',
                              columns='ags', fill_value=0, dropna=False))
-    elif year in range(2019, 2036):
+    elif year in range(2018, 2036):
         if scenario == 'Basis':
             df = database_get('spatial', table_id=27, year=year)
         elif scenario == 'Digital':
@@ -1779,8 +1779,7 @@ def CTS_power_slp_generator(state, **kwargs):
     for profile in ['H0', 'L0', 'L1', 'L2', 'G0', 'G1', 'G2', 'G3', 'G4',
                     'G5', 'G6']:
         f = '39_VDEW_Strom_Repräsentative Profile_{}.xlsx'.format(profile)
-        df_load = pd.read_excel(data_in('temporal', 'Power Load Profiles', f),
-                                decimal=',')
+        df_load = pd.read_excel(data_in('temporal', 'Power Load Profiles', f))
         df_load.columns = ['Hour', 'SA_WIZ', 'SU_WIZ', 'WD_WIZ', 'SA_SOZ',
                            'SU_SOZ', 'WD_SOZ', 'SA_UEZ', 'SU_UEZ', 'WD_UEZ']
         df_load.loc[1] = df_load.loc[len(df_load) - 2]
