@@ -450,7 +450,7 @@ def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
                     .transpose()
                     .assign(SLP=lambda x: [slp_wz_p()[i] for i in x.index]))
         logger.info('... creating state-specific load-profiles')
-        slp_bl = CTS_power_slp_generator(state)
+        slp_bl = CTS_power_slp_generator(state, year=year)
         # Plausibility check:
         assert slp_bl.index.equals(idx), "The time-indizes are not aligned"
         # Create 15min-index'ed DataFrames for current state
@@ -466,9 +466,9 @@ def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
                              .drop(columns=['SLP']).stack().reset_index())
             sv_dtl_df = sv_lk.groupby(by=['level_1'])[[0]].sum().transpose()
             sv_lk = (sv_lk.assign(LK_WZ=lambda x: x.level_1.astype(str) + '_'
-                                                  + x.WZ.astype(str))
+                                                  + x.level_0.astype(str))
                      .set_index('LK_WZ')
-                     .drop(['WZ', 'level_1'], axis=1)
+                     .drop(['level_0', 'level_1'], axis=1)
                      .loc[lambda x: x[0] >= 0]
                      .transpose())
 
