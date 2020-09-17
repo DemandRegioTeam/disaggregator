@@ -290,6 +290,117 @@ def create_projection(df, target_year, by, **kwargs):
     return df.multiply(keys, axis='index')
 
 
+def disagg_temporal_applications(df, source, sector, wz = None, **kwargs):
+    """
+    verschiebbarkeit
+    plausibility check
+    """
+    # variable check
+    assert source in ["power", "gas"], "'source' needs to be 'power' or 'gas'"
+    assert sector in ["CTS", "industry"], "'sector' needs to be 'CTS' or 'industry'"
+    assert df.columns.nlevels in [1, 2], "The input df needs to have either the LK as columns or a multiindexed columns with LK and VW"
+    
+    # check if a year was specified
+    year = kwargs.get("year", cfg["base_year"])
+    
+    # reading and preapring the consumption table
+    
+    # reading the disaggregation keys table
+    no_year_error = "For the specified year no application disaggregation keys were found, using the base year 2015. Try adjusting the file in 'data_in/dimensionless'."
+    PATH = data_in("dimensionless", "application_disaggreagtion_keys.xlsx")
+    
+    if source == "power":
+        try:
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Strom "+str(year))
+        except:
+            print(no_year_error)
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Strom 2015")
+    if source == "gas":
+        try:
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Gas "+str(year))
+        except:
+            print(no_year_error)
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Gas 2015")
+    
+    
+    # cleaning the table
+    eev_clean = eev.loc[[isinstance(x, int) for x in eev["WZ"]]] # selecting only the rows with WZ and not the name columns
+    # use WZ as index for further operations
+    eev_clean = eev_clean.set_index("WZ")
+    
+    # if there are 4 or 8 different applications
+    amount_application = len(eev_clean.columns)
+    
+    # check if WZ are grouped together
+    if df.columns.nlevels == 1:
+        ### aktuell noch nicht schön
+        if source == "power":
+            # ec cts hat aktuel 1.01 summe
+            if sector == "CTS": 
+                percentages = {"Beleuchtung": 0.326, "IKT": 0.151, "Klimakälte": 0.019, "Mechanische \nEnergie": 0.307, "Prozesskälte": 0.077, "Prozesswärme": 0.049, "Raumwärme": 0.037, "Warmwasser": 0.035}
+            if sector == "industry": 
+                percentages = {"Beleuchtung": 0.043, "IKT": 0.041, "Klimakälte": 0.021, "Mechanische \nEnergie": 0.674, "Prozesskälte": 0.044, "Prozesswärme": 0.172, "Raumwärme": 0.003, "Warmwasser": 0.002}
+        if source == "gas":
+            if sector == "CTS": 
+                percentages = {"Mechanische \nEnergie": 0.045, "Prozesswärme": 0.102, "Raumwärme": 0.805, "Warmwasser": 0.048}
+            # gc industry ändert sich evtl durch plausibilität anpassungen
+            if sector == "industry": 
+                percentages = {"Mechanische \nEnergie": 0.028, "Prozesswärme": 0.693, "Raumwärme": 0.269, "Warmwasser": 0.01}
+        
+        # creating the multiindex
+        multi_lk = [elem for elem in list(df.columns) for _ in range(amount_application)]
+        multi_app = list(eev_clean.columns) * len(df.columns)
+        tuples = list(zip(*[multi_lk, multi_app]))
+        index = pd.MultiIndex.from_tuples(tuples, names = ["LK", "VW"])
+        
+        # new df with multiindex columns and datetime as index
+        new_df = pd.DataFrame(columns = index, index = df.index)
+        
+        # for every lk multiply the consumption with the percentual use for that application
+        for lk in df.columns:
+            for app in eev_clean.columns:
+                percent = percentages[app]
+                new_df[lk, app] = percent * df[lk]
+    
+    
+    # check if evaluating for every WZ
+    if df.columns.nlevels == 2:
+        # check if WZ was given in a useable format
+        if isinstance(wz, int):
+            wz = [wz]
+        else:
+            assert isinstance(wz, list), "'wz' needs to be an integer or a list."
+            
+        # overwrite eev_clean with only the necesarry wz to save ram
+        try:
+            eev_clean = eev_clean.loc[wz]
+        except:
+            raise AssertionError("the specified WZ is/are not in the input dataframe")
+
+        # creating the multiindex
+        multi_lk = [elem for elem in list(df.columns.get_level_values(0).unique()) for _ in range(amount_application * len(wz))]
+        multi_wz = [elem for elem in wz for _ in range(amount_application)] * 401
+        multi_app = list(eev_clean.columns) * 401 * len(wz)
+        tuples = list(zip(*[multi_lk, multi_wz, multi_app]))
+        columns = pd.MultiIndex.from_tuples(tuples, names = ["LK", "WZ", "VW"])
+        
+        # new df with multiindex columns and datetime as index
+        new_df = pd.DataFrame(columns = columns, index = df.index)
+        
+        # sort index for faster lookup in value multiplication
+        # new_df.sort_index()
+        
+        
+        # for every lk and WZ multiply the consumption with the percentual use for that application
+        for lk in new_df.columns.get_level_values(0).unique(): # all districts
+            for wz in new_df.columns.get_level_values(1).unique(): # all branches
+                for app in new_df.columns.get_level_values(2).unique(): # all applications
+                    percent = eev_clean.loc[wz, app]
+                    new_df[lk, wz, app] = percent * df[lk, wz]
+        
+   
+    return new_df
+
 # --- Utility functions -------------------------------------------------------
 
 

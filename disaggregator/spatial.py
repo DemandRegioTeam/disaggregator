@@ -27,6 +27,7 @@ from .data import (elc_consumption_HH, heat_consumption_HH, gas_consumption_HH,
 from .config import (data_in, dict_region_code, get_config)
 
 import pandas as pd
+import numpy as np
 import os
 import datetime
 import logging
@@ -311,6 +312,103 @@ def disagg_CTS_industry(source, sector,
         df = df.rename(columns=dict_region_code(keys='ags_lk',
                                                 values='natcode_nuts3'))
     return df
+
+def disagg_applications(source, sector, use_nuts3code = False, no_self_gen = False, **kwargs): #**kwargs
+    """
+    Perfrom dissagregation based on applications of the final energy usage
+    
+    Parameters
+    ----------
+    source : str
+        must be one of ['power', 'gas']
+    sector : str
+        must be one of ['CTS', 'industry']
+    use_nuts3code : bool, default False
+        throughput for
+        disagg_CTS_industry(
+                            use_nuts3code = False)
+        If True use NUTS-3 codes as region identifiers.
+    no_self_gen : bool, default False
+        throughput for
+        disagg_CTS_industry(
+                            no_self_gen=False)
+        If True: returns specific power and gas consumption without self
+                 generation, resulting energy consumption will be lower
+
+    Returns
+    -------
+    pd.DataFrame
+        index = Districts
+        columns = Branches / Applications
+    """
+    assert (source in ['power', 'gas']), "`source` must be in ['power', 'gas']"
+    assert (sector in ['CTS', 'industry']), "`sector` must be in ['CTS', 'industry']"
+    
+    # check if a year was specified
+    year = kwargs.get("year", cfg["base_year"])
+    
+    # reading and preapring the consumption table
+    
+    # reading the disaggregation keys table
+    no_year_error = "For the specified year no application disaggregation keys were found, using the base year 2015. Try adjusting the file in 'data_in/dimensionless'."
+    PATH = data_in("dimensionless", "application_disaggreagtion_keys.xlsx")
+    
+    if source == "power":
+        try:
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Strom "+str(year))
+        except:
+            print(no_year_error)
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Strom 2015")
+    if source == "gas":
+        try:
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Gas "+str(year))
+        except:
+            print(no_year_error)
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Gas 2015")
+    
+    # cleaning the table
+    eev_clean = eev.loc[[isinstance(x, int) for x in eev["WZ"]]] # selecting only the rows with WZ and not the name columns
+    # use WZ as index for further operations
+    eev_clean = eev_clean.set_index("WZ")
+    
+    # calling the spatial disaggregation function which will be further disaggregated
+    if sector == "CTS":
+        ec = disagg_CTS_industry(source, sector, use_nuts3code, no_self_gen, year = year)
+    if sector == "industry":
+        ec = disagg_CTS_industry(source, sector, use_nuts3code, no_self_gen, year = year) 
+        
+    # kepping only the data for the branches that are relevant
+    usage = eev_clean.loc[ec.index]
+
+    # for better acces
+    ec = ec.T
+    
+    # creating the multiindex
+    multi_wz = [elem for elem in list(ec.columns) for _ in range(len(eev_clean.columns))]
+    multi_app = list(usage.columns[:]) * len(usage.index)
+    
+    tuples = list(zip(*[multi_wz, multi_app]))
+    columns = pd.MultiIndex.from_tuples(tuples, names = ["WZ", "VW"])
+    
+    # creating a new datafame with the multiindex
+    new_df = pd.DataFrame(columns = columns, index = ec.index)
+    
+    # filling the new dataframe
+    # multiplying the values for every wz with the application keys
+    for wz in new_df.columns.get_level_values(0).unique(): # all wz
+        for app in new_df.columns.get_level_values(1).unique(): # all applications
+            percent = usage.loc[wz, app]
+            new_df[wz, app] = ec[wz] * percent
+            
+    # Plausibility check:
+    msg = ('The sum of consumptions (={:.3f}) and the sum of disaggrega'
+           'ted consumptions (={:.3f}) do not match! Please check algorithm!')
+    total_sum = ec.sum().sum()
+    disagg_sum = new_df.sum().sum()
+    assert np.isclose(total_sum, disagg_sum), msg.format(total_sum, disagg_sum)
+    
+    
+    return new_df
 
 
 # --- Utility functions -------------------------------------------------------
