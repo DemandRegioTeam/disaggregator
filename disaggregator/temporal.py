@@ -382,7 +382,7 @@ def disagg_temporal_applications(df, source, sector, wz = None, **kwargs):
         multi_wz = [elem for elem in wz for _ in range(amount_application)] * 401
         multi_app = list(eev_clean.columns) * 401 * len(wz)
         tuples = list(zip(*[multi_lk, multi_wz, multi_app]))
-        columns = pd.MultiIndex.from_tuples(tuples, names = ["LK", "WZ", "VW"])
+        columns = pd.MultiIndex.from_tuples(tuples, names = ["LK", "WZ", "AWB"])
         
         # new df with multiindex columns and datetime as index
         new_df = pd.DataFrame(columns = columns, index = df.index)
@@ -390,9 +390,12 @@ def disagg_temporal_applications(df, source, sector, wz = None, **kwargs):
         # sort index for faster lookup in value multiplication
         # new_df.sort_index()
         
-        
+        i = 1 # lk counter
         # for every lk and WZ multiply the consumption with the percentual use for that application
         for lk in new_df.columns.get_level_values(0).unique(): # all districts
+            # provide info how far along the function is
+            logger.info("Working on LK {}/{}.".format(i, len(new_df.columns.get_level_values(0).unique())))
+            i += 1
             for wz in new_df.columns.get_level_values(1).unique(): # all branches
                 for app in new_df.columns.get_level_values(2).unique(): # all applications
                     percent = eev_clean.loc[wz, app]

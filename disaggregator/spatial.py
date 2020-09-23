@@ -388,7 +388,7 @@ def disagg_applications(source, sector, use_nuts3code = False, no_self_gen = Fal
     multi_app = list(usage.columns[:]) * len(usage.index)
     
     tuples = list(zip(*[multi_wz, multi_app]))
-    columns = pd.MultiIndex.from_tuples(tuples, names = ["WZ", "VW"])
+    columns = pd.MultiIndex.from_tuples(tuples, names = ["WZ", "AWB"])
     
     # creating a new datafame with the multiindex
     new_df = pd.DataFrame(columns = columns, index = ec.index)
