@@ -290,15 +290,40 @@ def create_projection(df, target_year, by, **kwargs):
     return df.multiply(keys, axis='index')
 
 
-def disagg_temporal_applications(df, source, sector, wz = None, **kwargs):
+def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code = False, wz = None, **kwargs): 
     """
     verschiebbarkeit
-    plausibility check
+    
+
+    Perfrom dissagregation based on applications of the final energy usage
+    
+    Parameters
+    ----------
+    source : str
+        must be one of ['power', 'gas']
+    sector : str
+        must be one of ['CTS', 'industry']
+    detailed : bool, default False
+        If True energy use per branch and disctrict get disaggreagated. Otherwise just the energy use per district
+    use_nuts3code : bool, default False
+        throughput for
+        temporal disaggregation functions
+        If True use NUTS-3 codes as region identifiers.
+    wz: int or list
+        necessary if detailed = True
+        All the branches that are to be analysed.
+    
+    Returns
+    -------
+    pd.DataFrame
+        index = datetimeindex
+        columns = Districts / (Branches) / Applications
     """
+    
     # variable check
     assert source in ["power", "gas"], "'source' needs to be 'power' or 'gas'"
     assert sector in ["CTS", "industry"], "'sector' needs to be 'CTS' or 'industry'"
-    assert df.columns.nlevels in [1, 2], "The input df needs to have either the LK as columns or a multiindexed columns with LK and VW"
+    #assert df.columns.nlevels in [1, 2], "The input df needs to have either the LK as columns or a multiindexed columns with LK and VW"
     
     # check if a year was specified
     year = kwargs.get("year", cfg["base_year"])
@@ -331,8 +356,29 @@ def disagg_temporal_applications(df, source, sector, wz = None, **kwargs):
     # if there are 4 or 8 different applications
     amount_application = len(eev_clean.columns)
     
+    
+    #############################################
+    # creating the temporal dataset
+    if sector == "industry":
+        # troughput values for the helper function
+        low = kwargs.get("year", 0.35)
+        no_self_gen = kwargs.get("no_self_gen", False)
+        
+        df = disagg_temporal_industry(source, detailed, use_nuts3code, low, no_self_gen, year = year)
+    
+    # CTS
+    else:
+        if source == "gas":
+            df = disagg_temporal_gas_CTS(detailed, use_nuts3code, year = year)
+        # power
+        else:
+            df = disagg_temporal_power_CTS(detailed, use_nuts3code, year = year)
+      
+
+    ############################################
+    
     # check if WZ are grouped together
-    if df.columns.nlevels == 1:
+    if not detailed:
         ### aktuell noch nicht schön
         if source == "power":
             # ec cts hat aktuel 1.01 summe
@@ -356,6 +402,9 @@ def disagg_temporal_applications(df, source, sector, wz = None, **kwargs):
         # new df with multiindex columns and datetime as index
         new_df = pd.DataFrame(columns = index, index = df.index)
         
+        # print info on the process
+        logger.info("Working on disaggregating the applications.")
+        
         # for every lk multiply the consumption with the percentual use for that application
         for lk in df.columns:
             for app in eev_clean.columns:
@@ -364,7 +413,7 @@ def disagg_temporal_applications(df, source, sector, wz = None, **kwargs):
     
     
     # check if evaluating for every WZ
-    if df.columns.nlevels == 2:
+    else:
         # check if WZ was given in a useable format
         if isinstance(wz, int):
             wz = [wz]
@@ -401,6 +450,17 @@ def disagg_temporal_applications(df, source, sector, wz = None, **kwargs):
                     percent = eev_clean.loc[wz, app]
                     new_df[lk, wz, app] = percent * df[lk, wz]
         
+    
+    # Plausibility check:
+    msg = ('The sum of consumptions (={:.3f}) and the sum of disaggrega'
+           'ted consumptions (={:.3f}) do not match! Please check algorithm!')
+    if detailed:
+        total_sum = df.xs(wz, level='WZ', axis = 1).sum().sum()
+    else:
+        total_sum = df.sum().sum()
+    disagg_sum = new_df.sum().sum()
+    assert np.isclose(total_sum, disagg_sum), msg.format(total_sum, disagg_sum)
+    
    
     return new_df
 
