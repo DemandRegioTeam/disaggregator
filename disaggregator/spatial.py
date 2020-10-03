@@ -332,7 +332,7 @@ def disagg_applications(source, sector, use_nuts3code = False, no_self_gen = Fal
         throughput for
         disagg_CTS_industry(
                             no_self_gen=False)
-        If True: returns specific power and gas consumption without self
+        If True: returns power and gas consumption without self
                  generation, resulting energy consumption will be lower
 
     Returns

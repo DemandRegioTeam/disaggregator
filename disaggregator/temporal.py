@@ -369,7 +369,10 @@ def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code
     # CTS
     else:
         if source == "gas":
+            # this one apparently has a totally different methodology
             df = disagg_temporal_gas_CTS(detailed, use_nuts3code, year = year)
+            # wrong column names
+            df.columns = df.columns.set_names(["LK", "WZ"])
         # power
         else:
             df = disagg_temporal_power_CTS(detailed, use_nuts3code, year = year)
@@ -381,9 +384,9 @@ def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code
     if not detailed:
         ### aktuell noch nicht schön
         if source == "power":
-            # ec cts hat aktuel 1.01 summe
+            # ec cts hat aktuel 1.001 summe
             if sector == "CTS": 
-                percentages = {"Beleuchtung": 0.326, "IKT": 0.151, "Klimakälte": 0.019, "Mechanische \nEnergie": 0.307, "Prozesskälte": 0.077, "Prozesswärme": 0.049, "Raumwärme": 0.037, "Warmwasser": 0.035}
+                percentages = {"Beleuchtung": 0.326, "IKT": 0.151, "Klimakälte": 0.019, "Mechanische \nEnergie": 0.306, "Prozesskälte": 0.077, "Prozesswärme": 0.049, "Raumwärme": 0.037, "Warmwasser": 0.035}
             if sector == "industry": 
                 percentages = {"Beleuchtung": 0.043, "IKT": 0.041, "Klimakälte": 0.021, "Mechanische \nEnergie": 0.674, "Prozesskälte": 0.044, "Prozesswärme": 0.172, "Raumwärme": 0.003, "Warmwasser": 0.002}
         if source == "gas":
@@ -420,11 +423,11 @@ def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code
         else:
             assert isinstance(wz, list), "'wz' needs to be an integer or a list."
             
+        # check if the wz belong to the given sector
+        for elem in wz:
+            assert elem in df.columns.get_level_values(1).unique(), "the given wz doesn't belong to the given sector"
         # overwrite eev_clean with only the necesarry wz to save ram
-        try:
-            eev_clean = eev_clean.loc[wz]
-        except:
-            raise AssertionError("the specified WZ is/are not in the input dataframe")
+        eev_clean = eev_clean.loc[wz]
 
         # creating the multiindex
         multi_lk = [elem for elem in list(df.columns.get_level_values(0).unique()) for _ in range(amount_application * len(wz))]
@@ -439,23 +442,29 @@ def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code
         # sort index for faster lookup in value multiplication
         # new_df.sort_index()
         
-        i = 1 # lk counter
+        i = 0 # lk counter
         # for every lk and WZ multiply the consumption with the percentual use for that application
         for lk in new_df.columns.get_level_values(0).unique(): # all districts
             # provide info how far along the function is
-            logger.info("Working on LK {}/{}.".format(i, len(new_df.columns.get_level_values(0).unique())))
+            if i % 50 == 0:
+                logger.info("Working on LK {}/{}.".format(i+1, len(new_df.columns.get_level_values(0).unique())))
             i += 1
-            for wz in new_df.columns.get_level_values(1).unique(): # all branches
+            # wz_ as not to overwrite input variable ?
+            for wz_ in new_df.columns.get_level_values(1).unique(): # all branches
                 for app in new_df.columns.get_level_values(2).unique(): # all applications
-                    percent = eev_clean.loc[wz, app]
-                    new_df[lk, wz, app] = percent * df[lk, wz]
+                    percent = eev_clean.loc[wz_, app]
+                    new_df[lk, wz_, app] = percent * df[lk, wz_]
         
     
     # Plausibility check:
     msg = ('The sum of consumptions (={:.3f}) and the sum of disaggrega'
            'ted consumptions (={:.3f}) do not match! Please check algorithm!')
     if detailed:
-        total_sum = df.xs(wz, level='WZ', axis = 1).sum().sum()
+        total_sum = 0
+        for elem in wz:
+            total_sum += df.xs(elem, level = "WZ", axis = 1).sum().sum()
+        # das hier funktioniert anscheinend mit listen nicht bzw falsch
+        #df.xs(wz, level='WZ', axis = 1).sum().sum()
     else:
         total_sum = df.sum().sum()
     disagg_sum = new_df.sum().sum()
