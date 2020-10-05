@@ -361,7 +361,7 @@ def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code
     # creating the temporal dataset
     if sector == "industry":
         # troughput values for the helper function
-        low = kwargs.get("year", 0.35)
+        low = kwargs.get("low", 0.35)
         no_self_gen = kwargs.get("no_self_gen", False)
         
         df = disagg_temporal_industry(source, detailed, use_nuts3code, low, no_self_gen, year = year)
@@ -369,7 +369,7 @@ def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code
     # CTS
     else:
         if source == "gas":
-            # this one apparently has a totally different methodology
+            # this one has a different methodology
             df = disagg_temporal_gas_CTS(detailed, use_nuts3code, year = year)
             # wrong column names
             df.columns = df.columns.set_names(["LK", "WZ"])
