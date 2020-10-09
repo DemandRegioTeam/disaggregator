@@ -522,3 +522,21 @@ def add_license_to_figure(fig, license='CC BY 4.0', geotag=False,
 
     fig.text(x, y, s, fontsize=6, color='gray',
              ha='left', va='bottom', alpha=0.5)
+
+    
+def temporal_plot_function(df):
+    fig, ax = plt.subplots(figsize=(20, 4))
+    # the separate WZ
+    if df.columns.nlevels == 2:
+        grouped_df = df.groupby("WZ", axis = 1).sum()
+        for WZ in grouped_df:
+            grouped_df[WZ].plot(ax = ax, label = ("WZ " + str(WZ)))
+    # whole consumption
+    elif df.columns.nlevels == 1:
+        df.sum(axis = 1).plot(ax = ax, label = "Gesamt")
+    else:
+        raise ValueError("unexpected Input")
+    for col in df:
+        df[col].plot(ax = ax, label = col)
+    plt.legend(loc = "upper left", bbox_to_anchor=(1.02, 0.9))
+    return fig, ax
