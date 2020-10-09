@@ -26,7 +26,7 @@ from .data import (elc_consumption_HH, households_per_size, population,
                    living_space, h_value, zve_percentages_applications,
                    zve_percentages_baseload, zve_application_profiles,
                    database_shapes, CTS_power_slp_generator, t_allo,
-                   shift_load_profile_generator, gas_slp_weekday_params)
+                   shift_load_profile_generator, gas_slp_weekday_params, efficiency_enhancement)
 from .spatial import disagg_CTS_industry
 from datetime import timedelta
 import numpy as np
@@ -615,7 +615,7 @@ def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
     """
     year = kwargs.get('year', cfg['base_year'])
     # Obtain yearly power consumption per WZ per LK
-    sv_yearly = (disagg_CTS_industry('power', 'CTS')
+    sv_yearly = (disagg_CTS_industry('power', 'CTS', year = year)
                  .transpose()
                  .assign(BL=lambda x: [bl_dict().get(int(i[: -3]))
                                        for i in x.index.astype(str)]))
@@ -885,6 +885,10 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
     else:
         df = df[gv_lk.index.astype(str)]
 
+    # effiency enhancement
+    df = df.multiply(efficiency_enhancement('gas', year=year).transpose()
+                     .loc[df.index], axis=0)    
+        
     if use_nuts3code:
         df = df.rename(columns=dict_region_code(level='lk', keys='ags_lk',
                                                 values='natcode_nuts3'),
