@@ -295,7 +295,7 @@ def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code
     verschiebbarkeit
     
 
-    Perfrom dissagregation based on applications of the final energy usage
+    Perform dissagregation based on applications of the final energy usage
     
     Parameters
     ----------
@@ -319,12 +319,11 @@ def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code
         index = datetimeindex
         columns = Districts / (Branches) / Applications
     """
-    
+
     # variable check
     assert source in ["power", "gas"], "'source' needs to be 'power' or 'gas'"
     assert sector in ["CTS", "industry"], "'sector' needs to be 'CTS' or 'industry'"
-    #assert df.columns.nlevels in [1, 2], "The input df needs to have either the LK as columns or a multiindexed columns with LK and VW"
-    
+
     # check if a year was specified
     year = kwargs.get("year", cfg["base_year"])
     
@@ -364,55 +363,58 @@ def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code
         low = kwargs.get("low", 0.35)
         no_self_gen = kwargs.get("no_self_gen", False)
         
-        df = disagg_temporal_industry(source, detailed, use_nuts3code, low, no_self_gen, year = year)
+        ec = disagg_temporal_industry(source, detailed, use_nuts3code, low, no_self_gen, year = year)
     
     # CTS
     else:
         if source == "gas":
             # this one has a different methodology
-            df = disagg_temporal_gas_CTS(detailed, use_nuts3code, year = year)
+            ec = disagg_temporal_gas_CTS(detailed, use_nuts3code, year = year)
             # wrong column names
-            df.columns = df.columns.set_names(["LK", "WZ"])
+            if detailed:
+                ec.columns = ec.columns.set_names(["LK", "WZ"])
+            else:
+                ec.columns = ec.columns.set_names(["LK"])
         # power
         else:
-            df = disagg_temporal_power_CTS(detailed, use_nuts3code, year = year)
+            ec = disagg_temporal_power_CTS(detailed, use_nuts3code, year = year)
       
 
     ############################################
     
     # check if WZ are grouped together
     if not detailed:
-        ### aktuell noch nicht schön
+        # values from the averages of the spatial disagg function
         if source == "power":
-            # ec cts hat aktuel 1.001 summe
             if sector == "CTS": 
-                percentages = {"Beleuchtung": 0.326, "IKT": 0.151, "Klimakälte": 0.019, "Mechanische \nEnergie": 0.306, "Prozesskälte": 0.077, "Prozesswärme": 0.049, "Raumwärme": 0.037, "Warmwasser": 0.035}
+                percentages = {"Beleuchtung": 0.326, "IKT": 0.151, "Klimakälte": 0.019, "Mechanische \nEnergie": 0.306, 
+                               "Prozesskälte": 0.077, "Prozesswärme": 0.049, "Raumwärme": 0.037, "Warmwasser": 0.035}
             if sector == "industry": 
-                percentages = {"Beleuchtung": 0.043, "IKT": 0.041, "Klimakälte": 0.021, "Mechanische \nEnergie": 0.674, "Prozesskälte": 0.044, "Prozesswärme": 0.172, "Raumwärme": 0.003, "Warmwasser": 0.002}
+                percentages = {"Beleuchtung": 0.043, "IKT": 0.041, "Klimakälte": 0.021, "Mechanische \nEnergie": 0.674,
+                               "Prozesskälte": 0.044, "Prozesswärme": 0.172, "Raumwärme": 0.003, "Warmwasser": 0.002}
         if source == "gas":
             if sector == "CTS": 
                 percentages = {"Mechanische \nEnergie": 0.045, "Prozesswärme": 0.102, "Raumwärme": 0.805, "Warmwasser": 0.048}
-            # gc industry ändert sich evtl durch plausibilität anpassungen
             if sector == "industry": 
                 percentages = {"Mechanische \nEnergie": 0.028, "Prozesswärme": 0.693, "Raumwärme": 0.269, "Warmwasser": 0.01}
         
         # creating the multiindex
-        multi_lk = [elem for elem in list(df.columns) for _ in range(amount_application)]
-        multi_app = list(eev_clean.columns) * len(df.columns)
+        multi_lk = [elem for elem in list(ec.columns) for _ in range(amount_application)]
+        multi_app = list(eev_clean.columns) * len(ec.columns)
         tuples = list(zip(*[multi_lk, multi_app]))
         index = pd.MultiIndex.from_tuples(tuples, names = ["LK", "VW"])
         
         # new df with multiindex columns and datetime as index
-        new_df = pd.DataFrame(columns = index, index = df.index)
+        new_df = pd.DataFrame(columns = index, index = ec.index)
         
         # print info on the process
         logger.info("Working on disaggregating the applications.")
         
         # for every lk multiply the consumption with the percentual use for that application
-        for lk in df.columns:
+        for lk in ec.columns:
             for app in eev_clean.columns:
                 percent = percentages[app]
-                new_df[lk, app] = percent * df[lk]
+                new_df[lk, app] = percent * ec[lk]
     
     
     # check if evaluating for every WZ
@@ -425,48 +427,51 @@ def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code
             
         # check if the wz belong to the given sector
         for elem in wz:
-            assert elem in df.columns.get_level_values(1).unique(), "the given wz doesn't belong to the given sector"
+            assert elem in ec.columns.get_level_values(1).unique(), "the given wz doesn't belong to the given sector"
+        
         # overwrite eev_clean with only the necesarry wz to save ram
         eev_clean = eev_clean.loc[wz]
 
         # creating the multiindex
-        multi_lk = [elem for elem in list(df.columns.get_level_values(0).unique()) for _ in range(amount_application * len(wz))]
+        multi_lk = [elem for elem in list(ec.columns.get_level_values(0).unique()) for _ in range(amount_application * len(wz))]
         multi_wz = [elem for elem in wz for _ in range(amount_application)] * 401
         multi_app = list(eev_clean.columns) * 401 * len(wz)
         tuples = list(zip(*[multi_lk, multi_wz, multi_app]))
         columns = pd.MultiIndex.from_tuples(tuples, names = ["LK", "WZ", "AWB"])
         
         # new df with multiindex columns and datetime as index
-        new_df = pd.DataFrame(columns = columns, index = df.index)
+        new_df = pd.DataFrame(columns = columns, index = ec.index)
         
         # sort index for faster lookup in value multiplication
         # new_df.sort_index()
         
-        i = 0 # lk counter
+        i = 1 # lk counter
         # for every lk and WZ multiply the consumption with the percentual use for that application
         for lk in new_df.columns.get_level_values(0).unique(): # all districts
             # provide info how far along the function is
             if i % 50 == 0:
                 logger.info("Working on LK {}/{}.".format(i+1, len(new_df.columns.get_level_values(0).unique())))
             i += 1
-            # wz_ as not to overwrite input variable ?
+            # wz_ as not to overwrite input variable 
             for wz_ in new_df.columns.get_level_values(1).unique(): # all branches
                 for app in new_df.columns.get_level_values(2).unique(): # all applications
                     percent = eev_clean.loc[wz_, app]
-                    new_df[lk, wz_, app] = percent * df[lk, wz_]
+                    new_df[lk, wz_, app] = percent * ec[lk, wz_]
         
     
+
     # Plausibility check:
     msg = ('The sum of consumptions (={:.3f}) and the sum of disaggrega'
            'ted consumptions (={:.3f}) do not match! Please check algorithm!')
     if detailed:
+        # adding the complete consumption for every given wz before the disaggregation
         total_sum = 0
         for elem in wz:
-            total_sum += df.xs(elem, level = "WZ", axis = 1).sum().sum()
-        # das hier funktioniert anscheinend mit listen nicht bzw falsch
-        #df.xs(wz, level='WZ', axis = 1).sum().sum()
+            total_sum += ec.xs(elem, level = "WZ", axis = 1).sum().sum()
     else:
-        total_sum = df.sum().sum()
+        # consumption trough all timesteps in every district
+        total_sum = ec.sum().sum()
+    # total sum of all disaggregated consumptions
     disagg_sum = new_df.sum().sum()
     assert np.isclose(total_sum, disagg_sum), msg.format(total_sum, disagg_sum)
     
@@ -885,10 +890,6 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
     else:
         df = df[gv_lk.index.astype(str)]
 
-    # effiency enhancement
-    df = df.multiply(efficiency_enhancement('gas', year=year).transpose()
-                     .loc[df.index], axis=0)    
-        
     if use_nuts3code:
         df = df.rename(columns=dict_region_code(level='lk', keys='ags_lk',
                                                 values='natcode_nuts3'),
