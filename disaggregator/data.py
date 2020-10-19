@@ -181,7 +181,11 @@ def t_allo(**kwargs):
     pd.DataFrame
     """
     year = kwargs.get('year', cfg['base_year'])
+    # tbd in the future. hist weather year can be chosen via config.py
+    # hist_year = kwargs.get('weather_year', hist_weather_year().get(year))
+    # old
     hist_year = hist_weather_year().get(year)
+    # end
     dic_nuts3 = (dict_region_code(raw=True)[['natcode_nuts3', 'ags_lk']]
                  .set_index('natcode_nuts3'))
     dic_nuts3['ags_lk'] = dic_nuts3['ags_lk'].astype(str).str.zfill(5)
@@ -193,7 +197,7 @@ def t_allo(**kwargs):
         periods = 35136
     else:
         periods = 35040
-    df = ambient_T(year=hist_year, internal_id=2)
+    df = ambient_T(year=hist_year, internal_id=1)
     df = (df.assign(date=pd.date_range((str(hist_year) + '-01-01'),
                     periods=periods / 4, freq='H'))
             .set_index('date').resample('D').mean())
@@ -262,16 +266,14 @@ def generate_specific_consumption_per_branch(**kwargs):
     # get electricity and gas consumption from database
     x = True
     year1 = year
+    if year1 not in range(2000, 2036):
+        raise ValueError("`year` must be between 2000 and 2035")
     while(x):
         try:
-            vb_wz = database_get('spatial', table_id=38, year=year1)
+            vb_wz = database_get('spatial', table_id=71, year=year1)
             x = False
         except ValueError:
-            try:
-                vb_wz = database_get('spatial', table_id=63, year=year1)
-                x = False
-            except ValueError:
-                year1 -= 1
+            year1 -= 1
     vb_wz = (vb_wz.assign(WZ=[x[0] for x in vb_wz['internal_id']],
                           ET=[x[1] for x in vb_wz['internal_id']]))
     vb_wz = (vb_wz[(vb_wz['ET'] == 12)
@@ -379,9 +381,9 @@ def generate_specific_consumption_per_branch(**kwargs):
     year1 = year
     while(x):
         try:
-            df_balance = pd.read_excel(data_in('dimensionless', 
+            df_balance = pd.read_excel(data_in('dimensionless',
                                                'bilanz'+str(year1)[-2:]+'d.xlsx'),
-                                   sheet_name='nat', skiprows=3)
+                                       sheet_name='nat', skiprows=3)
             x = False
         except FileNotFoundError:
             year1 -= 1
@@ -395,7 +397,7 @@ def generate_specific_consumption_per_branch(**kwargs):
     # locate natural gas consumption for self generation in energy balance
     # Unit is in GWh (Mio kWh) is transformed to MWh
     GV_slf_gen_global = df_balance['Erdgas in Mio kWh'].loc[12]*1000
-    # assign global gas consumption fo self gen to industry branches 
+    # assign global gas consumption fo self gen to industry branches
     # according to their electricity generation from industrial powerplants
     df_help_sv = spez_sv.assign(BZE=bze_je_lk_wz.sum(axis=1),
                                 SV_WZ_MWh=lambda x: x['spez. SV'] * x['BZE'],
@@ -449,12 +451,19 @@ def generate_specific_consumption_per_branch_and_district(iterations_power=8,
     ------------
     Tuple that contains two pd.DataFrames
     """
-    year = kwargs.get('year', cfg['base_year']) 
+    year = kwargs.get('year', cfg['base_year'])
     [spez_sv, spez_gv, vb_wz, bze_je_lk_wz, df_f_sv_no_self_gen,
-     df_f_gv_no_self_gen] = (generate_specific_consumption_per_branch())
+     df_f_gv_no_self_gen] = (generate_specific_consumption_per_branch(year=year))
     # get latest "Regionalstatistik" from Database
     x = True
     year1 = year
+    if year1 not in range(2000, 2036):
+        raise ValueError("`year` must be between 2000 and 2035")
+    if year1 < 2003:
+        vb_LK = database_get('spatial', table_id=15, year=2003)
+        x = False
+        print('Regional energy consumption of 2003 was used for calibration \n'
+               'of industrial energy consumption.')
     while(x):
         try:
             vb_LK = database_get('spatial', table_id=15, year=year1)
@@ -1293,8 +1302,11 @@ def heat_demand_buildings(**kwargs):
 
 def efficiency_enhancement(source, **kwargs):
     """
-    Read and return the efficienicy enhancement for power or gas consumption
-    per branch.
+    Read and return the efficiency enhancement for power or gas consumption
+    per branch. Positive efficiency enhancement will decrease specific energy
+    consumption. Negative efficiency enhancement will increase specific energy
+    consumption. Efficiency enhancement rates are only considered from year
+    2018 onwards.
 
     Parameters
     ----------
@@ -1306,17 +1318,34 @@ def efficiency_enhancement(source, **kwargs):
         index: Branches
     """
     year = kwargs.get('year', cfg['base_year'])
-    es_rate = (pd.read_excel(data_in('temporal',
-                                     'Efficiency_Enhancement_Rates.xlsx'))
-                 .set_index('WZ'))
-    df = pow((-es_rate + 1), (year - 2015))
-    if source == 'power':
-        df = df['Effizienzsteigerungsrate Strom']
-    elif source == 'gas':
-        df = df['Effizienzsteigerungsrate Gas']
+    if year in range(2019, 2036):
+        # if year is in the future, function returns a df with calculated
+        # enhancemen-rates based on year 2018
+        es_rate = (pd.read_excel(data_in('temporal',
+                                         'Efficiency_Enhancement_Rates.xlsx'))
+                   .set_index('WZ'))
+        df = pow((-es_rate + 1), (year - 2018))
+        if source == 'power':
+            df = df['Effizienzsteigerungsrate Strom']
+        elif source == 'gas':
+            df = df['Effizienzsteigerungsrate Gas']
+        else:
+            raise ValueError("`source` must be in ['power', 'gas']")
+        return df
     else:
-        raise ValueError("`source` must be in ['power', 'gas']")
-    return df
+        # if year is below 2019, function returns df with the same format as
+        # above, but only with "1"-entries. This could be done more elegantly.
+        es_rate = (pd.read_excel(data_in('temporal',
+                                         'Efficiency_Enhancement_Rates.xlsx'))
+                   .set_index('WZ'))
+        df = pow((-es_rate + 1), (1))
+        if source == 'power':
+            df = df['Effizienzsteigerungsrate Strom']
+        elif source == 'gas':
+            df = df['Effizienzsteigerungsrate Gas']
+        else:
+            raise ValueError("`source` must be in ['power', 'gas']")
+        return df
 
 
 def employees_per_branch_district(**kwargs):
@@ -1335,7 +1364,21 @@ def employees_per_branch_district(**kwargs):
     year = kwargs.get('year', cfg['base_year'])
     scenario = kwargs.get('scenario', cfg['scenario'])
 
-    if year in range(2015, 2019):
+    if year in range(2000, 2008):
+        df = database_get('spatial', table_id=18, year=2008)
+        df = (df.assign(ags=[int(x[:-3]) for x in
+                             df['id_region'].astype(str)],
+                        WZ=[x[1] for x in df['internal_id']]))
+        bool_list = np.array(df['id_region'].astype(str))
+        for i in range(0, len(df)):
+            bool_list[i] = (df['internal_id'][i][0] == 9)
+        df = (df[((bool_list) & (df['WZ'] > 0))][['ags', 'value', 'WZ']]
+              .rename(columns={'value': 'BZE'}))
+        df = (pd.pivot_table(df, values='BZE', index='WZ',
+                             columns='ags', fill_value=0, dropna=False))
+        print("number of employees was taken from 2008, as there is no earlier\
+               data available")
+    elif year in range(2008, 2018):
         df = database_get('spatial', table_id=18, year=year)
         df = (df.assign(ags=[int(x[:-3]) for x in
                              df['id_region'].astype(str)],
@@ -1347,7 +1390,7 @@ def employees_per_branch_district(**kwargs):
               .rename(columns={'value': 'BZE'}))
         df = (pd.pivot_table(df, values='BZE', index='WZ',
                              columns='ags', fill_value=0, dropna=False))
-    elif year in range(2019, 2036):
+    elif year in range(2018, 2036):
         if scenario == 'Basis':
             df = database_get('spatial', table_id=27, year=year)
         elif scenario == 'Digital':
@@ -1361,7 +1404,7 @@ def employees_per_branch_district(**kwargs):
         df = (pd.pivot_table(df, values='value', index='WZ',
                              columns='ags', fill_value=0, dropna=False))
     else:
-        raise ValueError("`year` must be between 2015 and 2035")
+        raise ValueError("`year` must be between 2000 and 2035")
 
     return df
 
@@ -1736,8 +1779,7 @@ def CTS_power_slp_generator(state, **kwargs):
     for profile in ['H0', 'L0', 'L1', 'L2', 'G0', 'G1', 'G2', 'G3', 'G4',
                     'G5', 'G6']:
         f = '39_VDEW_Strom_Repräsentative Profile_{}.xlsx'.format(profile)
-        df_load = pd.read_excel(data_in('temporal', 'Power Load Profiles', f),
-                                sep=';', decimal=',')
+        df_load = pd.read_excel(data_in('temporal', 'Power Load Profiles', f))
         df_load.columns = ['Hour', 'SA_WIZ', 'SU_WIZ', 'WD_WIZ', 'SA_SOZ',
                            'SU_SOZ', 'WD_SOZ', 'SA_UEZ', 'SU_UEZ', 'WD_UEZ']
         df_load.loc[1] = df_load.loc[len(df_load) - 2]

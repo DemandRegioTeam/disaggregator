@@ -221,7 +221,10 @@ def hist_weather_year():
     This dictionary assigns the temperature data of a historical year to
     future years
     """
-    return {2015: 2015, 2016: 2016, 2017: 2017, 2018: 2018, 2019: 2006,
+    return {2000: 2000, 2001: 2001, 2002: 2002, 2003: 2003, 2004: 2004,
+            2005: 2005, 2006: 2006, 2007: 2007, 2008: 2008, 2009: 2009,
+            2010: 2010, 2011: 2011, 2012: 2012, 2013: 2013, 2014: 2014,            
+            2015: 2015, 2016: 2016, 2017: 2017, 2018: 2018, 2019: 2007,
             2020: 2008, 2021: 2009, 2022: 2010, 2023: 2011, 2024: 2012,
             2025: 2013, 2026: 2014, 2027: 2015, 2028: 2016, 2029: 2017,
             2030: 2018, 2031: 2007, 2032: 2008, 2033: 2009, 2034: 2010,
@@ -274,12 +277,12 @@ def shift_profile_industry():
     This dictionary assignes a shift profile to every industry branch
     """
     return {5: 'S3_WT_SA', 6: 'S3_WT_SA_SO', 7: 'S3_WT_SA', 8: 'S3_WT_SA',
-            9: 'S3_WT_SA', 10: 'S3_WT', 11: 'S3_WT', 12: 'S3_WT_SA',
+            9: 'S3_WT_SA', 10: 'S2_WT', 11: 'S3_WT', 12: 'S3_WT_SA',
             13: 'S2_WT', 14: 'S2_WT', 15: 'S2_WT_SA', 16: 'S2_WT_SA',
             17: 'S3_WT_SA_SO', 18: 'S3_WT_SA_SO', 19: 'S3_WT_SA_SO',
             20: 'S3_WT_SA_SO', 21: 'S3_WT_SA_SO', 22: 'S2_WT_SA',
-            23: 'S3_WT_SA_SO', 24: 'S3_WT_SA_SO', 25: 'S3_WT', 26: 'S2_WT_SA',
-            27: 'S2_WT_SA', 28: 'S3_WT', 29: 'S3_WT_SA_SO', 30: 'S3_WT_SA_SO',
+            23: 'S3_WT_SA_SO', 24: 'S3_WT_SA_SO', 25: 'S3_WT', 26: 'S2_WT',
+            27: 'S2_WT_SA', 28: 'S2_WT', 29: 'S3_WT', 30: 'S3_WT_SA_SO',
             31: 'S1_WT_SA', 32: 'S3_WT_SA_SO', 33: 'S2_WT_SA'}
 
 

@@ -26,7 +26,7 @@ from .data import (elc_consumption_HH, households_per_size, population,
                    living_space, h_value, zve_percentages_applications,
                    zve_percentages_baseload, zve_application_profiles,
                    database_shapes, CTS_power_slp_generator, t_allo,
-                   shift_load_profile_generator, gas_slp_weekday_params)
+                   shift_load_profile_generator, gas_slp_weekday_params, efficiency_enhancement)
 from .spatial import disagg_CTS_industry
 from datetime import timedelta
 import numpy as np
@@ -290,6 +290,194 @@ def create_projection(df, target_year, by, **kwargs):
     return df.multiply(keys, axis='index')
 
 
+def disagg_temporal_applications(source, sector, detailed = False, use_nuts3code = False, wz = None, **kwargs): 
+    """
+    verschiebbarkeit
+    
+
+    Perform dissagregation based on applications of the final energy usage
+    
+    Parameters
+    ----------
+    source : str
+        must be one of ['power', 'gas']
+    sector : str
+        must be one of ['CTS', 'industry']
+    detailed : bool, default False
+        If True energy use per branch and disctrict get disaggreagated. Otherwise just the energy use per district
+    use_nuts3code : bool, default False
+        throughput for
+        temporal disaggregation functions
+        If True use NUTS-3 codes as region identifiers.
+    wz: int or list
+        necessary if detailed = True
+        All the branches that are to be analysed.
+    
+    Returns
+    -------
+    pd.DataFrame
+        index = datetimeindex
+        columns = Districts / (Branches) / Applications
+    """
+
+    # variable check
+    assert source in ["power", "gas"], "'source' needs to be 'power' or 'gas'"
+    assert sector in ["CTS", "industry"], "'sector' needs to be 'CTS' or 'industry'"
+
+    # check if a year was specified
+    year = kwargs.get("year", cfg["base_year"])
+    
+    # reading and preapring the consumption table
+    
+    # reading the disaggregation keys table
+    no_year_error = "For the specified year no application disaggregation keys were found, using the base year 2015. Try adjusting the file in 'data_in/dimensionless'."
+    PATH = data_in("dimensionless", "application_disaggreagtion_keys.xlsx")
+    
+    if source == "power":
+        try:
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Strom "+str(year))
+        except:
+            print(no_year_error)
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Strom 2015")
+    if source == "gas":
+        try:
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Gas "+str(year))
+        except:
+            print(no_year_error)
+            eev = pd.read_excel(PATH, sheet_name = "Endenergieverbrauch Gas 2015")
+    
+    
+    # cleaning the table
+    eev_clean = eev.loc[[isinstance(x, int) for x in eev["WZ"]]] # selecting only the rows with WZ and not the name columns
+    # use WZ as index for further operations
+    eev_clean = eev_clean.set_index("WZ")
+    
+    # if there are 4 or 8 different applications
+    amount_application = len(eev_clean.columns)
+    
+    
+    #############################################
+    # creating the temporal dataset
+    if sector == "industry":
+        # troughput values for the helper function
+        low = kwargs.get("low", 0.35)
+        no_self_gen = kwargs.get("no_self_gen", False)
+        
+        ec = disagg_temporal_industry(source, detailed, use_nuts3code, low, no_self_gen, year = year)
+    
+    # CTS
+    else:
+        if source == "gas":
+            # this one has a different methodology
+            ec = disagg_temporal_gas_CTS(detailed, use_nuts3code, year = year)
+            # wrong column names
+            if detailed:
+                ec.columns = ec.columns.set_names(["LK", "WZ"])
+            else:
+                ec.columns = ec.columns.set_names(["LK"])
+        # power
+        else:
+            ec = disagg_temporal_power_CTS(detailed, use_nuts3code, year = year)
+      
+
+    ############################################
+    
+    # check if WZ are grouped together
+    if not detailed:
+        # values from the averages of the spatial disagg function
+        if source == "power":
+            if sector == "CTS": 
+                percentages = {"Beleuchtung": 0.326, "IKT": 0.151, "Klimakälte": 0.019, "Mechanische \nEnergie": 0.306, 
+                               "Prozesskälte": 0.077, "Prozesswärme": 0.049, "Raumwärme": 0.037, "Warmwasser": 0.035}
+            if sector == "industry": 
+                percentages = {"Beleuchtung": 0.043, "IKT": 0.041, "Klimakälte": 0.021, "Mechanische \nEnergie": 0.674,
+                               "Prozesskälte": 0.044, "Prozesswärme": 0.172, "Raumwärme": 0.003, "Warmwasser": 0.002}
+        if source == "gas":
+            if sector == "CTS": 
+                percentages = {"Mechanische \nEnergie": 0.045, "Prozesswärme": 0.102, "Raumwärme": 0.805, "Warmwasser": 0.048}
+            if sector == "industry": 
+                percentages = {"Mechanische \nEnergie": 0.028, "Prozesswärme": 0.693, "Raumwärme": 0.269, "Warmwasser": 0.01}
+        
+        # creating the multiindex
+        multi_lk = [elem for elem in list(ec.columns) for _ in range(amount_application)]
+        multi_app = list(eev_clean.columns) * len(ec.columns)
+        tuples = list(zip(*[multi_lk, multi_app]))
+        index = pd.MultiIndex.from_tuples(tuples, names = ["LK", "VW"])
+        
+        # new df with multiindex columns and datetime as index
+        new_df = pd.DataFrame(columns = index, index = ec.index)
+        
+        # print info on the process
+        logger.info("Working on disaggregating the applications.")
+        
+        # for every lk multiply the consumption with the percentual use for that application
+        for lk in ec.columns:
+            for app in eev_clean.columns:
+                percent = percentages[app]
+                new_df[lk, app] = percent * ec[lk]
+    
+    
+    # check if evaluating for every WZ
+    else:
+        # check if WZ was given in a useable format
+        if isinstance(wz, int):
+            wz = [wz]
+        else:
+            assert isinstance(wz, list), "'wz' needs to be an integer or a list."
+            
+        # check if the wz belong to the given sector
+        for elem in wz:
+            assert elem in ec.columns.get_level_values(1).unique(), "the given wz doesn't belong to the given sector"
+        
+        # overwrite eev_clean with only the necesarry wz to save ram
+        eev_clean = eev_clean.loc[wz]
+
+        # creating the multiindex
+        multi_lk = [elem for elem in list(ec.columns.get_level_values(0).unique()) for _ in range(amount_application * len(wz))]
+        multi_wz = [elem for elem in wz for _ in range(amount_application)] * 401
+        multi_app = list(eev_clean.columns) * 401 * len(wz)
+        tuples = list(zip(*[multi_lk, multi_wz, multi_app]))
+        columns = pd.MultiIndex.from_tuples(tuples, names = ["LK", "WZ", "AWB"])
+        
+        # new df with multiindex columns and datetime as index
+        new_df = pd.DataFrame(columns = columns, index = ec.index)
+        
+        # sort index for faster lookup in value multiplication
+        # new_df.sort_index()
+        
+        i = 1 # lk counter
+        # for every lk and WZ multiply the consumption with the percentual use for that application
+        for lk in new_df.columns.get_level_values(0).unique(): # all districts
+            # provide info how far along the function is
+            if i % 50 == 0:
+                logger.info("Working on LK {}/{}.".format(i+1, len(new_df.columns.get_level_values(0).unique())))
+            i += 1
+            # wz_ as not to overwrite input variable 
+            for wz_ in new_df.columns.get_level_values(1).unique(): # all branches
+                for app in new_df.columns.get_level_values(2).unique(): # all applications
+                    percent = eev_clean.loc[wz_, app]
+                    new_df[lk, wz_, app] = percent * ec[lk, wz_]
+        
+    
+
+    # Plausibility check:
+    msg = ('The sum of consumptions (={:.3f}) and the sum of disaggrega'
+           'ted consumptions (={:.3f}) do not match! Please check algorithm!')
+    if detailed:
+        # adding the complete consumption for every given wz before the disaggregation
+        total_sum = 0
+        for elem in wz:
+            total_sum += ec.xs(elem, level = "WZ", axis = 1).sum().sum()
+    else:
+        # consumption trough all timesteps in every district
+        total_sum = ec.sum().sum()
+    # total sum of all disaggregated consumptions
+    disagg_sum = new_df.sum().sum()
+    assert np.isclose(total_sum, disagg_sum), msg.format(total_sum, disagg_sum)
+    
+   
+    return new_df
+
 # --- Utility functions -------------------------------------------------------
 
 
@@ -432,7 +620,7 @@ def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
     """
     year = kwargs.get('year', cfg['base_year'])
     # Obtain yearly power consumption per WZ per LK
-    sv_yearly = (disagg_CTS_industry('power', 'CTS')
+    sv_yearly = (disagg_CTS_industry('power', 'CTS', year = year)
                  .transpose()
                  .assign(BL=lambda x: [bl_dict().get(int(i[: -3]))
                                        for i in x.index.astype(str)]))
@@ -450,7 +638,7 @@ def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
                     .transpose()
                     .assign(SLP=lambda x: [slp_wz_p()[i] for i in x.index]))
         logger.info('... creating state-specific load-profiles')
-        slp_bl = CTS_power_slp_generator(state)
+        slp_bl = CTS_power_slp_generator(state, year=year)
         # Plausibility check:
         assert slp_bl.index.equals(idx), "The time-indizes are not aligned"
         # Create 15min-index'ed DataFrames for current state
@@ -466,9 +654,9 @@ def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
                              .drop(columns=['SLP']).stack().reset_index())
             sv_dtl_df = sv_lk.groupby(by=['level_1'])[[0]].sum().transpose()
             sv_lk = (sv_lk.assign(LK_WZ=lambda x: x.level_1.astype(str) + '_'
-                                                  + x.WZ.astype(str))
+                                                  + x.level_0.astype(str))
                      .set_index('LK_WZ')
-                     .drop(['WZ', 'level_1'], axis=1)
+                     .drop(['level_0', 'level_1'], axis=1)
                      .loc[lambda x: x[0] >= 0]
                      .transpose())
 
@@ -535,20 +723,30 @@ def disagg_daily_gas_slp(state, temperatur_df, **kwargs):
         days = 366
     else:
         days = 365
-    gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
+    gv_lk = disagg_CTS_industry('gas', 'CTS', year=year).transpose()
+    gv_lk_return = gv_lk.copy()
     gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[: -3]))
                           for x in gv_lk.index.astype(str)]))
     df = pd.DataFrame(index=range(days))
     gv_lk = gv_lk.loc[gv_lk['BL'] == state].drop(columns=['BL']).transpose()
     list_ags = gv_lk.columns.astype(str)
     gv_lk['SLP'] = [slp_wz_g()[x] for x in (gv_lk.index)]
-    F_wd = (gas_slp_weekday_params(state)
+    F_wd = (gas_slp_weekday_params(state, year=year)
                .drop(columns=['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO'])
                 .set_index('Date'))
     tageswerte = pd.DataFrame(index=F_wd.index)
+    logger.info('... creating state-specific load-profiles')
     for slp in gv_lk['SLP'].unique():
         F_wd_slp = F_wd[['FW_'+slp]]
         h_slp = h_value(slp, list_ags, temperatur_df)
+
+        if (len(h_slp) != len(F_wd_slp)):
+            raise KeyError('The chosen historical weather year and the chosen '
+                           'projected year have mismatching lengths.'
+                           'This could be due to gap years. Please change the '
+                           'historical year in hist_weather_year() in '
+                           'config.py to a year of matching length.')
+
         tw = pd.DataFrame(np.multiply(h_slp.values, F_wd_slp.values),
                           index=h_slp.index, columns=h_slp.columns)
         tw_norm = tw/tw.sum()
@@ -573,7 +771,7 @@ def disagg_daily_gas_slp(state, temperatur_df, **kwargs):
     df.columns =\
                 pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
                                            df.columns.str.split('_')])
-    return df
+    return [df, gv_lk_return]
 
 
 def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
@@ -595,13 +793,14 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
         hours = 8784
     else:
         hours = 8760
-    temperatur_df = t_allo()
+    temperatur_df = t_allo(year=year)
     df = pd.DataFrame(0, columns=temperatur_df.columns,
                       index=pd.date_range((str(year) + '-01-01'),
                                            periods=hours, freq='H'))
     for state in bl_dict().values():
-        tw_df = disagg_daily_gas_slp(state, temperatur_df)
-        gv_lk = disagg_CTS_industry('gas', 'CTS').transpose()
+        logger.info('Working on state: {}.'.format(state))
+        tw_df, gv_lk = disagg_daily_gas_slp(state, temperatur_df, year=year)
+        # gv_lk = disagg_CTS_industry('gas', 'CTS', year=year).transpose()
         gv_lk = (gv_lk.assign(BL=[bl_dict().get(int(x[:-3]))
                                   for x in gv_lk.index.astype(str)]))
         t_allo_df = temperatur_df[gv_lk.loc[gv_lk['BL'] == state]
@@ -628,12 +827,21 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
             t_allo_df = t_allo_df.astype('int32')
         f_wd = ['FW_BA', 'FW_BD', 'FW_BH', 'FW_GA', 'FW_GB', 'FW_HA', 'FW_KO',
                 'FW_MF', 'FW_MK', 'FW_PD', 'FW_WA']
-        calender_df = gas_slp_weekday_params(state).drop(columns=f_wd)
-        temp_calender_df = (pd.concat([calender_df, t_allo_df], axis=1)
-                              .reset_index())
+        calender_df = (gas_slp_weekday_params(state, year=year)
+                       .drop(columns=f_wd))
+        temp_calender_df = (pd.concat([calender_df.reset_index(),
+                                       t_allo_df.reset_index()], axis=1))
+
+        if temp_calender_df.isnull().values.any():
+            raise KeyError('The chosen historical weather year and the chosen '
+                           'projected year have mismatching lengths.'
+                           'This could be due to gap years. Please change the '
+                           'historical year in hist_weather_year() in '
+                           'config.py to a year of matching length.')
+
         temp_calender_df['Tagestyp'] = 'MO'
         for typ in ['DI', 'MI', 'DO', 'FR', 'SA', 'SO']:
-            temp_calender_df['Tagestyp'].loc[temp_calender_df[typ]] = typ
+            (temp_calender_df.loc[temp_calender_df[typ], 'Tagestyp']) = typ
         list_lk = gv_lk.loc[gv_lk['BL'] == state].index.astype(str)
         for lk in list_lk:
             lk_df = pd.DataFrame(index=pd.date_range((str(year) + '-01-01'),
@@ -717,7 +925,7 @@ def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
     year = kwargs.get('year', cfg['base_year'])
     # Obtain yearly power consumption per WZ per LK
     ec_yearly = (disagg_CTS_industry(source, 'industry',
-                                     no_self_gen=no_self_gen)
+                                     no_self_gen=no_self_gen, year=year)
                  .transpose()
                  .assign(BL=lambda x: [bl_dict().get(int(i[: -3]))
                                        for i in x.index.astype(str)]))
@@ -736,7 +944,7 @@ def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
                     .assign(SP=lambda x:
                             [shift_profile_industry()[i] for i in x.index]))
         logger.info('... creating state-specific load-profiles')
-        sp_bl = shift_load_profile_generator(state, low)
+        sp_bl = shift_load_profile_generator(state, low, year=year)
         # Plausibility check:
         assert sp_bl.index.equals(idx), "The time-indizes are not aligned"
         # Create 15min-index'ed DataFrames for current state
