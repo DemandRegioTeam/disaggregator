@@ -70,6 +70,8 @@ The development of disaggregator was part of the joint [DemandRegio-Project](htt
 
 ## License
 
-Software written by Fabian P. Gotzens (FZJ), Paul A. Verwiebe (TUB), Maike Held (TUB), 2019/20.
+Current version of software written and maintained by Paul A. Verwiebe (TUB)
+
+Original version of software written by Fabian P. Gotzens (FZJ), Paul A. Verwiebe (TUB), Maike Held (TUB), 2019/20.
 
 disaggregator is released as free software under the [GPLv3](http://www.gnu.org/licenses/gpl-3.0.en.html), see [LICENSE](LICENSE) for further information.
