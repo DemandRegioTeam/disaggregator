@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 cfg = get_config()
 
 
-def disagg_households_power(by, weight_by_income=False):
+def disagg_households_power(by, weight_by_income=False, original=False, 
+                            **kwargs):
     """
     Perform spatial disaggregation of electric power in [GWh/a] by key and
     possibly weight by income.
@@ -45,19 +46,25 @@ def disagg_households_power(by, weight_by_income=False):
         must be one of ['households', 'population']
     weight_by_income : bool, optional
         Flag if to weight the results by the regional income (default False)
+    orignal : bool, optional
+        Throughput to function households_per_size,
+        A flag if the results should be left untouched and returned in
+        original form for the year 2011 (True) or if they should be scaled to
+        the given `year` by the population in that year (False).
 
     Returns
     -------
     pd.DataFrame or pd.Series
     """
+    year = kwargs.get('year', cfg['base_year'])
     if by == 'households':
         # Bottom-Up: Power demand by household sizes in [GWh/a]
-        power_per_HH = elc_consumption_HH(by_HH_size=True) / 1e3
-        df = households_per_size() * power_per_HH
+        power_per_HH = elc_consumption_HH(by_HH_size=True, year=year) / 1e3
+        df = households_per_size(original=original, year=year) * power_per_HH
     elif by == 'population':
         # Top-Down: Power demand for entire country in [GWh/a]
-        power_nuts0 = elc_consumption_HH() / 1e3
-        distribution_keys = population() / population().sum()
+        power_nuts0 = elc_consumption_HH(year=year) / 1e3
+        distribution_keys = population(year=year) / population(year=year).sum()
         df = distribution_keys * power_nuts0
     else:
         raise ValueError("`by` must be in ['households', 'population']")
@@ -68,7 +75,7 @@ def disagg_households_power(by, weight_by_income=False):
     return df
 
 
-def disagg_households_heat(by, weight_by_income=False):
+def disagg_households_heat(by, weight_by_income=False, **kwargs):
     """
     Perform spatial disaggregation of heat demand in [MWh/a] by key.
 
@@ -81,6 +88,7 @@ def disagg_households_heat(by, weight_by_income=False):
     -------
     pd.DataFrame
     """
+    year = kwargs.get('year', cfg['base_year'])
     if by not in ['households', 'buildings']:
         raise ValueError('The heating demand of households depends mainly on '
                          'the different household sizes and the building '
@@ -89,17 +97,18 @@ def disagg_households_heat(by, weight_by_income=False):
                          '"buildings".')
 
     # Bottom-Up: Heat demand by household sizes in [MWh/a]
-    df_heat_specific = heat_consumption_HH(by=by).T.unstack()
+    df_heat_specific = heat_consumption_HH(by=by, year=year).T.unstack()
     df = pd.DataFrame(columns=df_heat_specific.index)
     base = households_per_size() if by == 'households' else living_space()
     for col, ser in base.iteritems():
-        for idx in heat_consumption_HH(by=by).index:
+        for idx in heat_consumption_HH(by=by, year=year).index:
             df.loc[:, (idx, col)] = ser
     df *= df_heat_specific
     return df
 
 
-def disagg_households_gas(how='top-down', weight_by_income=False):
+def disagg_households_gas(how='top-down', weight_by_income=False,
+                          original=False, **kwargs):
     """
     Perform spatial disaggregation of gas demand and possibly adjust
     by income.
@@ -110,17 +119,23 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
         must be one of ['top-down', 'bottom-up', 'bottom-up_2']
     adjust_by_income : bool, optional
         Flag if to weight the results by the regional income (default False)
+    orignal : bool, optional
+        Throughput to function households_per_size,
+        A flag if the results should be left untouched and returned in
+        original form for the year 2011 (True) or if they should be scaled to
+        the given `year` by the population in that year (False).
 
     Returns
     -------
     pd.DataFrame or pd.Series
     """
-    gas_nuts0 = gas_consumption_HH()
+    year = kwargs.get('year', cfg['base_year'])
+    gas_nuts0 = gas_consumption_HH(year=year)
     # Derive distribution keys
     df_ls_gas = living_space(aggregate=True,
                              internal_id=[None, None, 11, 1]).sum(axis=1)
-    df_pop = population()
-    df_HH = households_per_size().sum(axis=1)
+    df_pop = population(year=year)
+    df_HH = households_per_size(year=year, original=original).sum(axis=1)
     d_keys_hotwater = df_pop / df_pop.sum()
     d_keys_cook = df_HH / df_HH.sum()
 
@@ -202,7 +217,7 @@ def disagg_households_gas(how='top-down', weight_by_income=False):
         logger.warning("This feature is currently experimental and should not "
                        "be used as long as you don't know what you're doing!")
         # The bottom-up_2 logic requires the heat demand of households
-        df_heat_dem = disagg_households_heat(by='households')
+        df_heat_dem = disagg_households_heat(by='households', year=year)
 
         logger.info('Calculating regional gas demands bottom-up:')
         logger.info('1. Cooking based on household sizes in [MWh/a]')
@@ -316,8 +331,9 @@ def disagg_CTS_industry(source, sector,
 # --- Utility functions -------------------------------------------------------
 
 
-def adjust_by_income(df):
-    income_keys = income() / income().mean()
+def adjust_by_income(df, **kwargs):
+    year = kwargs.get('year', cfg['base_year'])
+    income_keys = income(year=year) / income(year=year).mean()
     return df.multiply(income_keys, axis=0)
 
 
