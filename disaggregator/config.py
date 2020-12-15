@@ -269,7 +269,14 @@ def slp_branch_cts_gas():
             77: 'BD', 78: 'KO', 79: 'BD', 80: 'BD', 81: 'BD', 82: 'BD',
             84: 'KO', 85: 'KO', 86: 'BH', 87: 'KO', 88: 'MF', 90: 'BD',
             91: 'KO', 92: 'BD', 93: 'KO', 94: 'KO', 95: 'MK', 96: 'BD',
-            97: 'MF', 98: 'MF', 99: 'KO', 'EFH': 'SpaceHeating-EFH',
+            97: 'MF', 98: 'MF', 99: 'KO'}
+
+
+def slp_household_gas():
+    """
+    This dictionary assignes a gas load profile to every CTS branch
+    """
+    return {'EFH': 'SpaceHeating-EFH',
             'MFH': 'SpaceHeating-MFH',
             'Cooking-HW': 'Cooking_HotWater-HKO'}
 

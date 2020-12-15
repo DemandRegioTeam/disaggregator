@@ -21,7 +21,8 @@ Provides functions for temporal disaggregations.
 
 from .config import (get_config, data_out, bl_dict, shift_profile_industry,
                      slp_branch_cts_gas as slp_wz_g, data_in,
-                     slp_branch_cts_power as slp_wz_p, dict_region_code)
+                     slp_branch_cts_power as slp_wz_p, dict_region_code,
+                     slp_household_gas)
 from .data import (elc_consumption_HH, households_per_size, population,
                    living_space, h_value, zve_percentages_applications,
                    zve_percentages_baseload, zve_application_profiles,
@@ -719,7 +720,7 @@ def disagg_daily_gas_slp_households(state, temperatur_df, how='top-down',
     # create list of district id
     list_ags = gv_lk.columns.astype(str)
     # get slp name for MFH and EFH Heating as well as Cooking
-    gv_lk['SLP'] = [slp_wz_g()[x] for x in (gv_lk.index)]
+    gv_lk['SLP'] = [slp_household_gas()[x] for x in (gv_lk.index)]
     # get slp weekday parameters
     F_wd = (gas_slp_weekday_params(state, year=year)
                .drop(columns=['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO'])
@@ -985,7 +986,7 @@ def disagg_temporal_gas_households(use_nuts3code=False, how='top-down',
             temp_cal['Stunde'] = pd.DatetimeIndex(temp_cal.index).time
             temp_cal = temp_cal.set_index(["Tagestyp", lk, 'Stunde'])
           
-            for slp in [slp_wz_g()[x] for x in tw_df_lk.columns.values]:
+            for slp in [slp_household_gas()[x] for x in tw_df_lk.columns.values]:
                 f = ('Lastprofil_{}.xls'.format(slp))
                 slp_profil = pd.read_excel(data_in('temporal',
                                                    'Gas Load Profiles', f))
@@ -996,7 +997,7 @@ def disagg_temporal_gas_households(use_nuts3code=False, how='top-down',
                 slp_profil.columns = pd.DatetimeIndex(slp_profil.columns).time
                 slp_profil = slp_profil.stack()
                 temp_cal['Prozent'] = [slp_profil[x] for x in temp_cal.index]
-                for wz in [k for k, v in slp_wz_g().items()
+                for wz in [k for k, v in slp_household_gas().items()
                                       if v.startswith(slp)]:
                     lk_df[str(lk) + '_' + str(wz)] = (tw_df_lk[wz].values
                                         * temp_cal['Prozent'].values/100)
