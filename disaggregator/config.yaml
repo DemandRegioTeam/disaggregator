@@ -152,6 +152,14 @@ elc_cons_HH_spatiotemporal:
     source: database
     table_id: 7
     freq: 1H
+
+regional_load_profiles:
+    source: database
+    type: Mean
+    freq: 15T
+#    region: 09161
+#    wz: WZ10
+    
     
 # --- Variable Type Configuration ---
 dtypes:
@@ -176,3 +184,4 @@ nuts3_tables: [1, 4, 5, 12, 14, 15, 16, 17, 18, 19, 20, 26, 27, 28, 29, 30, 31, 
 load_sectionwise:
     spatial: []
     temporal: []
+    regional_load_profiles: []

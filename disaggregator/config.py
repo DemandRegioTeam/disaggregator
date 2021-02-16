@@ -281,6 +281,41 @@ def slp_household_gas():
             'Cooking-HW': 'Cooking_HotWater-HKO'}
 
 
+def blp_wz_list():
+    """
+    This list contains all industry branches for which branch load profiles
+    exist
+    """
+    return [10, 11, 12, 17, 21, 22, 24, 25, 26, 28, 29, 32, 37, 38, 41, 42, 43,
+            46, 47, 52, 55, 58, 59, 62, 63, 64, 65, 66, 68, 69, 70, 71, 72,
+            73, 74, 75, 77, 78, 82, 84, 85, 86, 87, 88, 90, 91, 93, 94, 95,
+            96, 99]
+
+
+def blp_branch_cts_power():
+    """
+    Returns
+    -------
+    dict
+        This dictionary describes which industrial branch can be represented
+        with the help of a load profile, which is based on measured data.
+
+    """
+    return {10: "WZ10", 11: "WZ11", 12: "WZ12", 17: "WZ17", 21: "WZ21",
+            22: "WZ22", 24: "WZ24", 25: "WZ25", 26: "WZ26", 28: "WZ28",
+            29: "WZ29", 32: "WZ32", 37: "WZ37", 38: "WZ38", 41: "WZ41",
+            42: "WZ41", 43: "WZ41", 46: "WZ46", 47: "WZ47", 52: "WZ52",
+            55: "WZ55", 58: "WZ64", 59: "WZ64", 62: "WZ62", 63: "WZ63",
+            64: "WZ64", 65: "WZ64", 66: "WZ64", 68: "WZ64", 69: "WZ64",
+            70: "WZ64", 71: "WZ64", 72: "WZ72", 73: "WZ64", 74: "WZ64",
+            75: "WZ64", 77: "WZ77", 78: "WZ64", 82: "WZ82", 84: "WZ84",
+            85: "WZ85", 86: "WZ86", 87: "WZ87", 88: "WZ88", 90: "WZ90",
+            91: "WZ91", 93: "WZ93", 94: "WZ94", 95: "WZ64", 96: "WZ64",
+            99: "WZ64"
+            }
+
+
+
 def shift_profile_industry():
     """
     This dictionary assignes a shift profile to every industry branch
