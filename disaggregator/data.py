@@ -28,7 +28,8 @@ from collections import OrderedDict
 from collections.abc import Iterable
 from .config import (get_config, data_in, data_out, database_raw,
                      dict_region_code, literal_converter, wz_dict,
-                     hist_weather_year, gas_load_profile_parameters_dict)
+                     hist_weather_year, gas_load_profile_parameters_dict,
+                     blp_branch_cts_power)
 logger = logging.getLogger(__name__)
 cfg = get_config()
 
@@ -288,6 +289,24 @@ def generate_specific_consumption_per_branch(**kwargs):
     gv_wz_real = (vb_wz.loc[vb_wz['ET'] == 12][['WZ', 'value']]
                        .groupby(by='WZ')[['value']].sum()
                        .rename(columns={'value': 'GV WZ [MWh]'}))
+    # manual correction of false data from database, data take from
+    # "Tabelle 2 - Umweltökonomische Gesamtrechnung 2019"
+    if(year == 2015):
+        sv_wz_real.loc['21'] = 1779722
+        sv_wz_real.loc['69-75'] = 15243888.88888889
+
+        gv_wz_real.loc['1'] = 2323170.37
+        gv_wz_real.loc['21'] = 4942035.13
+        gv_wz_real.loc['26'] = 2177598.10
+        gv_wz_real.loc['31-32'] = 981097.90
+        gv_wz_real.loc['43'] = 3208491.39
+        gv_wz_real.loc['55-56'] = 5114970.43
+        gv_wz_real.loc['85'] = 13023398.31
+
+    elif(year == 2016):
+        sv_wz_real.loc['21'] = 1759722
+        gv_wz_real.loc['20'] = 88759166.67   
+
     # get number of employees (bze) from database
     bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=year1))
     bze_lk_wz = (pd.DataFrame(0.0, index=bze_je_lk_wz.columns,
@@ -1516,7 +1535,7 @@ def zve_load_profile_elc(region='AllRegions', year=2015, **kwargs):
                        infer_datetime_format=True, engine='c')
 
 
-def shift_load_profile_generator(state, low=0.35, **kwargs):
+def shift_load_profile_generator(state, low=0.4, **kwargs):
     """
     Return shift load profiles in normalized units
     ('normalized' means that the sum over all time steps equals to one).
@@ -1831,6 +1850,67 @@ def elc_consumption_HH_spatiotemporal(**kwargs):
     return reshape_spatiotemporal(key='elc_cons_HH_spatiotemporal', **kwargs)
 
 
+def regional_branch_load_profiles(**kwargs):
+    """
+    Return regional load profile per NUTS-3-region, time step and industry
+    branch.
+    """
+    return reshape_load_profiles(key='regional_load_profiles', **kwargs)
+
+
+def reshape_load_profiles(freq=None, key=None, **kwargs):
+    """
+    Query spatiotemporal data and shape into a pd.DataFrame.
+
+    Returns
+    -------
+    pd.DataFrame
+        index:      time step
+        columns:    NUTS-3 codes
+    """
+    year = kwargs.get('year', cfg['base_year'])
+    source = kwargs.get('source', cfg[key]['source'])
+    # region = kwargs.get('region', cfg[key]['region'])
+    region = kwargs.get('region', None)
+    # wz = kwargs.get('wz', cfg[key]['wz'])
+    wz = kwargs.get('wz', None)
+    value_type = kwargs.get('type', cfg[key]['type'])
+    force_update = kwargs.get('force_update', False)
+
+    if freq is None:
+        if key is None:
+            raise ValueError('You must pass either `freq` or `key`!')
+        else:
+            freq = cfg[key]['freq']
+
+    if source == 'local':
+        raise NotImplementedError('Not here yet!')
+    elif source == 'database':
+        df = (database_get_load_profiles('regional_load_profiles', year=year,
+                                         region_id=region, wz_id=wz,
+                                         type_id=value_type,
+                                         force_update=force_update)
+              .assign(nuts3=lambda x: (x.region*1000).map(dict_region_code()))
+              .loc[lambda x: (~(x.nuts3.isna()))]
+              .set_index('region').sort_index(axis=0)
+              .loc[:, 'values']
+              .apply(literal_converter))
+
+        # Idea for later implementation
+        # if region is not None:
+        #     df = df.set_index('region').sort_index(axis=0)
+        # else:
+        #     df = df.set_index('wz').sort_index(axis=0)
+        
+        df_exp = (pd.DataFrame(df.values.tolist(), index=df.index)
+                    .astype(float))
+    else:
+        raise KeyError('Wrong source key given in config.yaml - must be either'
+                       ' `local` or `database` but is: {}'.format(source))
+
+    return df_exp.pipe(transpose_spatiotemporal, year=year, freq=freq)
+
+
 def reshape_spatiotemporal(freq=None, key=None, **kwargs):
     """
     Query spatiotemporal data and shape into a 2-dimensional pd.DataFrame.
@@ -1918,7 +1998,63 @@ def database_description(dimension='spatial', short=True, only_active=True,
     return df.set_index(id_name).sort_index()
 
 
-def database_get(dimension, table_id, internal_id=None, year=None,
+def database_get_load_profiles(dimension, year=None, region_id=None,
+                               type_id=None, wz_id=None, 
+                               allow_zero_negative=None,
+                               force_update=False, **kwargs):
+    """
+    Get normalized load profiles from the demandregio database.
+
+    Parameters
+    ----------
+    dimension : str
+        'regional_load_profiles'.
+    year : int or str, optional
+        Either the data year (spatial) or weather year (temporal)
+    region_id : str
+        region id from german id system
+    force_update : bool, default False
+        If True, perform a fresh database query and overwrite data in cache.
+
+    Returns
+    -------
+    pd.DataFrame
+    """
+    if dimension in ['regional_load_profiles']:
+        table = 'demandregio_regional_load_profiles'
+    else:
+        raise ValueError("``which'' must be either 'spatial' or 'temporal' but"
+                         "given was: {}".format(dimension))
+
+    if not isinstance(allow_zero_negative, bool):
+        allow_zero_negative = True if dimension == 'temporal' else False
+    # Go through each variable and append to query str if needed.
+    query = table + '?'  # + 'region' + '=eq.' + str(region_id)
+
+    if year is not None:
+        if year not in range(2009, 2020):
+            raise ValueError("`year` must be between 2009 and 2019")
+        year_var = 'year'
+        query += '&' + year_var + '=eq.' + str(year)
+
+    if region_id is not None:
+        region_var = 'region'
+        region_id = str(region_id).zfill(5)
+        query += '&' + region_var + '=eq.' + str(region_id)
+
+    if wz_id is not None:
+        wz_var = 'wz'
+        wz_id = blp_branch_cts_power()[wz_id]
+        query += '&' + wz_var + '=eq.' + str(wz_id)
+
+    if type_id is not None:
+        type_var = 'type'
+        query += '&' + type_var + '=eq.' + str(type_id)
+
+    return database_raw(query, force_update=force_update)
+
+
+def database_get(dimension, table_id=None, internal_id=None, year=None,
                  allow_zero_negative=None, force_update=False, **kwargs):
     """
     Get data from the demandregio database.

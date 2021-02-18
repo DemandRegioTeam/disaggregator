@@ -92,3 +92,4 @@ ENV/
 # disaggregator related settings
 data_in/__cache__/*
 data_out/*
+.idea/workspace.xml
