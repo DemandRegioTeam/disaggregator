@@ -1359,20 +1359,17 @@ def disagg_temporal_industry_blp(source='power', detailed=False,
                                    .set_index('WZ', append=True).T)], axis=1)
 
         DF2 = DF2/4000  # convert from GW to MWh
-
         total_demand = DF.join(DF2)
 
-    
     else:
         DF2 = (pd.DataFrame(0, index=pd.date_range(freq='15Min',
-                                               start='01/01/'+str(year),
-                                               periods=len(DF),
-                                               ),
-                        columns=ec_blp.columns))
-        logger.info('Start downloading BLP from Database now. This may take a whi'
-                'le depending on the connection. ca. 250MB per industry will'
-                ' be downloaded and stored in your local folder ../data_in/'
-                'cache.')
+                                                   start='01/01/'+str(year),
+                                                   periods=len(DF)),
+                            columns=ec_blp.columns))
+        logger.info('Start downloading BLP from Database now. This may take a '
+                    'while depending on the connection. ca. 250MB per industry'
+                    ' will be downloaded and stored in your local folder ../da'
+                    'ta_in/cache.')
         for branch in blp_i:
             logger.info('Working on WZ'+str(branch))
             branch_model = regional_branch_load_profiles(wz=branch, year=year)
