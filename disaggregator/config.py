@@ -216,6 +216,17 @@ def wz_dict():
             65: '85', 66: '86-88', 67: '90-99'}
 
 
+def wz_2_sector_name(name='Titel'):
+    """
+    Return dict to convert the WZ number into sector or title.
+
+    Source: https://www.klassifikationsserver.de/klassService/jsp/variant/variantInfo.jsf
+    """
+    assert name in ['Sektor', 'Titel', 'Kurztitel', 'Mitteltitel', 'Langtitel']
+    return pd.read_excel(data_in('dimensionless', 'WZ_2008.xlsx'),
+                         sheet_name='Nur_WZ', index_col=0)[name].to_dict()
+
+
 def hist_weather_year():
     """
     This dictionary assigns the temperature data of a historical year to
