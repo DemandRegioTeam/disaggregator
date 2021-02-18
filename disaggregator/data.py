@@ -276,47 +276,55 @@ def generate_specific_consumption_per_branch(**kwargs):
             x = False
         except ValueError:
             year1 -= 1
+    # convert internal ids to industry_id and energycarrier_id
     vb_wz = (vb_wz.assign(WZ=[x[0] for x in vb_wz['internal_id']],
                           ET=[x[1] for x in vb_wz['internal_id']]))
+    # convert internal_id[1] to energy carrier
     vb_wz = (vb_wz[(vb_wz['ET'] == 12)
                    | (vb_wz['ET'] == 18)])[['value', 'WZ', 'ET']]
+    # convert internal_id[0] to industries
     vb_wz = vb_wz.loc[vb_wz['WZ']
                       .isin(list(wz_dict().keys()))]
     vb_wz = vb_wz.replace({'WZ': wz_dict()})
-    
-    # create dataframe with tuples von (12,18) und (wz_dict.keys())
+    # create dataframe with tuples von (12,18) und (wz_dict.keys()) for testing
+    # if fetch from database was complete
     ET = (12, 18)
     WZ = wz_dict().values()
     lists = [WZ, ET]
-    df_test = pd.DataFrame(list(itertools.product(*lists)), columns=['WZ', 'ET'])
-
-    vb_wz = pd.merge(vb_wz, df_test, how='right', left_on=['WZ', 'ET'], right_on=['WZ', 'ET']).drop_duplicates()#.fillna(0)
-
-    # non if, there are any missing values, use them from the next year
+    df_test = pd.DataFrame(list(itertools.product(*lists)),
+                           columns=['WZ', 'ET'])
+    vb_wz = pd.merge(vb_wz, df_test, how='right', left_on=['WZ', 'ET'],
+                     right_on=['WZ', 'ET']).drop_duplicates()  # .fillna(0)
+    # if there are any missing values, call same table from following year and
+    # replace the missing values
     x = vb_wz.isnull().values.any()
-    year2=year1+1
-    while (x) :
-        logger.info('A value was not there, we used the same value from another year')
+    year2 = year1+1
+
+    while (x):
+        logger.info('The following data was missing for the requested year: '
+                    + str(year1))
+        for index, row in vb_wz.loc[vb_wz['value'].isnull() == True].iterrows():
+            logger.info('WZ: '+str(row['WZ'])
+                        + ' and energy carrier: '+str(row['ET'])
+                        + ' with 18 = electricity and 12 = gas.')
         vb_wz_2 = database_get('spatial', table_id=71, year=year2)
         vb_wz_2 = (vb_wz_2.assign(WZ=[x[0] for x in vb_wz_2['internal_id']],
-                          ET=[x[1] for x in vb_wz_2['internal_id']]))
+                                  ET=[x[1] for x in vb_wz_2['internal_id']]))
         vb_wz_2 = (vb_wz_2[(vb_wz_2['ET'] == 12)
                    | (vb_wz_2['ET'] == 18)])[['value', 'WZ', 'ET']]
         vb_wz_2 = vb_wz_2.loc[vb_wz_2['WZ']
-                      .isin(list(wz_dict().keys()))]
+                              .isin(list(wz_dict().keys()))]
         vb_wz_2 = vb_wz_2.replace({'WZ': wz_dict()})
-        
-        vb_wz_2 = pd.merge(vb_wz_2, df_test, how='right', left_on=['WZ', 'ET'], right_on=['WZ', 'ET']).drop_duplicates()
-        
+        vb_wz_2 = pd.merge(vb_wz_2, df_test, how='right', left_on=['WZ', 'ET'],
+                           right_on=['WZ', 'ET']).drop_duplicates()
         vb_wz = vb_wz.fillna(vb_wz_2)
-        year2+=1
+        year2 += 1
         x = vb_wz.isnull().values.any()
-                
-        
-
-    
-
-
+        if not x:
+            logger.info('The values were replaced with data from year: '
+                        + str(year2))
+    # continue with procedure here: create DF for electricity and
+    # gas consumption
     vb_wz['value'] = vb_wz['value'] * 1000 / 3.6
     sv_wz_real = (vb_wz.loc[vb_wz['ET'] == 18][['WZ', 'value']]
                        .groupby(by='WZ')[['value']].sum()
@@ -340,7 +348,7 @@ def generate_specific_consumption_per_branch(**kwargs):
 
     elif(year == 2016):
         sv_wz_real.loc['21'] = 1759722
-        gv_wz_real.loc['20'] = 88759166.67   
+        gv_wz_real.loc['20'] = 88759166.67
 
     # get number of employees (bze) from database
     bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=year1))
