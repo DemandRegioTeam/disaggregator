@@ -36,7 +36,7 @@ cfg = get_config()
 
 def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
                    relative=True, colorbar_each_subplot=False,
-                   add_percentages=True, **kwargs):
+                   hide_colorbar=False, add_percentages=True, **kwargs):
     """
     Plot a choropleth map (=a map with countries colored according to a value)
     for each column of data in given pd.DataFrame.
@@ -213,25 +213,28 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
         fig.subplots_adjust(top=0.82)
 
     fig.tight_layout()
-    if colorbar_each_subplot:
-        for a, axes in enumerate(ax.ravel().tolist()):
-            sm = ScaMap(cmap=cmap[a], norm=plt.Normalize(vmin=intervals[a][0],
-                                                         vmax=intervals[a][1]))
+    if not hide_colorbar:
+        if colorbar_each_subplot:
+            for a, axes in enumerate(ax.ravel().tolist()):
+                sm = ScaMap(cmap=cmap[a],
+                            norm=plt.Normalize(vmin=intervals[a][0],
+                                               vmax=intervals[a][1]))
+                sm._A = []
+                cbar = fig.colorbar(sm, ax=axes, shrink=1.0, pad=0.01,
+                                    fraction=0.046,
+                                    orientation='horizontal', anchor=(0.5, 1.0),
+                                    format=mticker.StrMethodFormatter('{x:,g}'))
+                cbar.set_label(unit)
+        else:
+            sm = ScaMap(cmap=cmap[0],
+                        norm=plt.Normalize(vmin=intervals[0][0],
+                                           vmax=intervals[0][1]))
             sm._A = []
-            cbar = fig.colorbar(sm, ax=axes, shrink=1.0, pad=0.01,
-                                fraction=0.046,
+            shr = 1.0 if ncols <= 2 else 0.5
+            cbar = fig.colorbar(sm, ax=ax.ravel().tolist(), shrink=shr, pad=0.01,
                                 orientation='horizontal', anchor=(0.5, 1.0),
                                 format=mticker.StrMethodFormatter('{x:,g}'))
             cbar.set_label(unit)
-    else:
-        sm = ScaMap(cmap=cmap[0], norm=plt.Normalize(vmin=intervals[0][0],
-                                                     vmax=intervals[0][1]))
-        sm._A = []
-        shr = 1.0 if ncols <= 2 else 0.5
-        cbar = fig.colorbar(sm, ax=ax.ravel().tolist(), shrink=shr, pad=0.01,
-                            orientation='horizontal', anchor=(0.5, 1.0),
-                            format=mticker.StrMethodFormatter('{x:,g}'))
-        cbar.set_label(unit)
 
     add_license_to_figure(fig, geotag=True)
     return fig, ax
