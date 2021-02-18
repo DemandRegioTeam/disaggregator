@@ -277,8 +277,10 @@ def generate_specific_consumption_per_branch(**kwargs):
             year1 -= 1
     vb_wz = (vb_wz.assign(WZ=[x[0] for x in vb_wz['internal_id']],
                           ET=[x[1] for x in vb_wz['internal_id']]))
+    # Filter by 12 = gas, 18 = power
     vb_wz = (vb_wz[(vb_wz['ET'] == 12)
                    | (vb_wz['ET'] == 18)])[['value', 'WZ', 'ET']]
+    # convert internal_id[0] into WZ number
     vb_wz = vb_wz.loc[vb_wz['WZ']
                       .isin(list(wz_dict().keys()))]
     vb_wz = vb_wz.replace({'WZ': wz_dict()})
@@ -305,7 +307,7 @@ def generate_specific_consumption_per_branch(**kwargs):
 
     elif(year == 2016):
         sv_wz_real.loc['21'] = 1759722
-        gv_wz_real.loc['20'] = 88759166.67   
+        gv_wz_real.loc['20'] = 88759166.67
 
     # get number of employees (bze) from database
     bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=year1))
@@ -1901,7 +1903,7 @@ def reshape_load_profiles(freq=None, key=None, **kwargs):
         #     df = df.set_index('region').sort_index(axis=0)
         # else:
         #     df = df.set_index('wz').sort_index(axis=0)
-        
+
         df_exp = (pd.DataFrame(df.values.tolist(), index=df.index)
                     .astype(float))
     else:
@@ -1999,7 +2001,7 @@ def database_description(dimension='spatial', short=True, only_active=True,
 
 
 def database_get_load_profiles(dimension, year=None, region_id=None,
-                               type_id=None, wz_id=None, 
+                               type_id=None, wz_id=None,
                                allow_zero_negative=None,
                                force_update=False, **kwargs):
     """
