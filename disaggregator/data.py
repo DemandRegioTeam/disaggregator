@@ -30,6 +30,7 @@ from .config import (get_config, data_in, data_out, database_raw,
                      dict_region_code, literal_converter, wz_dict,
                      hist_weather_year, gas_load_profile_parameters_dict,
                      blp_branch_cts_power)
+import itertools
 logger = logging.getLogger(__name__)
 cfg = get_config()
 
@@ -282,6 +283,40 @@ def generate_specific_consumption_per_branch(**kwargs):
     vb_wz = vb_wz.loc[vb_wz['WZ']
                       .isin(list(wz_dict().keys()))]
     vb_wz = vb_wz.replace({'WZ': wz_dict()})
+    
+    # create dataframe with tuples von (12,18) und (wz_dict.keys())
+    ET = (12, 18)
+    WZ = wz_dict().values()
+    lists = [WZ, ET]
+    df_test = pd.DataFrame(list(itertools.product(*lists)), columns=['WZ', 'ET'])
+
+    vb_wz = pd.merge(vb_wz, df_test, how='right', left_on=['WZ', 'ET'], right_on=['WZ', 'ET']).drop_duplicates()#.fillna(0)
+
+    # non if, there are any missing values, use them from the next year
+    x = vb_wz.isnull().values.any()
+    year2=year1+1
+    while (x) :
+        logger.info('A value was not there, we used the same value from another year')
+        vb_wz_2 = database_get('spatial', table_id=71, year=year2)
+        vb_wz_2 = (vb_wz_2.assign(WZ=[x[0] for x in vb_wz_2['internal_id']],
+                          ET=[x[1] for x in vb_wz_2['internal_id']]))
+        vb_wz_2 = (vb_wz_2[(vb_wz_2['ET'] == 12)
+                   | (vb_wz_2['ET'] == 18)])[['value', 'WZ', 'ET']]
+        vb_wz_2 = vb_wz_2.loc[vb_wz_2['WZ']
+                      .isin(list(wz_dict().keys()))]
+        vb_wz_2 = vb_wz_2.replace({'WZ': wz_dict()})
+        
+        vb_wz_2 = pd.merge(vb_wz_2, df_test, how='right', left_on=['WZ', 'ET'], right_on=['WZ', 'ET']).drop_duplicates()
+        
+        vb_wz = vb_wz.fillna(vb_wz_2)
+        year2+=1
+        x = vb_wz.isnull().values.any()
+                
+        
+
+    
+
+
     vb_wz['value'] = vb_wz['value'] * 1000 / 3.6
     sv_wz_real = (vb_wz.loc[vb_wz['ET'] == 18][['WZ', 'value']]
                        .groupby(by='WZ')[['value']].sum()
