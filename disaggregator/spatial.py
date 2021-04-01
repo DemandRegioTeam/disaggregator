@@ -31,7 +31,6 @@ import os
 import datetime
 import logging
 logger = logging.getLogger(__name__)
-cfg = get_config()
 
 
 def disagg_households_power(by, weight_by_income=False, original=False, 
@@ -56,6 +55,7 @@ def disagg_households_power(by, weight_by_income=False, original=False,
     -------
     pd.DataFrame or pd.Series
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     if by == 'households':
         # Bottom-Up: Power demand by household sizes in [GWh/a]
@@ -88,6 +88,7 @@ def disagg_households_heat(by, weight_by_income=False, **kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     if by not in ['households', 'buildings']:
         raise ValueError('The heating demand of households depends mainly on '
@@ -129,6 +130,7 @@ def disagg_households_gas(how='top-down', weight_by_income=False,
     -------
     pd.DataFrame or pd.Series
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     gas_nuts0 = gas_consumption_HH(year=year)
     # Derive distribution keys
@@ -296,6 +298,7 @@ def disagg_CTS_industry(source, sector,
         "`sector` must be in ['CTS', 'industry']"
 
     # generate specific consumptions
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     [spez_sv, spez_gv] = generate_specific_consumption_per_branch_and_district(
                                                   8, 8, no_self_gen, year=year)
@@ -332,6 +335,7 @@ def disagg_CTS_industry(source, sector,
 
 
 def adjust_by_income(df, **kwargs):
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     income_keys = income(year=year) / income(year=year).mean()
     return df.multiply(income_keys, axis=0)

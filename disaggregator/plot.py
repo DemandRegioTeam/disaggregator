@@ -31,7 +31,6 @@ from .config import get_config
 from .data import database_shapes, transpose_spatiotemporal
 logger = logging.getLogger(__name__)
 ScaMap = plt.cm.ScalarMappable
-cfg = get_config()
 
 
 def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
@@ -73,6 +72,7 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
     if isinstance(annotate, str):
         annotate = [annotate]
 
+    cfg = kwargs.get('cfg', get_config())
     ncols = kwargs.get('ncols', 0)
     nrows = kwargs.get('nrows', 0)
     suptitle = kwargs.get('suptitle', None)

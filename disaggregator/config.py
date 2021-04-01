@@ -40,21 +40,42 @@ def data_in(*fn):
     return os.path.join(os.path.dirname(__file__), '..', 'data_in', *fn)
 
 
-def get_config(filename=None, **kwargs):
+def get_config(filename=None, use_ruamel=True, **kwargs):
+    """
+    Read the config.yaml file from input folder.
+    """
+    if use_ruamel:
+        # This one supports YAML Spec 1.2 w/o the problems mentioned below.
+        import ruamel_yaml
+    else:
+        # Warning: As of 11/2020 PyYAML only supports YAML Spec 1.1, which can
+        # cause problems as many expressions (e.g. N) are interpreted as bool.
+        import yaml
+
+    # Check if `config.yaml` exists
     if filename is None:
         filename = os.path.join(os.path.dirname(__file__), 'config.yaml')
+    else:
+        filename = os.path.join(os.path.dirname(__file__), filename)
+
     assert os.path.exists(filename), (
         "The config file '{}' does not exist yet. "
         "Copy config_example.yaml to config.yaml and fill in details, "
         "as necessary.".format(filename))
-    yaml_ver = [int(v) for v in yaml.__version__.split('.')]
-    if (yaml_ver[0] > 5) or (yaml_ver[0] == 5 and yaml_ver[1] >= 1):
+
+    if use_ruamel:
         with open(filename) as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
+            config = ruamel_yaml.load(f, Loader=ruamel_yaml.Loader)
     else:
-        logger.warn("Please update your `PyYAML` package to v5.1 or higher.")
-        with open(filename) as f:
-            config = yaml.load(f)
+        yaml_ver = [int(v) for v in yaml.__version__.split('.')]
+        if (yaml_ver[0] > 5) or (yaml_ver[0] == 5 and yaml_ver[1] >= 1):
+            with open(filename) as f:
+                config = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            logger.warn("Please update `PyYAML` package to v5.1 or higher.")
+            with open(filename) as f:
+                config = yaml.load(f)
+
     return config
 
 

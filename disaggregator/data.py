@@ -32,7 +32,6 @@ from .config import (get_config, data_in, data_out, database_raw,
                      blp_branch_cts_power)
 import itertools
 logger = logging.getLogger(__name__)
-cfg = get_config()
 
 
 # --- Dimensionless data ------------------------------------------------------
@@ -52,6 +51,7 @@ def elc_consumption_HH(by_HH_size=False, **kwargs):
     -------
     float or pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     key = 'elc_cons_HH_by_size' if by_HH_size else 'elc_cons_HH_total'
     year = kwargs.get('year', cfg['base_year'])
     force_update = kwargs.get('force_update', False)
@@ -104,6 +104,7 @@ def heat_consumption_HH(by='households', **kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     source = kwargs.get('source', cfg['heat_consumption_HH']['source'])
 
     if source == 'local':
@@ -129,6 +130,7 @@ def gas_consumption_HH(**kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     id_to_application = {1: 'SpaceHeating',
                          2: 'HotWater',
                          3: 'Cooking'}
@@ -182,6 +184,7 @@ def t_allo(**kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     # tbd in the future. hist weather year can be chosen via config.py
     # hist_year = kwargs.get('weather_year', hist_weather_year().get(year))
@@ -264,6 +267,7 @@ def generate_specific_consumption_per_branch(**kwargs):
     ------------
     Tuple that contains six pd.DataFrames
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     # get electricity and gas consumption from database
     x = True
@@ -513,6 +517,7 @@ def generate_specific_consumption_per_branch_and_district(iterations_power=8,
     ------------
     Tuple that contains two pd.DataFrames
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     [spez_sv, spez_gv, vb_wz, bze_je_lk_wz, df_f_sv_no_self_gen,
      df_f_gv_no_self_gen] = (generate_specific_consumption_per_branch(year=year))
@@ -845,6 +850,7 @@ def population(**kwargs):
     pd.Series
         index: NUTS-3 codes
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg['population']['source'])
     table_id = kwargs.get('table_id', cfg['population']['table_id'])
@@ -897,6 +903,7 @@ def elc_consumption_HH_spatial(**kwargs):
     pd.DataFrame
         index: NUTS-3 codes
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg['elc_cons_HH_spatial']['source'])
     table_id = kwargs.get('table_id', cfg['elc_cons_HH_spatial']['table_id'])
@@ -935,6 +942,7 @@ def households_per_size(original=False, **kwargs):
     pd.DataFrame
         index: NUTS-3 codes
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg['household_sizes']['source'])
     table_id = kwargs.get('table_id', cfg['household_sizes']['table_id'])
@@ -1026,6 +1034,7 @@ def living_space(aggregate=True, **kwargs):
                      2019: 'R_2019'}
 
     year = kwargs.get('year', 2018)
+    cfg = kwargs.get('cfg', get_config())
     source = kwargs.get('source', cfg['living_space']['source'])
     table_id = kwargs.get('table_id', cfg['living_space']['table_id'])
     force_update = kwargs.get('force_update', False)
@@ -1090,6 +1099,7 @@ def percentage_EFH_MFH(MFH=False, **kwargs):
     -------
     pd.Series
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', 2011)
     source = kwargs.get('source', cfg['percentage_EFH_MFH']['source'])
     table_id = kwargs.get('table_id', cfg['percentage_EFH_MFH']['table_id'])
@@ -1126,6 +1136,7 @@ def income(**kwargs):
     pd.Series
         index: NUTS-3 codes
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg['income']['source'])
     table_id = kwargs.get('table_id', cfg['income']['table_id'])
@@ -1196,6 +1207,7 @@ def energy_balance_values(**kwargs):
     pd.Series
         index: NUTS-1 codes
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg['energy_balance_values']['source'])
     table_id = kwargs.get('table_id', cfg['energy_balance_values']['table_id'])
@@ -1244,6 +1256,7 @@ def stove_assumptions(**kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     source = kwargs.get('source', cfg['stove_assumptions']['source'])
     if source == 'local':
         df = (pd.read_csv(data_in('regional',
@@ -1266,6 +1279,7 @@ def hotwater_shares(**kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     source = kwargs.get('source', cfg['hotwater_shares']['source'])
     if source == 'local':
         df = (pd.read_csv(data_in('regional',
@@ -1316,6 +1330,7 @@ def heat_demand_buildings(**kwargs):
                      2: 'Modernisation conventional',
                      3: 'Modernisation future'}
 
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', 2014)
     source = kwargs.get('source', cfg['heat_dem_bld']['source'])
     table_id = kwargs.get('table_id', cfg['heat_dem_bld']['table_id'])
@@ -1379,6 +1394,7 @@ def efficiency_enhancement(source, **kwargs):
     pd.Series
         index: Branches
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     if year in range(2019, 2036):
         # if year is in the future, function returns a df with calculated
@@ -1422,7 +1438,7 @@ def employees_per_branch_district(**kwargs):
         index: Branches
         columns: District keys (Landkreisschlüssel)
     """
-
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     scenario = kwargs.get('scenario', cfg['scenario'])
 
@@ -1483,6 +1499,7 @@ def elc_consumption_HH_temporal(**kwargs):
     pd.Series
         index: pd.DatetimeIndex
     """
+    cfg = kwargs.get('cfg', get_config())
     return (reshape_temporal(freq='1H', key='elc_cons_HH_temporal', **kwargs)
             * elc_consumption_HH(year=kwargs.get('year', cfg['base_year'])))
 
@@ -1497,6 +1514,7 @@ def reshape_temporal(freq=None, key=None, **kwargs):
     pd.Series
         index: pd.DatetimeIndex
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg[key]['source'])
     table_id = kwargs.get('table_id', cfg[key]['table_id'])
@@ -1597,6 +1615,7 @@ def shift_load_profile_generator(state, low=0.4, **kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     validity_check_nuts1(state)
     idx = pd.date_range(start=str(year), end=str(year+1), freq='15T')[:-1]
@@ -1737,6 +1756,7 @@ def gas_slp_weekday_params(state, **kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     validity_check_nuts1(state)
 
@@ -1802,6 +1822,7 @@ def CTS_power_slp_generator(state, **kwargs):
         v = pd.merge(df, u[['Date', Tag_Zeit]], on=['Date'], how='left')
         return v.fillna(0)[Tag_Zeit]
 
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     validity_check_nuts1(state)
     idx = pd.date_range(start=str(year), end=str(year+1), freq='15T')[:-1]
@@ -1911,6 +1932,7 @@ def reshape_load_profiles(freq=None, key=None, **kwargs):
         index:      time step
         columns:    NUTS-3 codes
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg[key]['source'])
     # region = kwargs.get('region', cfg[key]['region'])
@@ -1964,6 +1986,7 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
         index:      time step
         columns:    NUTS-3 codes
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     source = kwargs.get('source', cfg[key]['source'])
     table_id = kwargs.get('table_id', cfg[key]['table_id'])
@@ -2121,6 +2144,8 @@ def database_get(dimension, table_id=None, internal_id=None, year=None,
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
+
     if dimension in ['spatial', 'temporal']:
         id_name = 'id_' + dimension
         if dimension == 'spatial':
@@ -2310,6 +2335,7 @@ def transpose_spatiotemporal(df, freq='1H', **kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     if isinstance(df.index, pd.DatetimeIndex):
         # put timesteps in columns and regions in index
         return df.reset_index(drop=True).T

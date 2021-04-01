@@ -38,7 +38,6 @@ import xarray as xr
 import geopandas as gpd
 import logging
 logger = logging.getLogger(__name__)
-cfg = get_config()
 
 
 def disagg_temporal(spat, temp, time_indexed=False, **kwargs):
@@ -100,6 +99,7 @@ def make_zve_load_profiles(return_profile_by_typeday=False,
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     reg = kwargs.get('reg', None)
     # Load number of households per size
@@ -281,6 +281,7 @@ def create_projection(df, target_year, by, **kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     if not isinstance(target_year, int):
         raise ValueError('`target_year` must be an int.')
@@ -435,6 +436,7 @@ def disagg_temporal_power_CTS_blp(detailed=False, use_nuts3code=False,
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     if year not in range(2009, 2020):
         raise ValueError("to use blp, `year` must be between 2009 and 2019.")
@@ -639,6 +641,7 @@ def disagg_temporal_power_CTS(detailed=False, use_nuts3code=False, **kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     # Obtain yearly power consumption per WZ per LK
     sv_yearly = (disagg_CTS_industry('power', 'CTS')
@@ -747,6 +750,7 @@ def disagg_temporal_power_housholds_slp(use_nuts3code=False,
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     # Obtain yearly power consumption per per district
     sv_yearly = ((disagg_households_power(by=by,
@@ -817,6 +821,7 @@ def disagg_daily_gas_slp_cts(state, temperatur_df, **kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     if ((year % 4 == 0)
             & (year % 100 != 0)
@@ -893,6 +898,7 @@ def disagg_daily_gas_slp_households(state, temperatur_df, how='top-down',
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     if ((year % 4 == 0)
             & (year % 100 != 0)
@@ -985,6 +991,7 @@ def disagg_temporal_gas_CTS(detailed=False, use_nuts3code=False, **kwargs):
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
             & (year % 100 == 0) & (year % 400 == 0)):
@@ -1112,6 +1119,7 @@ def disagg_temporal_gas_households(use_nuts3code=False, how='top-down',
     -------
     pd.DataFrame
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     if ((year % 4 == 0) & (year % 100 != 0) | (year % 4 == 0)
             & (year % 100 == 0) & (year % 400 == 0)):
@@ -1250,6 +1258,7 @@ def disagg_temporal_industry_blp(source='power', detailed=False,
     -------
     pd.DataFrame or Tuple
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     if year not in range(2009, 2020):
         raise ValueError("to use blp, `year` must be between 2009 and 2019.")
@@ -1419,6 +1428,7 @@ def disagg_temporal_industry(source, detailed=False, use_nuts3code=False,
     -------
     pd.DataFrame or Tuple
     """
+    cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     # Obtain yearly power consumption per WZ per LK
     ec_yearly = (disagg_CTS_industry(source, 'industry',
