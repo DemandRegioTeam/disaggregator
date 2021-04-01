@@ -91,5 +91,6 @@ ENV/
 
 # disaggregator related settings
 data_in/__cache__/*
+data_in/regional/values/*
 data_out/*
 .idea/workspace.xml
