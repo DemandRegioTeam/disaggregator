@@ -27,24 +27,26 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.patheffects as PathEffects
+from matplotlib.colors import LinearSegmentedColormap
 from .config import get_config
 from .data import database_shapes, transpose_spatiotemporal
 logger = logging.getLogger(__name__)
 ScaMap = plt.cm.ScalarMappable
 
 
-def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
+def choropleth_map(df, cmap=None, interval=None, annotate=None,
                    relative=True, colorbar_each_subplot=False,
                    hide_colorbar=False, add_percentages=True, **kwargs):
     """
-    Plot a choropleth map (=a map with countries colored according to a value)
-    for each column of data in given pd.DataFrame.
+    Plot a choropleth map* for each column of data in passed df.
+
+    * Choropleth map = A map with countries colored according to a value.
 
     Parameters
     ----------
     df : pd.DataFrame or pd.Series
         Holding the values (required index: NUTS-3 codes)
-    cmap : str or list, optional
+    cmap : str or list or Colormap instance, optional
         matplotlib colormap code(s)
     interval : tuple or str, optional
         if tuple: min/max-range e.g. (0, 1) | if str: find min/max autom.
@@ -117,8 +119,16 @@ def choropleth_map(df, cmap='viridis', interval=None, annotate=None,
     else:
         unit = '[${}$]'.format(unit)
 
-    if isinstance(cmap, str):
+    # # Try to get cmap from config file, by default use viridis
+    if cmap is None:
+        try:
+            cmap = cfg.get('userdef_colormaps')['default']
+        except(TypeError, KeyError):
+            cmap = 'viridis'
+    cmap = cmap_handler(cmap)
+    if isinstance(cmap, str) or isinstance(cmap, LinearSegmentedColormap):
         cmap = [cmap for c in cols]
+
     if len(cols) == 1:
         colorbar_each_subplot = False
     if colorbar_each_subplot:
@@ -525,3 +535,44 @@ def add_license_to_figure(fig, license='CC BY 4.0', geotag=False,
 
     fig.text(x, y, s, fontsize=6, color='gray',
              ha='left', va='bottom', alpha=0.5)
+
+
+def cmap_handler(cmap, **kwargs):
+    """
+    Handle existing and user-defined colormaps.
+    """
+    from matplotlib.colors import (Colormap, ListedColormap,
+                                   LinearSegmentedColormap)
+    from matplotlib.cm import _gen_cmap_d
+
+    # if passed `cmap` is a Colormap instance: return it directly
+    if (isinstance(cmap, Colormap) or isinstance(cmap, ListedColormap)
+            or isinstance(cmap, LinearSegmentedColormap)):
+        return cmap
+
+    elif isinstance(cmap, str):
+        # if passed `cmap` is an existing colormap string: return it directly
+        dic_cmaps = _gen_cmap_d()
+        if cmap in dic_cmaps.keys():
+            return cmap
+
+        # handle user-defined `cmap` string
+        cfg = kwargs.get('cfg', get_config())
+        if 'userdef_colormaps' not in cfg:
+            raise ValueError("config.yaml doesn't contain `userdef_colormaps`")
+
+        f_cmaps = cfg['userdef_colormaps']['file']
+        sheet_name = cfg['userdef_colormaps']['sheet_name']
+        ser_cmap = (pd.read_excel(f_cmaps, sheet_name=sheet_name,
+                                   index_col='order')
+                       .dropna(axis=0, how='all')
+                       .loc[lambda x: x['cmap'] == cmap])['hex']
+        if len(ser_cmap) == 0:
+            raise ValueError(f"'{cmap}' not contained in file \n{f_cmaps}")
+
+        nodes = np.linspace(0, 1, len(ser_cmap))
+        return LinearSegmentedColormap.from_list(
+            cmap, list(zip(nodes, ser_cmap)))
+
+    else:
+        raise ValueError("`cmap` must be str or a Colormap instance!")
