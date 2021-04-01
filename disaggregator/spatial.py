@@ -24,11 +24,9 @@ from .data import (elc_consumption_HH, heat_consumption_HH, gas_consumption_HH,
                    living_space, hotwater_shares, heat_demand_buildings,
                    employees_per_branch_district, efficiency_enhancement,
                    generate_specific_consumption_per_branch_and_district)
-from .config import (data_in, dict_region_code, get_config)
+from .config import (dict_region_code, get_config)
 
 import pandas as pd
-import os
-import datetime
 import logging
 logger = logging.getLogger(__name__)
 
@@ -36,8 +34,7 @@ logger = logging.getLogger(__name__)
 def disagg_households_power(by, weight_by_income=False, original=False, 
                             **kwargs):
     """
-    Perform spatial disaggregation of electric power in [GWh/a] by key and
-    possibly weight by income.
+    Spatial disaggregation of elc. power in [GWh/a] by key (weighted by income)
 
     Parameters
     ----------
@@ -111,8 +108,7 @@ def disagg_households_heat(by, weight_by_income=False, **kwargs):
 def disagg_households_gas(how='top-down', weight_by_income=False,
                           original=False, **kwargs):
     """
-    Perform spatial disaggregation of gas demand and possibly adjust
-    by income.
+    Return spatial disaggregation of gas demand (possibly adjusted by income).
 
     Parameters
     ----------

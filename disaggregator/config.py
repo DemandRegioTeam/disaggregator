@@ -20,7 +20,6 @@ Provides configuration settings.
 """
 
 import os
-import yaml
 import requests
 import pandas as pd
 import logging
@@ -250,8 +249,7 @@ def wz_2_sector_name(name='Titel'):
 
 def hist_weather_year():
     """
-    This dictionary assigns the temperature data of a historical year to
-    future years
+    Assign temperature data of a historical year to a future year.
     """
     return {2000: 2000, 2001: 2001, 2002: 2002, 2003: 2003, 2004: 2004,
             2005: 2005, 2006: 2006, 2007: 2007, 2008: 2008, 2009: 2009,
@@ -265,7 +263,7 @@ def hist_weather_year():
 
 def bl_dict():
     """
-    This dictionary translates the Bundesland number to its abbreciation.
+    Translate the federal state (Bundesland) number to its abbreviation.
     """
     return {1: 'SH', 2: 'HH', 3: 'NI', 4: 'HB', 5: 'NW', 6: 'HE',
             7: 'RP', 8: 'BW', 9: 'BY', 10: 'SL', 11: 'BE', 12: 'BB',
@@ -274,7 +272,7 @@ def bl_dict():
 
 def slp_branch_cts_power():
     """
-    This dictionary assignes a power load profile (SLP) to every CTS branch
+    Assign a power load profile (SLP) to every CTS branch by WZ number.
     """
     return {1: 'L0', 2: 'L0', 3: 'G3', 35: 'G3', 36: 'G3', 37: 'G3',
             38: 'G3', 39: 'G3', 41: 'G1', 42: 'G1', 43: 'G1', 45: 'G4',
@@ -290,7 +288,7 @@ def slp_branch_cts_power():
 
 def slp_branch_cts_gas():
     """
-    This dictionary assignes a gas load profile to every CTS branch
+    Assign a gas load profile (SLP) to each CTS branch by WZ number.
     """
     return {1: 'GB', 2: 'GB', 3: 'GB', 36: 'MF', 37: 'MF', 38: 'BD', 39: 'BD',
             41: 'MK', 42: 'MK', 43: 'MK', 45: 'MK', 46: 'HA', 47: 'HA',
@@ -306,7 +304,7 @@ def slp_branch_cts_gas():
 
 def slp_household_gas():
     """
-    This dictionary assignes a gas load profile to every CTS branch
+    Assign a gas load profile to each CTS branch
     """
     return {'EFH': 'SpaceHeating-EFH',
             'MFH': 'SpaceHeating-MFH',
@@ -315,8 +313,7 @@ def slp_household_gas():
 
 def blp_wz_list():
     """
-    This list contains all industry branches for which branch load profiles
-    exist
+    Return list w/ all industry branches for which load profiles exist.
     """
     return [10, 11, 12, 17, 21, 22, 24, 25, 26, 28, 29, 32, 37, 38, 41, 42, 43,
             46, 47, 52, 55, 58, 59, 62, 63, 64, 65, 66, 68, 69, 70, 71, 72,

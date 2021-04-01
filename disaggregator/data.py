@@ -838,12 +838,13 @@ def generate_specific_consumption_per_branch_and_district(iterations_power=8,
 
     return spez_sv_lk.sort_index(axis=1), spez_gv_lk.sort_index(axis=1)
 
+
 # --- Spatial data ------------------------------------------------------------
 
 
 def population(**kwargs):
     """
-    Read, transform and return the number of residents per NUTS-3 area.
+    Return the number of residents per NUTS-3 area.
 
     Returns
     -------
@@ -895,12 +896,11 @@ def population(**kwargs):
 
 def elc_consumption_HH_spatial(**kwargs):
     """
-    Read, transform and return a pd.Series with pre-calculated
-    electricity consumption of households per NUTS-3 area.
+    Return pre-calculated electr. consumption of households per NUTS-3 area.
 
     Returns
     -------
-    pd.DataFrame
+    pd.Series
         index: NUTS-3 codes
     """
     cfg = kwargs.get('cfg', get_config())
@@ -927,8 +927,7 @@ def elc_consumption_HH_spatial(**kwargs):
 
 def households_per_size(original=False, **kwargs):
     """
-    Read, transform and return the numbers of households for each household
-    size per NUTS-3 area.
+    Return the numbers of households by household size per NUTS-3 area.
 
     Parameters
     ----------
@@ -984,8 +983,7 @@ def households_per_size(original=False, **kwargs):
 
 def living_space(aggregate=True, **kwargs):
     """
-    Read, transform and return a DataFrame with the available living space
-    in [m²] for each building type per NUTS-3 area.
+    Return available living space [m²] for each building type per NUTS-3 area.
 
     Parameters
     ----------
@@ -1080,7 +1078,9 @@ def living_space(aggregate=True, **kwargs):
                             columns='building_type', aggfunc='sum')
         df = plausibility_check_nuts3(df)
     else:
-        df = df.drop(['id_spatial', 'id_region_type', 'id_region'], axis=1)
+        df = df.drop(['id_spatial', 'id_region_type', 'id_region',
+                      'internal_id_1', 'internal_id_2', 'internal_id_3',
+                      'internal_id_4', 'internal_id_5'], axis=1)
     return df
 
 
@@ -1258,9 +1258,10 @@ def stove_assumptions(**kwargs):
     """
     cfg = kwargs.get('cfg', get_config())
     source = kwargs.get('source', cfg['stove_assumptions']['source'])
+
     if source == 'local':
         df = (pd.read_csv(data_in('regional',
-                                   cfg['stove_assumptions']['filename']),
+                                  cfg['stove_assumptions']['filename']),
                           index_col='natcode_nuts1', encoding='utf-8')
                 .drop(labels='name_nuts1', axis=1))
     elif source == 'database':
@@ -1281,9 +1282,10 @@ def hotwater_shares(**kwargs):
     """
     cfg = kwargs.get('cfg', get_config())
     source = kwargs.get('source', cfg['hotwater_shares']['source'])
+
     if source == 'local':
         df = (pd.read_csv(data_in('regional',
-                                   cfg['hotwater_shares']['filename']),
+                                  cfg['hotwater_shares']['filename']),
                           index_col='natcode_nuts1', encoding='utf-8')
                 .drop(labels='name_nuts1', axis=1))
     elif source == 'database':
@@ -1527,8 +1529,6 @@ def reshape_temporal(freq=None, key=None, **kwargs):
 
     if source == 'local':
         raise NotImplementedError('Not here yet!')
-#        fn = _data_in('temporal', cfg[key]['filename'])
-#        df = read_local(fn, year=year)
     elif source == 'database':
         values = literal_converter(
             database_get('temporal', table_id=table_id, year=year,
@@ -1604,8 +1604,8 @@ def shift_load_profile_generator(state, low=0.4, **kwargs):
     Parameters
     ----------
     state : str
-        Must be one of ['BW','BY','BE','BB','HB','HH','HE','MV',
-                        'NI','NW','RP','SL','SN','ST','SH','TH']
+        Must be one of ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV',
+                        'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH']
     low : float
         Load level during "low" loads. Industry loads have two levels:
             "low" outside of working hours and "high" during working hours.
