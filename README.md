@@ -50,13 +50,13 @@ Once the environment is installed, you can start a Jupyter Notebook from there
 
 There are five tutorials and demonstration examples that help you to better understand `disaggregator` and its applications. The files can be found in the folder `docs/tutorials`.
 
-1. Data and configuration <tutorials/01_Demo_data-and-config.ipynb>
-2. Households: spatial disaggregation <tutorials/02_Demo_households_spatial_disaggregations.ipynb>
-3. Households: temporal disaggregation for power and gas <tutorials/03_Demo_households_temporal_disaggregations_power_and_gas.ipynb>
-4. CTS / Industry disaggregation <tutorials/04_Demo_CTS_Industry_disaggregation.ipynb>
-5. Accessing geographical data <tutorials/05_Demo_accessing_geographical_data.ipynb>
+1. Data and configuration [link](tutorials/01_Demo_data-and-config.ipynb)
+2. Households: spatial disaggregation [link](tutorials/02_Demo_households_spatial_disaggregations.ipynb)
+3. Households: temporal disaggregation for power and gas [link](tutorials/03_Demo_households_temporal_disaggregations_power_and_gas.ipynb)
+4. CTS / Industry disaggregation [link](tutorials/04_Demo_CTS_Industry_disaggregation.ipynb)
+5. Accessing geographical data [link](tutorials/05_Demo_accessing_geographical_data.ipynb)
 
-Click on the `01_Demo_data-and-config.ipynb` file to start with a demonstration:
+Click on the `01_Demo_data-and-config.ipynb`[link](tutorials/01_Demo_data-and-config.ipynb) file to start with a demonstration:
 
 ![Jupyter_View][img_01]
 
