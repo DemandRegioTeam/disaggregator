@@ -9,12 +9,7 @@ The tool `disaggregator` helps you to build a database, disaggregate (temporal a
 
 A detailed explanation of the research project, the background of the research project and a detailed description of current and potential application areas can be found in the project report:
 
-	Gotzens, Fabian, Bastian Gillessen, Simon Burges, Wilfried Hennings,
-	Joachim Müller-Kirchenbauer, Stephan Seim, Paul Verwiebe, 
-	Schmid Tobias, Fabian Jetter, und Timo Limmer. 
-	"DemandRegio - Harmonisierung und Entwicklung von Verfahren 
-	zur regionalen und zeitlichen Auflösung von Energienachfragen:
-	Abschlussbericht“, 2020. https://doi.org/10.34805/FFE-119-20.
+Gotzens, Fabian, Bastian Gillessen, Simon Burges, Wilfried Hennings, Joachim Müller-Kirchenbauer, Stephan Seim, Paul Verwiebe, Schmid Tobias, Fabian Jetter, und Timo Limmer. "DemandRegio - Harmonisierung und Entwicklung von Verfahren zur regionalen und zeitlichen Auflösung von Energienachfragen: Abschlussbericht“, 2020. https://doi.org/10.34805/FFE-119-20.
 	
 ## Installation and get started using disaggregator
 
@@ -104,4 +99,4 @@ disaggregator is released as free software under the [GPLv3](http://www.gnu.org/
 ## Contributing to disaggregator 🎁
 Disaggregator is designed as an open sources tool and welcomes contributions. You can contribute to the disaggregator software on GitHub directly.
 
-If you have a question that isn't answered in the tutorials or the documentation please `open an issue on GitHub <https://github.com/DemandRegioTeam/disaggregator/issues>`_, if there isn't one there already.
+If you have a question that isn't answered in the tutorials or the documentation please [`open an issue on GitHub`](https://github.com/DemandRegioTeam/disaggregator/issues), if there isn't one there already.
