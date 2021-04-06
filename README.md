@@ -9,8 +9,13 @@ The tool `disaggregator` helps you to build a database, disaggregate (temporal a
 
 A detailed explanation of the research project, the background of the research project and a detailed description of current and potential application areas can be found in the project report:
 
-	Gotzens, Fabian, Bastian Gillessen, Simon Burges, Wilfried Hennings, Joachim Müller-Kirchenbauer, Stephan Seim, Paul Verwiebe, Schmid Tobias, Fabian Jetter, und Timo Limmer. „DemandRegio - Harmonisierung und Entwicklung von Verfahren zur regionalen und zeitlichen Auflösung von Energienachfragen : Abschlussbericht“, 2020. https://doi.org/10.34805/FFE-119-20.
-
+	Gotzens, Fabian, Bastian Gillessen, Simon Burges, Wilfried Hennings,
+	Joachim Müller-Kirchenbauer, Stephan Seim, Paul Verwiebe, 
+	Schmid Tobias, Fabian Jetter, und Timo Limmer. 
+	"DemandRegio - Harmonisierung und Entwicklung von Verfahren 
+	zur regionalen und zeitlichen Auflösung von Energienachfragen:
+	Abschlussbericht“, 2020. https://doi.org/10.34805/FFE-119-20.
+	
 ## Installation and get started using disaggregator
 
 The current version of disaggregator works with Conda and Jupyter Notebooks.
