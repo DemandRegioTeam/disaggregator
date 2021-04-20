@@ -223,7 +223,7 @@ def literal_converter(val):
 
 def wz_dict():
     """
-    This dictionary translates the database namings to real WZ branch names.
+    Translate the database namings to real WZ branch names.
     """
     return {2: '1', 3: '2', 4: '3', 6: '5', 7: '6', 8: '7-9', 10: '10-12',
             11: '13-15', 12: '16', 13: '17', 14: '18', 15: '19', 18: '20',
@@ -323,12 +323,12 @@ def blp_wz_list():
 
 def blp_branch_cts_power():
     """
+    This dictionary describes which industrial branch can be represented
+    with the help of a load profile, which is based on measured data.
+
     Returns
     -------
     dict
-        This dictionary describes which industrial branch can be represented
-        with the help of a load profile, which is based on measured data.
-
     """
     return {10: "WZ10", 11: "WZ11", 12: "WZ12", 17: "WZ17", 21: "WZ21",
             22: "WZ22", 24: "WZ24", 25: "WZ25", 26: "WZ26", 28: "WZ28",
@@ -340,14 +340,12 @@ def blp_branch_cts_power():
             75: "WZ64", 77: "WZ77", 78: "WZ64", 82: "WZ82", 84: "WZ84",
             85: "WZ85", 86: "WZ86", 87: "WZ87", 88: "WZ88", 90: "WZ90",
             91: "WZ91", 93: "WZ93", 94: "WZ94", 95: "WZ64", 96: "WZ64",
-            99: "WZ64"
-            }
-
+            99: "WZ64"}
 
 
 def shift_profile_industry():
     """
-    This dictionary assignes a shift profile to every industry branch
+    Assign a shift profile to every industry branch.
     """
     return {5: 'S3_WT_SA', 6: 'S3_WT_SA_SO', 7: 'S3_WT_SA', 8: 'S3_WT_SA',
             9: 'S3_WT_SA', 10: 'S2_WT', 11: 'S3_WT', 12: 'S3_WT_SA',
@@ -361,7 +359,7 @@ def shift_profile_industry():
 
 def gas_load_profile_parameters_dict():
     """
-    This dictionary assignes parameters to gas load profiles
+    Assign parameters to gas load profiles.
     """
     return {'A': {'BA': 0.277008711731108, 'BD': 1.4633681573375,
                   'BH': 0.987428301992787, 'GA': 1.15820816823062,
@@ -374,7 +372,8 @@ def gas_load_profile_parameters_dict():
             'B': {'BA': -33.0, 'BD': -36.17941165, 'BH': -35.25321235,
                   'GA': -36.28785839, 'GB': -37.5, 'HA': -36.96500652,
                   'KO': -35.14125631, 'MF': -34.72136051, 'MK': -34.88061302,
-                  'PD': -35.8, 'WA': -36.02379115, 'SpaceHeating-MFH': -34.7213605,
+                  'PD': -35.8, 'WA': -36.02379115,
+                  'SpaceHeating-MFH': -34.7213605,
                   'SpaceHeating-EFH': -37.1833141,
                   'Cooking_HotWater-HKO': -24.4392968},
             'C': {'BA': 5.72123025, 'BD': 5.926516165, 'BH': 6.154440641,
