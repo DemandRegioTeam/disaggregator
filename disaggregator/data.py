@@ -925,16 +925,16 @@ def elc_consumption_HH_spatial(**kwargs):
     return df
 
 
-def households_per_size(original=False, **kwargs):
+def households_per_size(scale_by_pop=False, **kwargs):
     """
     Return the numbers of households by household size per NUTS-3 area.
 
     Parameters
     ----------
-    orignal : bool, optional
+    scale_by_pop : bool, default False
         A flag if the results should be left untouched and returned in
-        original form for the year 2011 (True) or if they should be scaled to
-        the given `year` by the population in that year (False).
+        original form for the year 2011 (False) or if they should be scaled to
+        the given `year` by the population in that year (True).
 
     Returns
     -------
@@ -946,30 +946,40 @@ def households_per_size(original=False, **kwargs):
     source = kwargs.get('source', cfg['household_sizes']['source'])
     table_id = kwargs.get('table_id', cfg['household_sizes']['table_id'])
     force_update = kwargs.get('force_update', False)
+    raw = kwargs.get('raw', False)
 
     if source == 'local':
         fn = data_in('regional', cfg['household_sizes']['filename'])
         df = read_local(fn)
     elif source == 'database':
-        df = database_get('spatial', table_id=table_id, year=2011,
+        if table_id == 14:
+            year = 2011
+        df = database_get('spatial', table_id=table_id, year=year,
                           force_update=force_update)
+    elif source == 'values':
+        logger.info("Using VALUES")
+        fn = data_in('regional', cfg['household_sizes']['filename'])
+        df = read_local(fn, year=year, index_col=None)
     else:
         raise KeyError('Wrong source key given in config.yaml - must be either'
                        ' `local` or `database` but is: {}'.format(source))
+    if raw:
+        return df
 
-    df = (df.assign(internal_id=lambda x: x.internal_id.astype(str))
-            .assign(nuts3=lambda x: x.id_region.map(dict_region_code()),
-                    hh_size=lambda x: x.internal_id.str[1].astype(int))
+    df = (df.assign(nuts3=lambda x: x.id_region.map(dict_region_code()),
+                    hh_size=lambda x: x.internal_id.str[0].astype(int))
             .loc[lambda x: x.hh_size != 0]
             .pivot_table(values='value', index='nuts3', columns='hh_size',
                          aggfunc='sum'))
 
-    if original:
-        logger.warning('Orginal data is only available for the year 2011, so '
-                       'passing `original=True` argument disables any scaling '
-                       'and rounding to the given `year` based on the '
-                       'newer population data (which is enabled by default).')
-    else:
+    if scale_by_pop:
+        if table_id == 14 and year != 2011:
+            logger.info('Scaling household sizes by population data of passed '
+                        f'year {year}.')
+        else:
+            logger.warning(
+                'Scaling the household numbers by the population should only '
+                'be used if table_id=14 is used and the year is not 2011.')
         # Create the percentages of persons living in each household size
         df_ratio = (df * df.columns)
         df_ratio = df_ratio.divide(df_ratio.sum(axis=1), axis='index')
