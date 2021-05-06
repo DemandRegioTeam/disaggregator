@@ -859,13 +859,10 @@ def population(**kwargs):
     force_update = kwargs.get('force_update', False)
 
     if source == 'local':
-        if year >= 2018:
-            logger.warn('open # TODO not yet working correctly!')
-            fn = data_in('regional', cfg['demographic_trend']['filename'])
-            df = read_local(fn, year=year)
-        else:
-            fn = data_in('regional', cfg['population']['filename'])
-            df = read_local(fn, year=year)
+        fn = data_in('regional', cfg['population']['filename'])
+        df = read_local(fn, year=year)
+        if len(df) == 0:
+            raise ValueError('The requested year is not in the database')
     elif source == 'database':
         if year >= 2018:
             # In this case take demographic trend data
@@ -2287,9 +2284,10 @@ def plausibility_check_nuts3(df, check_zero=True):
     return df
 
 
-def read_local(file, internal_id=None, year=None):
-    df = pd.read_csv(file, index_col='idx', encoding='utf-8', engine='c',
+def read_local(file, index_col=False, internal_id=None, year=None):
+    df = pd.read_csv(file, index_col=index_col, encoding='utf-8', engine='c',
                      converters={'internal_id': literal_converter,
+                                 'internal_id_type': literal_converter,
                                  'region_types': literal_converter,
                                  'values': literal_converter,
                                  'years': literal_converter,
