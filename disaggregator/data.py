@@ -27,7 +27,7 @@ import datetime
 from collections import OrderedDict
 from collections.abc import Iterable
 from .config import (get_config, data_in, data_out, database_raw,
-                     dict_region_code, literal_converter, wz_dict,
+                     dict_region_code, dict_wz, literal_converter, wz_dict,
                      hist_weather_year, gas_load_profile_parameters_dict,
                      blp_branch_cts_power)
 import itertools
