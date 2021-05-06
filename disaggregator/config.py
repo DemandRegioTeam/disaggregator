@@ -244,7 +244,7 @@ def dict_wz(keys='WZ', values='Kurztitel', raw=False):
 
 def wz_dict():
     """
-    Translate the database namings to real WZ branch names.
+    Translate the database namings to real WZ branch names or groups.
     """
     return {2: '1', 3: '2', 4: '3', 6: '5', 7: '6', 8: '7-9', 10: '10-12',
             11: '13-15', 12: '16', 13: '17', 14: '18', 15: '19', 18: '20',
@@ -333,12 +333,12 @@ def blp_wz_list():
 
 def blp_branch_cts_power():
     """
-    This dictionary describes which industrial branch can be represented
-    with the help of a load profile, which is based on measured data.
+    Describe which industrial branch can be represented by a load profile that
+    is based on measured data.
 
     Returns
     -------
-    dict
+        dict
     """
     return {10: "WZ10", 11: "WZ11", 12: "WZ12", 17: "WZ17", 21: "WZ21",
             22: "WZ22", 24: "WZ24", 25: "WZ25", 26: "WZ26", 28: "WZ28",
