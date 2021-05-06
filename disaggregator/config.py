@@ -154,6 +154,13 @@ def clear_local_cache():
         logger.info('Local cache already empty.')
 
 
+def literal_converter(val):
+    try:
+        return lit_eval(val)
+    except (SyntaxError, ValueError):
+        return val
+
+
 def dict_region_code(keys='id_ags', values='natcode_nuts3', level='lk',
                      raw=False, **kwargs):
     """
@@ -216,11 +223,6 @@ def dict_region_code(keys='id_ags', values='natcode_nuts3', level='lk',
         return df.set_index(keys).loc[:, values].to_dict()
 
 
-def literal_converter(val):
-    try:
-        return lit_eval(val)
-    except (SyntaxError, ValueError):
-        return val
 
 
 def wz_dict():
