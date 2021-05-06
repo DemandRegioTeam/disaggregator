@@ -2272,6 +2272,8 @@ def plausibility_check_nuts3(df, check_zero=True):
         logger.info('Merging old Göttingen+Osterode to new NUTS-v2016 region.')
         df.loc['DE91C'] = df.loc[nuts_2013].sum()
         df = df[~(df.index.isin(nuts_2013))]
+    if not (df.index.isin(nuts_2013 + ['DE91C']).any()):
+        logger.warning('Both old+new Göttingen+Osterode regions are missing.')
     # 3. Check if values below zero
     if isinstance(df, pd.Series):
         if check_zero and df.loc[lambda x: x <= 0.0].any():
