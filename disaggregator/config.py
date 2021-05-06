@@ -194,6 +194,8 @@ def dict_region_code(keys='id_ags', values='natcode_nuts3', level='lk',
                    'id_ags_bl', 'ags_bl', 'id_ags', 'bl']
     else:
         raise ValueError("`level` must be in ['lk', 'bl']")
+    keys = 'id_ags' if keys == 'id_region' else keys
+    values = 'id_ags' if values == 'id_region' else values
     assert keys in columns, "`keys` must be in {}".format(columns)
     assert values in columns, "`values` must be in {}".format(columns)
     # Read the requested data

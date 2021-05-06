@@ -1437,11 +1437,15 @@ def efficiency_enhancement(source, **kwargs):
         return df
 
 
-def employees_per_branch_district(**kwargs):
+def employees_per_branch_district(region_code='ags_lk', **kwargs):
     """
-    Read, transform and return the number of employees per NUTS-3 area
-    and branch.
+    Return the number of employees per NUTS-3 area and branch.
     The variable 'scenario' is used only as of 2019!
+
+    Parameter
+    ---------
+    region_code : str
+        The used region code as defined in config.dict_region_code()
 
     Returns
     -------
@@ -1452,6 +1456,21 @@ def employees_per_branch_district(**kwargs):
     cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     scenario = kwargs.get('scenario', cfg['scenario'])
+    assert scenario in ['Basis', 'Digital', 'Predefined']
+
+    if scenario == 'Predefined':
+        fn = data_in('regional', cfg['employees']['filename'])
+        df = (read_local(fn, year=year)
+              .drop(['typ', 'einheit', 'id_region_type', 'internal_id_type'],
+                    axis=1)
+              .assign(internal_id=lambda x: x.internal_id.str[0])
+              .assign(WZ=lambda x: x.internal_id.map(
+                  dict_wz(keys='internal_id', values='WZ')))
+              .assign(region_code=lambda x: x.id_region.map(
+                  dict_region_code(keys='id_region', values=region_code)))
+              .pivot_table(values='value', index='region_code', fill_value=0,
+                           columns='WZ', dropna=False))
+        return df
 
     if year in range(2000, 2008):
         df = database_get('spatial', table_id=18, year=2008)
@@ -1487,11 +1506,11 @@ def employees_per_branch_district(**kwargs):
         else:
             raise ValueError("`scenario` must be in ['Basis', 'Digital']")
 
-        df = (df.assign(ags=[int(x[:-3]) for x in
-                             df['id_region'].astype(str)],
-                        WZ=[x[0] for x in df['internal_id']]))
-        df = (pd.pivot_table(df, values='value', index='WZ',
-                             columns='ags', fill_value=0, dropna=False))
+        df = (df.assign(region_code=lambda x: x.id_region.map(dict_region_code(
+                            keys='id_region', values=region_code)),
+                        WZ=[x[0] for x in df['internal_id']])
+                .pivot_table(values='value', index='WZ', fill_value=0,
+                             columns='region_code', dropna=False))
     else:
         raise ValueError("`year` must be between 2000 and 2035")
 
