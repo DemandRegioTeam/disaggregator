@@ -1314,7 +1314,7 @@ def heat_demand_buildings(**kwargs):
     bt_to_type = {1: '1FH',  # 1-family-house
                   2: 'TH',   # Terraced house
                   3: 'MFH',  # multi-family-house (3-6)
-                  4: 'BB'}   # building block
+                  4: 'MSB'}  # multi-storey-building
     hp_to_name = {1: 'net heat demand',
                   2: 'hot water (final energy)',
                   3: 'space heating',
@@ -1364,7 +1364,8 @@ def heat_demand_buildings(**kwargs):
                     heat_parameter=lambda x: x.internal_id.str[2],
                     variant=lambda x: x.internal_id.str[3])
           .drop(columns=['year', 'internal_id', 'id_spatial', 'id_region_type',
-                         'id_region'])
+                         'id_region', 'internal_id_1', 'internal_id_2',
+                         'internal_id_3', 'internal_id_4', 'internal_id_5'])
           .dropna(subset=['nuts3'])
           .loc[lambda x: ~(x.nuts3.isin(['DE915', 'DE919']))])
     # Filter by possibly given internal_id
@@ -1398,6 +1399,7 @@ def efficiency_enhancement(source, **kwargs):
     ----------
     source : str
         must be one of ['power', 'gas']
+
     Returns
     -------
     pd.Series
