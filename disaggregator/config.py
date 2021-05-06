@@ -223,6 +223,23 @@ def dict_region_code(keys='id_ags', values='natcode_nuts3', level='lk',
         return df.set_index(keys).loc[:, values].to_dict()
 
 
+def dict_wz(keys='WZ', values='Kurztitel', raw=False):
+    """
+    Return dict to convert from/to WZ number, sector or title.
+
+    Source:
+        https://www.klassifikationsserver.de/klassService/jsp/variant/variantInfo.jsf
+    """
+
+    df = pd.read_excel(data_in('dimensionless', 'WZ_2008.xlsx'),
+                       sheet_name='Nur_WZ', index_col=None)
+    assert keys in df.columns, "`keys` must be a valid column header!"
+    assert values in df.columns, "`values` must be a valid column header!"
+
+    if raw:
+        return df
+    else:
+        return df.set_index(keys).loc[:, values].to_dict()
 
 
 def wz_dict():
@@ -238,17 +255,6 @@ def wz_dict():
             55: '51', 56: '52', 57: '53', 58: '55-56', 59: '58-63',
             60: '64-66', 61: '68', 62: '69-75', 63: '77-82', 64: '84',
             65: '85', 66: '86-88', 67: '90-99'}
-
-
-def wz_2_sector_name(name='Titel'):
-    """
-    Return dict to convert the WZ number into sector or title.
-
-    Source: https://www.klassifikationsserver.de/klassService/jsp/variant/variantInfo.jsf
-    """
-    assert name in ['Sektor', 'Titel', 'Kurztitel', 'Mitteltitel', 'Langtitel']
-    return pd.read_excel(data_in('dimensionless', 'WZ_2008.xlsx'),
-                         sheet_name='Nur_WZ', index_col=0)[name].to_dict()
 
 
 def hist_weather_year():
