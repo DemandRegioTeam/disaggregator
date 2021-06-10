@@ -25,13 +25,76 @@ from .data import (elc_consumption_HH, heat_consumption_HH, gas_consumption_HH,
                    employees_per_branch_district, efficiency_enhancement,
                    generate_specific_consumption_per_branch_and_district)
 from .config import (dict_region_code, get_config)
-
+import numpy as np
 import pandas as pd
 import logging
 logger = logging.getLogger(__name__)
 
 
 def disagg_households_power(by, weight_by_income=False, original=False, 
+# --- Generic definitions -----------------------------------------------------
+
+
+def disagg_topdown(total, keys1, keys2=None, names=None):
+    """
+    Disaggregate DataFrame `df` by regional `keys1` and optionally by `keys2`.
+
+    Example `keys1` could be federal states (BL) and `keys2` districts (LK).
+
+    Parameters
+    ----------
+    total : float or list or pd.Series
+        The total value(s) to be disaggregated
+    keys1 : pd.Series or dict
+        The distribution keys
+    keys2 : pd.Series or dict
+        The distribution keys
+    names : list, optional
+
+    Returns
+    -------
+        pd.DataFrame
+    """
+    # Cleanup and prepare data
+    if isinstance(total, float) or isinstance(total, list):
+        tot = pd.Series(data=total, index=names)
+    elif isinstance(total, pd.Series) or isinstance(total, dict):
+        tot = pd.Series(total)
+    else:
+        raise ValueError('`total` must be float, list, dict or pd.Series!')
+    if isinstance(keys1, pd.Series) or isinstance(keys1, dict):
+        keys1 = pd.Series(keys1)
+    else:
+        raise ValueError('`keys1` must be dict or pd.Series!')
+    if keys2 is not None:
+        if isinstance(keys1, pd.Series) or isinstance(keys1, dict):
+            keys1 = pd.Series(keys1)
+        else:
+            raise ValueError('`keys1` must be dict or pd.Series!')
+
+    # Disaggregate by keys1
+    ser_k1 = keys1 / keys1.sum()
+    df = pd.DataFrame(data=np.outer(ser_k1, tot),
+                      index=ser_k1.index, columns=tot.index)
+    cols_orig = df.columns
+    df.columns = [str(c) for c in df.columns]
+
+    # Disaggregate by keys2
+    if keys2 is not None:
+        keys2.name = 'original'
+        df_k2 = (keys2.reset_index().rename(columns={'index': 'nuts3'})
+                      .assign(nuts1=lambda x: x.nuts3.str[0:3]))
+        nuts1_sums = (df_k2.groupby('nuts1').agg(sum).reset_index()
+                           .rename(columns={'original': 'sums'}))
+        df_k2 = (df_k2.merge(nuts1_sums, how='left', on='nuts1')
+                      .assign(ratio=lambda x: x['original']/x['sums']))
+        for col, ser in df.iteritems():
+            df_k2 = df_k2.assign(**{col: lambda x: x.nuts1.map(ser) * x.ratio})
+        df = df_k2.set_index('nuts3').reindex(df.columns, axis=1)
+
+    # restore original column namings:
+    df.columns = cols_orig
+    return df
                             **kwargs):
     """
     Spatial disaggregation of elc. power in [GWh/a] by key (weighted by income)
