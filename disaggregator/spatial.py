@@ -31,7 +31,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def disagg_households_power(by, weight_by_income=False, original=False, 
 # --- Generic definitions -----------------------------------------------------
 
 
@@ -95,6 +94,12 @@ def disagg_topdown(total, keys1, keys2=None, names=None):
     # restore original column namings:
     df.columns = cols_orig
     return df
+
+
+# --- Sector-specific definitions ---------------------------------------------
+
+
+def disagg_households_power(by, weight_by_income=False, scale_by_pop=False,
                             **kwargs):
     """
     Spatial disaggregation of elc. power in [GWh/a] by key (weighted by income)
@@ -120,7 +125,8 @@ def disagg_topdown(total, keys1, keys2=None, names=None):
     if by == 'households':
         # Bottom-Up: Power demand by household sizes in [GWh/a]
         power_per_HH = elc_consumption_HH(by_HH_size=True, year=year) / 1e3
-        df = households_per_size(original=original, year=year) * power_per_HH
+        df = (households_per_size(original=scale_by_pop, year=year)
+              * power_per_HH)
     elif by == 'population':
         # Top-Down: Power demand for entire country in [GWh/a]
         power_nuts0 = elc_consumption_HH(year=year) / 1e3
@@ -212,7 +218,7 @@ def disagg_households_gas(how='top-down', weight_by_income=False,
     elif how == 'bottom-up':
         logger.info('Calculating regional gas demands bottom-up.')
         # uniform non-matching vintage sections
-        new_m2_vintages = {'A_<1900': 'A_<1948',
+        new_m2_vintages = {'A_<1900':     'A_<1948',
                            'B_1900-1945': 'A_<1948',
                            'C_1946-1960': 'B_1949-1968',
                            'D_1961-1970': 'B_1949-1968',
@@ -230,7 +236,7 @@ def disagg_households_gas(how='top-down', weight_by_income=False,
                            'P_2017': 'F_>2000',
                            'Q_2018': 'F_>2000',
                            'R_2019': 'F_>2000'}
-        new_dem_vintages = {'A_<1859': 'A_<1948',
+        new_dem_vintages = {'A_<1859':     'A_<1948',
                             'B_1860-1918': 'A_<1948',
                             'C_1919-1948': 'A_<1948',
                             'D_1949-1957': 'B_1949-1968',
@@ -390,7 +396,7 @@ def disagg_CTS_industry(source, sector,
     return df
 
 
-# --- Utility functions -------------------------------------------------------
+# --- Utility definitions -----------------------------------------------------
 
 
 def adjust_by_income(df, **kwargs):
