@@ -543,7 +543,6 @@ def cmap_handler(cmap, **kwargs):
     """
     from matplotlib.colors import (Colormap, ListedColormap,
                                    LinearSegmentedColormap)
-    from matplotlib.cm import _gen_cmap_d
 
     # if passed `cmap` is a Colormap instance: return it directly
     if (isinstance(cmap, Colormap) or isinstance(cmap, ListedColormap)
@@ -552,8 +551,7 @@ def cmap_handler(cmap, **kwargs):
 
     elif isinstance(cmap, str):
         # if passed `cmap` is an existing colormap string: return it directly
-        dic_cmaps = _gen_cmap_d()
-        if cmap in dic_cmaps.keys():
+        if cmap in plt.colormaps():
             return cmap
 
         # handle user-defined `cmap` string
@@ -574,5 +572,9 @@ def cmap_handler(cmap, **kwargs):
         return LinearSegmentedColormap.from_list(
             cmap, list(zip(nodes, ser_cmap)))
 
+    elif isinstance(cmap, list):
+        logger.warning('list-handling is not yet supported by `cmap_handler`, '
+                       'returning as list!')
+        return cmap
     else:
         raise ValueError("`cmap` must be str or a Colormap instance!")
