@@ -252,7 +252,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
 
 def heatmap_timeseries(df, **kwargs):
     """
-    ToDo DocString
+    Plot a heatmap for a given time series df.
     """
     if isinstance(df, pd.Series):
         df = df.to_frame()
@@ -459,6 +459,29 @@ def gather_nrows_ncols(x, orientation='landscape'):
             return m, n, remainder
         else:
             raise ValueError('Wrong `orientation` given!')
+
+
+def handle_plot_mode(s, **kwargs):
+    s = s.lower()
+    if s == 'screen' or s == 'fullhd':  # Close to FullHD Resolution
+        figsize = (27, 15)
+        orientation = 'landscape'
+    elif s == 'a4print':  # For Din (A2, A3, A4, etc.) paper print
+        figsize = (16.54, 23.38)
+        orientation = 'portrait'
+    elif s == 'a4screen':  # for Din A4 slide format
+        figsize = (23.38, 16.54)
+        orientation = 'landscape'
+    elif s == 'manual':
+        figsize = kwargs.get('figsize')
+        orientation = kwargs.get('orientation')
+    elif s == 'quick':
+        figsize = None  # Will be overridden anyway!
+        orientation = 'landscape'
+    else:
+        raise ValueError("Wrong plot mode given! Must be any of ['screen', "
+                         "'a4print', 'a4screen', 'manual']")
+    return figsize, orientation
 
 
 def set_ax_format(ax, axtitle=None, axtitlesize=None, axtitlebold=False,
