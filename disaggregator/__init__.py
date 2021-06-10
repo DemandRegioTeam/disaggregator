@@ -49,7 +49,7 @@ log_filter = LogFilter(logging.WARNING)
 stdout_hdlr.addFilter(log_filter)
 stdout_hdlr.setLevel(MIN_LEVEL)
 stderr_hdlr.setLevel(max(MIN_LEVEL, logging.WARNING))
-DisplayFormat = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+DisplayFormat = logging.Formatter('%(asctime)s %(name)-12s: %(levelname)-8s %(message)s', "%Y-%m-%d %H:%M:%S")
 stdout_hdlr.setFormatter(DisplayFormat)
 stderr_hdlr.setFormatter(DisplayFormat)
 # messages lower than WARNING go to stdout
