@@ -83,6 +83,12 @@ def disagg_topdown(total, keys1, keys2=None, names=None):
         keys2.name = 'original'
         df_k2 = (keys2.reset_index().rename(columns={'index': 'nuts3'})
                       .assign(nuts1=lambda x: x.nuts3.str[0:3]))
+        # If in one nuts1 region all are zero, then replace all zeros by one,
+        # in order to avoid division by zero and achieve equal distribution
+        zero_regs = list(df_k2.groupby('nuts1').sum()
+                              .loc[lambda x: x.original == 0.0].index)
+        df_k2.loc[df_k2['nuts1'].isin(zero_regs), 'original'] = 1
+
         nuts1_sums = (df_k2.groupby('nuts1').agg(sum).reset_index()
                            .rename(columns={'original': 'sums'}))
         df_k2 = (df_k2.merge(nuts1_sums, how='left', on='nuts1')
