@@ -649,8 +649,8 @@ def cmap_handler(cmap, **kwargs):
         if 'userdef_colormaps' not in cfg:
             raise ValueError("config.yaml doesn't contain `userdef_colormaps`")
 
-        f_cmaps = cfg['userdef_colormaps']['file']
-        sheet_name = cfg['userdef_colormaps']['sheet_name']
+        f_cmaps = cfg['userdef_colors']['file']
+        sheet_name = cfg['userdef_colors']['sheet_cbars']
         ser_cmap = (pd.read_excel(f_cmaps, sheet_name=sheet_name,
                                    index_col='order')
                        .dropna(axis=0, how='all')
@@ -668,3 +668,12 @@ def cmap_handler(cmap, **kwargs):
         return cmap
     else:
         raise ValueError("`cmap` must be str or a Colormap instance!")
+
+
+def color_name2hex(**kwargs):
+    # handle user-defined `cmap` string
+    cfg = kwargs.get('cfg', get_config())
+    f = cfg['userdef_colors']['file']
+    sheet_name = cfg['userdef_colors']['sheet_colors']
+    return pd.read_excel(f, sheet_name=sheet_name,
+                         index_col='Python Name')['Hex'].to_dict()
