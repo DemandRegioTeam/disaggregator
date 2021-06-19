@@ -225,7 +225,7 @@ def dict_region_code(keys='id_ags', values='natcode_nuts3', level='lk',
         return df.set_index(keys).loc[:, values].to_dict()
 
 
-def dict_wz(keys='WZ', values='Kurztitel', raw=False):
+def dict_wz(keys='WZ', values='Minititel', raw=False):
     """
     Return dict to convert from/to WZ number, sector or title.
 
