@@ -35,8 +35,9 @@ ScaMap = plt.cm.ScalarMappable
 
 
 def choropleth_map(df, cmap=None, interval=None, annotate=None,
-                   relative=True, colorbar_each_subplot=False,
-                   hide_colorbar=False, add_percentages=True, **kwargs):
+                   annotate_zeros=False, relative=True,
+                   colorbar_each_subplot=False, hide_colorbar=False,
+                   add_percentages=False, license_tag=True, **kwargs):
     """
     Plot a choropleth map* for each column of data in passed df.
 
@@ -48,7 +49,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
         Holding the values (required index: NUTS-3 codes)
     cmap : str or list or Colormap instance, optional
         matplotlib colormap code(s)
-    interval : tuple or str, optional
+    interval : <tuple> or <str> or <list of tuples> or <list of str>, optional
         if tuple: min/max-range e.g. (0, 1) | if str: find min/max autom.
     annotate: None, str or list
         If `str` or `list` used to write annotation on map, valid values are:
@@ -64,6 +65,8 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
     add_percentages : bool, optional
         Flag if to add the percentage share into the axtitle (default True)
     """
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
     # Mend and/or transpose the data
     if isinstance(df, pd.Series):
         df = df.to_frame()
@@ -80,11 +83,15 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
     suptitle = kwargs.get('suptitle', None)
     axtitle = kwargs.get('axtitle', '')
     unit = kwargs.get('unit', '-')
-    fontsize = kwargs.get('fontsize', 6)
+    fontsize = kwargs.get('fontsize', 12)
+    fontsize_an = kwargs.get('fontsize', 6)
     sep = kwargs.get('sep', '\n')
     color = kwargs.get('color', 'black')
     rem = nrows * ncols - len(df.columns)
     shape_source_api = kwargs.get('shape_source_api', True)
+    reg_filter = kwargs.get('reg_filter', None)
+    mode = kwargs.get('mode', 'a4screen')
+    plt.rcParams.update({'font.size': fontsize})
 
     if shape_source_api:
         # Perform request through RestfulAPI
@@ -107,19 +114,38 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
     DF['coords_WGS84'] = DF.to_crs({'init': 'epsg:4326'}).geometry.apply(
         lambda x: x.representative_point().coords[:][0])
 
-    cols = df.columns
-    unit = '\\%' if unit == '%' else unit
-    if relative:  # convert to unit per km²
-        DF.loc[:, cols] = DF.loc[:, cols].apply(lambda x: x/DF.fl_km2)
-        unit = '1' if unit == '-' else unit
-        if unit[-2:] == '/a':
-            unit = '[${} / (km² × a)$]'.format(unit[:-2])
-        else:
-            unit = '[${} / km²$]'.format(unit)
-    else:
-        unit = '[${}$]'.format(unit)
+    if reg_filter is not None:
+        DE = DE.reindex(reg_filter, axis=0)
+        DF = DF.reindex(reg_filter, axis=0)
 
-    # # Try to get cmap from config file, by default use viridis
+    cols = df.columns
+
+    # Handle units
+    if isinstance(unit, str) or unit is None:
+        units = [unit for c in cols]
+    elif isinstance(unit, list):
+        if len(unit) == len(cols):
+            units = unit
+        else:
+            raise ValueError('The number of `unit`s does not match columns!')
+    else:
+        raise ValueError('Wrong datatype for `unit` given!')
+    mod_units = []
+    for unit in units:
+        unit = '\\%' if unit == '%' else unit
+        if relative:  # convert to unit per km²
+            DF.loc[:, cols] = DF.loc[:, cols].apply(lambda x: x/DF.fl_km2)
+            unit = '1' if unit == '-' else unit
+            if unit[-2:] == '/a':
+                unit = '[${} / (km² × a)$]'.format(unit[:-2])
+            else:
+                unit = '[${} / km²$]'.format(unit)
+        else:
+            unit = '[${}$]'.format(unit)
+        mod_units.append(unit)
+    units = mod_units
+
+    # Try to get cmap from config file, by default use viridis
     if cmap is None:
         try:
             cmap = cfg.get('userdef_colormaps')['default']
@@ -129,8 +155,10 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
     if isinstance(cmap, str) or isinstance(cmap, LinearSegmentedColormap):
         cmap = [cmap for c in cols]
 
-    if len(cols) == 1:
-        colorbar_each_subplot = False
+    # if len(cols) == 1:
+    #     colorbar_each_subplot = False
+
+    # Organize intervals if a colorbar is drawn for each subplot
     if colorbar_each_subplot:
         if isinstance(interval, tuple):
             intervals = [interval for c in cols]
@@ -145,13 +173,18 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
         else:
             intervals = [interval for c in cols]
 
+    figsize, orientation = handle_plot_mode(mode, **kwargs)
     if nrows == 0 or ncols == 0:
         if nrows != ncols or ncols < 0 or nrows < 0:
             logger.warn('When passing `nrows` and `ncols` both (!) must be '
                         'passed as int and be greater zero. Gathering these '
                         'values now based on the given pd.DataFrame.')
-        nrows, ncols, rem = gather_nrows_ncols(len(cols))
-    figsize = kwargs.get('figsize', (4*ncols*1.05, 6*nrows*1.1))
+        nrows, ncols, rem = gather_nrows_ncols(len(cols),
+                                               orientation=orientation)
+
+    if mode == 'quick':
+        # In this special case override figsize gathered above:
+        figsize = (4 * ncols * 1.05, 6 * nrows * 1.2)
 
     i, j = [0, 0]
     fig, ax = plt.subplots(nrows=nrows, ncols=ncols, squeeze=False,
@@ -184,6 +217,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
                     ax[i, j].set_title('{} {}'.format(axtitle, col))
         ax[i, j].get_xaxis().set_visible(False)
         ax[i, j].get_yaxis().set_visible(False)
+
         # Add annotations
         for idx, row in DF.iterrows():
             s = ''
@@ -195,23 +229,39 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
                 if ann in ['name', 'names']:
                     s += row.gen
                 if ann in ['value', 'values']:
-                    s += ('' if np.isnan(row[col])
-                          else '{:.0f}'.format(row[col]))
+                    if annotate_zeros:
+                        s += ('' if np.isnan(row[col])
+                              else '{:.0f}'.format(row[col]))
+                    else:
+                        s += ('' if (np.isnan(row[col])
+                                     or row[col] == 0.0)
+                              else '{:.0f}'.format(row[col]))
                     if relative:
                         s += '/km²'
                 if ann in ['percentage', 'percentages']:
                     if relative:
-                        s += ('' if np.isnan(df.loc[idx, col]) else
-                              '{:.2%}'.format(df.loc[idx, col]
-                                              / float(df[col].sum())))
+                        if annotate_zeros:
+                            s += ('' if np.isnan(df.loc[idx, col]) else
+                                  '{:.2%}'.format(df.loc[idx, col]
+                                                  / float(df[col].sum())))
+                        else:
+                            s += ('' if (np.isnan(df.loc[idx, col])
+                                         or df.loc[idx, col] == 0.0)
+                                  else '{:.2%}'.format(df.loc[idx, col]
+                                                       / float(df[col].sum())))
                     else:
-                        s += ('' if np.isnan(row[col]) else
-                              '{:.2%}'.format(row[col]/DF[col].sum()))
-            txt = ax[i, j].annotate(s=s, xy=row['coords'], fontsize=fontsize,
+                        if annotate_zeros:
+                            s += ('' if np.isnan(row[col]) else
+                                  '{:.2%}'.format(row[col]/DF[col].sum()))
+                        else:
+                            s += ('' if (np.isnan(row[col]) or row[col] == 0.0)
+                                  else '{:.2%}'.format(row[col]/DF[col].sum()))
+            txt = ax[i, j].annotate(s=s, xy=row['coords'],
+                                    fontsize=fontsize_an,
                                     horizontalalignment='center', color=color,
                                     verticalalignment='center')
-            txt.set_path_effects([PathEffects.withStroke(linewidth=1,
-                                                         foreground='silver')])
+            txt.set_path_effects([PathEffects.withStroke(
+                linewidth=1, foreground='silver')])
         j += 1
 
     # Deactivate possibly remaining axes
@@ -222,31 +272,46 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
         fig.suptitle(suptitle, fontsize=20, weight='heavy')
         fig.subplots_adjust(top=0.82)
 
-    fig.tight_layout()
+    if len(cols) == 1:
+        fig.tight_layout()
     if not hide_colorbar:
         if colorbar_each_subplot:
             for a, axes in enumerate(ax.ravel().tolist()):
+                if a >= len(cols):
+                    break  # To deal with possibly deactivated remaining axes
+
                 sm = ScaMap(cmap=cmap[a],
                             norm=plt.Normalize(vmin=intervals[a][0],
                                                vmax=intervals[a][1]))
                 sm._A = []
-                cbar = fig.colorbar(sm, ax=axes, shrink=1.0, pad=0.01,
-                                    fraction=0.046,
-                                    orientation='horizontal', anchor=(0.5, 1.0),
-                                    format=mticker.StrMethodFormatter('{x:,g}'))
-                cbar.set_label(unit)
+                divider = make_axes_locatable(axes)
+                cax = divider.append_axes("bottom", size="5%", pad=0.05)
+                cbar = fig.colorbar(
+                    # sm, ax=axes, shrink=1.0, pad=0.01, fraction=0.046,
+                    sm, cax=cax, shrink=1.0, pad=0.01, fraction=0.046,
+                    orientation='horizontal', anchor=(0.5, 1.0),
+                    format=mticker.StrMethodFormatter('{x:,g}'))
+                cbar.set_label(units[a])
+            if len(cols) > 1:
+                fig.tight_layout()
         else:
             sm = ScaMap(cmap=cmap[0],
                         norm=plt.Normalize(vmin=intervals[0][0],
                                            vmax=intervals[0][1]))
             sm._A = []
             shr = 1.0 if ncols <= 2 else 0.5
-            cbar = fig.colorbar(sm, ax=ax.ravel().tolist(), shrink=shr, pad=0.01,
-                                orientation='horizontal', anchor=(0.5, 1.0),
-                                format=mticker.StrMethodFormatter('{x:,g}'))
-            cbar.set_label(unit)
+            cbar = fig.colorbar(
+                sm, ax=ax.ravel().tolist(), shrink=shr, pad=0.01,
+                orientation='horizontal', anchor=(0.5, 1.0),
+                format=mticker.StrMethodFormatter('{x:,g}'))
+            cbar.set_label(units[0])
+        # if len(cols) > 1:
+        #     fig.tight_layout()
 
-    add_license_to_figure(fig, geotag=True)
+    if license_tag:
+        add_license_to_figure(fig, geotag=True, into_ax=True)
+
+    plt.rcParams.update({'font.size': 10})  # reset rcParams to default
     return fig, ax
 
 
