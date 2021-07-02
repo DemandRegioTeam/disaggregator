@@ -1516,6 +1516,61 @@ def employees_per_branch_district(region_code='ags_lk', **kwargs):
 
     return df
 
+
+def gas_grid(H2=False):
+    """
+    Return table showing when a grid will exist for whih carrier and region.
+    
+    Caveat: This dataset has been collected manually and will not be shipped
+    with disaggregator.
+
+    Parameters
+    ----------
+    H2 : bool
+        If True it refers to the future hydrogen backbone. Else: Gas grid.
+
+    Returns
+    -------
+    pd.DataFrame
+    """
+    sheet_name = 'H2' if H2 else 'CH4'
+    return pd.read_excel(data_in('regional', 'supply', 'gasgrid.xlsx'),
+                         index_col='nuts3', sheet_name=sheet_name)
+
+
+def grid_operator(carrier, level, name=None):
+    """
+    Return a table showing when the grid for which carrier is in which region.
+    
+    Caveat: This dataset has been collected manually and will not be shipped
+    with disaggregator.
+
+    Parameters
+    ----------
+    carrier : str
+        Must be in ['gas', 'h2', 'power']
+    level : str:
+        Must be in ['tso', 'dso']
+    name : str
+        Filter by specific operator name
+
+    Returns
+    -------
+    pd.DataFrame
+    """
+    assert carrier in ['gas', 'h2', 'power']
+    assert level in ['tso', 'dso']
+    sheet_name = f'{level}_{carrier}'
+    df = (pd.read_excel(data_in('regional', 'values', 'operators_nuts3.xlsx'),
+                        index_col='nuts3', sheet_name=sheet_name)
+            .drop(['ags', 'name_short'], axis=1)
+            .sort_index(axis=1))
+    if name is None:
+        return df
+    else:
+        return df[name]
+
+
 # --- Temporal data -----------------------------------------------------------
 
 
