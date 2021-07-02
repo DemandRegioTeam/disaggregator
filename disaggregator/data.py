@@ -1440,6 +1440,7 @@ def efficiency_enhancement(source, **kwargs):
 def employees_per_branch_district(region_code='ags_lk', **kwargs):
     """
     Return the number of employees per NUTS-3 area and branch.
+
     The variable 'scenario' is used only as of 2019!
 
     Parameter
@@ -1507,7 +1508,7 @@ def employees_per_branch_district(region_code='ags_lk', **kwargs):
             raise ValueError("`scenario` must be in ['Basis', 'Digital']")
 
         df = (df.assign(region_code=lambda x: x.id_region.map(dict_region_code(
-                            keys='id_region', values=region_code)),
+            keys='id_region', values=region_code)),
                         WZ=[x[0] for x in df['internal_id']])
                 .pivot_table(values='value', index='WZ', fill_value=0,
                              columns='region_code', dropna=False))
