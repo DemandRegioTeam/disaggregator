@@ -87,9 +87,11 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
     fontsize_an = kwargs.get('fontsize', 6)
     sep = kwargs.get('sep', '\n')
     color = kwargs.get('color', 'black')
+    edgecolor = kwargs.get('edgecolor', None)
     rem = nrows * ncols - len(df.columns)
     shape_source_api = kwargs.get('shape_source_api', True)
     reg_filter = kwargs.get('reg_filter', None)
+    extend = kwargs.get('extend', 'neither')
     mode = kwargs.get('mode', 'a4screen')
     plt.rcParams.update({'font.size': fontsize})
 
@@ -199,7 +201,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
         DE.plot(ax=ax[i, j], color='grey')
         # Second layer: make subplot
         (DF.dropna(subset=[col], axis=0)
-           .plot(ax=ax[i, j], column=col, cmap=cmap[a],
+           .plot(ax=ax[i, j], column=col, cmap=cmap[a], edgecolor=edgecolor,
                  vmin=intervals[a][0], vmax=intervals[a][1]))
         if not shape_source_api:
             ax[i, j].set_xlim(5.5, 15.3)
@@ -270,7 +272,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
 
     if isinstance(suptitle, str):
         fig.suptitle(suptitle, fontsize=20, weight='heavy')
-        fig.subplots_adjust(top=0.82)
+        fig.subplots_adjust(top=0.97)
 
     if len(cols) == 1:
         fig.tight_layout()
@@ -287,10 +289,10 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
                 divider = make_axes_locatable(axes)
                 cax = divider.append_axes("bottom", size="5%", pad=0.05)
                 cbar = fig.colorbar(
-                    # sm, ax=axes, shrink=1.0, pad=0.01, fraction=0.046,
                     sm, cax=cax, shrink=1.0, pad=0.01, fraction=0.046,
                     orientation='horizontal', anchor=(0.5, 1.0),
-                    format=mticker.StrMethodFormatter('{x:,g}'))
+                    format=mticker.StrMethodFormatter('{x:,g}'),
+                    extend=extend)
                 cbar.set_label(units[a])
             if len(cols) > 1:
                 fig.tight_layout()
@@ -303,7 +305,8 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
             cbar = fig.colorbar(
                 sm, ax=ax.ravel().tolist(), shrink=shr, pad=0.01,
                 orientation='horizontal', anchor=(0.5, 1.0),
-                format=mticker.StrMethodFormatter('{x:,g}'))
+                format=mticker.StrMethodFormatter('{x:,g}'),
+                extend=extend)
             cbar.set_label(units[0])
         # if len(cols) > 1:
         #     fig.tight_layout()
