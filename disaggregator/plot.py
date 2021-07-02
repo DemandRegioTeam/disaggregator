@@ -558,7 +558,7 @@ def set_ax_format(ax, axtitle=None, axtitlesize=None, axtitlebold=False,
                   y_axis_numeric=True, minorticks='auto', xticks=None,
                   xticklabels=None, yticks=None, yticklabels=None):
     # Backgroud and grid
-    ax.set_facecolor('#d9d9d9')  # gray background
+    ax.set_facecolor('lightgray')  # gray background  #d9d9d9
     ax.set_axisbelow(True)       # puts the grid behind the bars
     ax.grid(color='white', linestyle='dotted')
     # axtitle
@@ -649,8 +649,8 @@ def cmap_handler(cmap, **kwargs):
 
         # handle user-defined `cmap` string
         cfg = kwargs.get('cfg', get_config())
-        if 'userdef_colormaps' not in cfg:
-            raise ValueError("config.yaml doesn't contain `userdef_colormaps`")
+        if 'userdef_colors' not in cfg:
+            raise ValueError("config.yaml doesn't contain `userdef_colors`")
 
         f_cmaps = cfg['userdef_colors']['file']
         sheet_name = cfg['userdef_colors']['sheet_cbars']
