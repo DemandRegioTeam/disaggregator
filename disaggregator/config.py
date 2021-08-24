@@ -28,11 +28,17 @@ from ast import literal_eval as lit_eval
 logger = logging.getLogger(__name__)
 
 
-def data_out(*fn):
+def data_out(*fn, force_dir=True):
     dirpath = os.path.join(os.path.dirname(__file__), '..', 'data_out')
+    # Always make data_out directory if non-existent
     if not os.path.isdir(dirpath):
         os.mkdir(dirpath)
-    return os.path.join(dirpath, *fn)
+    full_path = os.path.join(dirpath, *fn)
+    if force_dir:
+        new_dir = os.path.dirname(full_path)
+        if not os.path.isdir(new_dir):
+            os.mkdir(new_dir)
+    return full_path
 
 
 def data_in(*fn):
