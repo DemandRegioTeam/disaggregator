@@ -90,7 +90,7 @@ ENV/
 .ropeproject
 
 # disaggregator related settings
+disaggregator/config.yaml
 data_in/__cache__/*
-data_in/regional/values/*
 data_out/*
 .idea/workspace.xml
