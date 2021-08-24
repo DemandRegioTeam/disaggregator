@@ -37,7 +37,8 @@ ScaMap = plt.cm.ScalarMappable
 def choropleth_map(df, cmap=None, interval=None, annotate=None,
                    annotate_zeros=False, relative=True,
                    colorbar_each_subplot=False, hide_colorbar=False,
-                   add_percentages=False, license_tag=True, **kwargs):
+                   add_percentages=False, license_tag=True, 
+                   background=True, **kwargs):
     """
     Plot a choropleth map* for each column of data in passed df.
 
@@ -64,6 +65,8 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
         Flag if to show a colorbar for each subplot (default False)
     add_percentages : bool, optional
         Flag if to add the percentage share into the axtitle (default True)
+    cut_empty_regs : bool, optional
+        Flag if empty regions should be cutted of the map (default False)
     """
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -87,7 +90,9 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
     fontsize_an = kwargs.get('fontsize', 6)
     sep = kwargs.get('sep', '\n')
     color = kwargs.get('color', 'black')
-    edgecolor = kwargs.get('edgecolor', None)
+    edgecolor = kwargs.get('edgecolor', 'darkgrey')
+    bgcolor = kwargs.get('bgcolor', 'grey')
+    bgedgecolor = kwargs.get('bgedgecolor', 'white')
     rem = nrows * ncols - len(df.columns)
     shape_source_api = kwargs.get('shape_source_api', True)
     reg_filter = kwargs.get('reg_filter', None)
@@ -197,8 +202,9 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
             j = 0
         if colorbar_each_subplot:
             intervals.append((DF[col].min(), DF[col].max()))
-        # First layer with grey'ish countries/regions:
-        DE.plot(ax=ax[i, j], color='grey')
+        # First layer with backgroundcolor'ish countries/regions:
+        if background:
+            DE.plot(ax=ax[i, j], color=bgcolor, edgecolor=bgedgecolor)
         # Second layer: make subplot
         (DF.dropna(subset=[col], axis=0)
            .plot(ax=ax[i, j], column=col, cmap=cmap[a], edgecolor=edgecolor,
@@ -258,7 +264,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
                         else:
                             s += ('' if (np.isnan(row[col]) or row[col] == 0.0)
                                   else '{:.2%}'.format(row[col]/DF[col].sum()))
-            txt = ax[i, j].annotate(s=s, xy=row['coords'],
+            txt = ax[i, j].annotate(text=s, xy=row['coords'],
                                     fontsize=fontsize_an,
                                     horizontalalignment='center', color=color,
                                     verticalalignment='center')
@@ -650,7 +656,7 @@ def cmap_handler(cmap, **kwargs):
         # handle user-defined `cmap` string
         cfg = kwargs.get('cfg', get_config())
         if 'userdef_colors' not in cfg:
-            raise ValueError("config.yaml doesn't contain `userdef_colors`")
+            raise ValueError("config.yaml doesn't contain `userdef_colormaps`")
 
         f_cmaps = cfg['userdef_colors']['file']
         sheet_name = cfg['userdef_colors']['sheet_cbars']
