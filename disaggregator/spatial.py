@@ -135,7 +135,9 @@ def disagg_households_power(by, weight_by_income=False, scale_by_pop=False,
               * power_per_HH)
     elif by == 'population':
         # Top-Down: Power demand for entire country in [GWh/a]
-        power_nuts0 = elc_consumption_HH(year=year) / 1e3
+        power_nuts0 = kwargs.get('power_nuts0', False)
+        if power_nuts0 is False:
+            power_nuts0 = elc_consumption_HH(year=year) / 1e3
         distribution_keys = population(year=year) / population(year=year).sum()
         df = distribution_keys * power_nuts0
     else:
