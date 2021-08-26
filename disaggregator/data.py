@@ -1572,6 +1572,18 @@ def grid_operator(carrier, level, name=None):
         return df[name]
 
 
+def read_car_data(year):
+    available_years = [2018, 2019, 2020, 2021]
+    if year not in available_years:
+        print("ERROR: Data for year {} is not available. Please choose a year from the following: {} ".format(year, available_years))     
+    else:
+        car_df = pd.read_excel(data_in('regional', 'Cars_byTechnology_byYear.xlsx'), sheet_name=str(year),
+                               header=0)
+        # Clean dataframe
+        car_df = car_df.drop(["Land", "Statistische Kennziffer und Zulassungsbezirk"], axis = 1) #Drop unnecessary columns
+        car_df = car_df.set_index('nuts3') # Set index to nuts3 classification
+    return car_df
+
 # --- Temporal data -----------------------------------------------------------
 
 
@@ -2446,3 +2458,4 @@ def is_real_iterable(obj):
         return True
     else:
         return False
+
