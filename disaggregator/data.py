@@ -1592,16 +1592,17 @@ def read_car_data(year):
                                        'Cars_byTechnology_byYear.xlsx'),
                                sheet_name=str(year),
                                header=0)
-        # Drop unnecessary columns
-        try:
-            car_df = car_df.drop(["Land", "Statistische Kennziffer und Zulassungsbezirk"], axis = 1) #Drop unnecessary columns
-        except KeyError:
-            logger.info("The column names of this dataset are different than expected. No columns were removed.")
         # Set index to nuts 3 column
         if 'nuts3' not in car_df.columns:
             raise KeyError("nuts3 is not a column name. The following are column names: {}".format(car_df.columns))
         else:
             car_df = car_df.set_index('nuts3') # Set index to nuts3 classification
+        # Drop unnecessary columns
+        try:
+            car_df = car_df.drop(["Land", "Statistische Kennziffer und Zulassungsbezirk"], axis = 1) #Drop unnecessary columns
+        except KeyError:
+            logger.info("The column names of this dataset are different than expected. All non-numeric columns were removed.")
+            car_df = car_df.select_dtypes(['number'])
 
     return car_df
 
