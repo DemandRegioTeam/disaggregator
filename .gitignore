@@ -92,5 +92,6 @@ ENV/
 # disaggregator related settings
 disaggregator/config.yaml
 data_in/__cache__/*
+data_in/projects/*
 data_out/*
 .idea/workspace.xml
