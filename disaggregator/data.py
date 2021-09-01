@@ -1571,16 +1571,7 @@ def grid_operator(carrier, level, name=None):
     else:
         return df[name]
 
-
-def read_car_data(year):
-    """ 
-    Return a cleaned dataset of car distribution based on fuel-type on regional
-    level for a given year 
-    
-    Returns
-    --------
-    pd.DataFrame
-    """
+def vehicle_count(year, technology):
     available_years = [2018, 2019, 2020, 2021]
     if year not in available_years:
         raise KeyError("""ERROR: Data for year {} is not available. 
@@ -1603,8 +1594,15 @@ def read_car_data(year):
         except KeyError:
             logger.info("The column names of this dataset are different than expected. All non-numeric columns were removed.")
             car_df = car_df.select_dtypes(['number'])
+    available_tech = car_df.columns.values
+    if technology not in available_tech:
+        raise KeyError("ERROR: The technology you chose does not exist" +
+                       " in the dataset. Please choose one of the following" + 
+                       " technologies: {}".format(available_tech))
+    print(available_tech)
+    return car_df[technology]
+    
 
-    return car_df
 
 # --- Temporal data -----------------------------------------------------------
 
