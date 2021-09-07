@@ -1493,32 +1493,23 @@ def employees_per_branch_district(region_code='ags_lk', **kwargs):
                            columns='WZ', dropna=False))
         return df
 
-    if year in range(2000, 2008):
-        df = database_get('spatial', table_id=18, year=2008)
-        df = (df.assign(ags=[int(x[:-3]) for x in
-                             df['id_region'].astype(str)],
-                        WZ=[x[1] for x in df['internal_id']]))
-        bool_list = np.array(df['id_region'].astype(str))
-        for i in range(0, len(df)):
-            bool_list[i] = (df['internal_id'][i][0] == 9)
-        df = (df[((bool_list) & (df['WZ'] > 0))][['ags', 'value', 'WZ']]
-              .rename(columns={'value': 'BZE'}))
-        df = (pd.pivot_table(df, values='BZE', index='WZ',
-                             columns='ags', fill_value=0, dropna=False))
-        print("number of employees was taken from 2008, as there is no earlier\
-               data available")
-    elif year in range(2008, 2018):
-        df = database_get('spatial', table_id=18, year=year)
-        df = (df.assign(ags=[int(x[:-3]) for x in
-                             df['id_region'].astype(str)],
-                        WZ=[x[1] for x in df['internal_id']]))
-        bool_list = np.array(df['id_region'].astype(str))
-        for i in range(0, len(df)):
-            bool_list[i] = (df['internal_id'][i][0] == 9)
-        df = (df[((bool_list) & (df['WZ'] > 0))][['ags', 'value', 'WZ']]
-              .rename(columns={'value': 'BZE'}))
-        df = (pd.pivot_table(df, values='BZE', index='WZ',
-                             columns='ags', fill_value=0, dropna=False))
+    if year in range(2000, 2018):
+        if year < 2008:
+            logger.warning("Number of employees was taken from 2008, "
+                           "as there is no earlier data available!")
+            yr = 2008
+        else:
+            yr = year
+
+        df = database_get('spatial', table_id=18, year=yr)
+        df = (df.assign(region_code=lambda x:
+                        x.id_region.map(dict_region_code(keys='id_region',
+                                                         values=region_code)),
+                        WZ=[x[1] for x in df['internal_id']])
+                .loc[lambda x: x.internal_id.str[0] == 9]
+                .loc[lambda x: x.WZ > 0])
+        df = (pd.pivot_table(df, values='value', index='WZ',
+                             columns='region_code', fill_value=0, dropna=False))
     elif year in range(2018, 2036):
         if scenario == 'Basis':
             df = database_get('spatial', table_id=27, year=year)
@@ -1527,8 +1518,9 @@ def employees_per_branch_district(region_code='ags_lk', **kwargs):
         else:
             raise ValueError("`scenario` must be in ['Basis', 'Digital']")
 
-        df = (df.assign(region_code=lambda x: x.id_region.map(dict_region_code(
-            keys='id_region', values=region_code)),
+        df = (df.assign(region_code=lambda x:
+                        x.id_region.map(dict_region_code(keys='id_region',
+                                                         values=region_code)),
                         WZ=[x[0] for x in df['internal_id']])
                 .pivot_table(values='value', index='WZ', fill_value=0,
                              columns='region_code', dropna=False))
