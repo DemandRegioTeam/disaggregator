@@ -1435,26 +1435,23 @@ def efficiency_enhancement(source, **kwargs):
             raise ValueError("`source` must be in ['power', 'gas']")
         return df
 
+
 def get_WZ_for_sector(sector):
     """
     Return a list of WZ codes corresponding to gHD or industrial sector
-    
     Parameter
     ---------
     sector : str
         'Industrie' or 'GHD'
-        
+
     Returns
     -------
     list of WZ codes
 
     """
-    fn = data_in('dimensionless', 'WZ_2008.xlsx')
-    df = pd.read_excel(fn, sheet_name='Nur_WZ')
-    list_wz = list(df['WZ'].loc[df['Sektor'] == sector])
+    df = dict_wz(raw=True)
+    return df.loc[lambda x: x['Sektor'] == sector]['WZ'].to_list()
 
-    return list_wz
-    
 
 def employees_per_branch_district(region_code='ags_lk', **kwargs):
     """
