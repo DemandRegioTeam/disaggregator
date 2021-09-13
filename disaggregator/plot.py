@@ -37,7 +37,7 @@ ScaMap = plt.cm.ScalarMappable
 def choropleth_map(df, cmap=None, interval=None, annotate=None,
                    annotate_zeros=False, relative=True,
                    colorbar_each_subplot=False, hide_colorbar=False,
-                   add_percentages=False, license_tag=True, 
+                   add_percentages=False, license_tag=True,
                    background=True, **kwargs):
     """
     Plot a choropleth map* for each column of data in passed df.
@@ -65,8 +65,6 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
         Flag if to show a colorbar for each subplot (default False)
     add_percentages : bool, optional
         Flag if to add the percentage share into the axtitle (default True)
-    cut_empty_regs : bool, optional
-        Flag if empty regions should be cutted of the map (default False)
     """
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 

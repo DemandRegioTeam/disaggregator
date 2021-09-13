@@ -20,7 +20,6 @@ Provides functions to import all relevant data.
 """
 
 import pandas as pd
-import numpy as np
 import logging
 import holidays
 import datetime
@@ -307,7 +306,7 @@ def generate_specific_consumption_per_branch(**kwargs):
     while (x):
         logger.info('The following data was missing for the requested year: '
                     + str(year1))
-        for index, row in vb_wz.loc[vb_wz['value'].isnull() == True].iterrows():
+        for i, row in vb_wz.loc[vb_wz['value'].isnull() == True].iterrows():
             logger.info('WZ: '+str(row['WZ'])
                         + ' and energy carrier: '+str(row['ET'])
                         + ' with 18 = electricity and 12 = gas.')
@@ -447,9 +446,9 @@ def generate_specific_consumption_per_branch(**kwargs):
     year1 = year
     while(x):
         try:
-            df_balance = pd.read_excel(data_in('dimensionless',
-                                               'bilanz'+str(year1)[-2:]+'d.xlsx'),
-                                       sheet_name='nat', skiprows=3)
+            df_balance = pd.read_excel(
+                data_in('dimensionless', 'bilanz'+str(year1)[-2:]+'d.xlsx'),
+                sheet_name='nat', skiprows=3)
             x = False
         except FileNotFoundError:
             year1 -= 1
@@ -520,7 +519,7 @@ def generate_specific_consumption_per_branch_and_district(iterations_power=8,
     cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     [spez_sv, spez_gv, vb_wz, bze_je_lk_wz, df_f_sv_no_self_gen,
-     df_f_gv_no_self_gen] = (generate_specific_consumption_per_branch(year=year))
+     df_f_gv_no_self_gen] = generate_specific_consumption_per_branch(year=year)
     # get latest "Regionalstatistik" from Database
     x = True
     year1 = year
@@ -1508,8 +1507,8 @@ def employees_per_branch_district(region_code='ags_lk', **kwargs):
                         WZ=[x[1] for x in df['internal_id']])
                 .loc[lambda x: x.internal_id.str[0] == 9]
                 .loc[lambda x: x.WZ > 0])
-        df = (pd.pivot_table(df, values='value', index='WZ',
-                             columns='region_code', fill_value=0, dropna=False))
+        df = (pd.pivot_table(df, values='value', index='WZ', fill_value=0,
+                             columns='region_code', dropna=False))
     elif year in range(2018, 2036):
         if scenario == 'Basis':
             df = database_get('spatial', table_id=27, year=year)
@@ -1533,7 +1532,7 @@ def employees_per_branch_district(region_code='ags_lk', **kwargs):
 def gas_grid(H2=False):
     """
     Return table showing when a grid will exist for whih carrier and region.
-    
+
     Caveat: This dataset has been collected manually and will not be shipped
     with disaggregator.
 
@@ -1554,7 +1553,7 @@ def gas_grid(H2=False):
 def grid_operator(carrier, level, name=None):
     """
     Return a table showing when the grid for which carrier is in which region.
-    
+
     Caveat: This dataset has been collected manually and will not be shipped
     with disaggregator.
 
@@ -1583,37 +1582,41 @@ def grid_operator(carrier, level, name=None):
     else:
         return df[name]
 
+
 def vehicle_count(year, technology):
     available_years = [2018, 2019, 2020, 2021]
     if year not in available_years:
-        raise KeyError("""ERROR: Data for year {} is not available. 
+        raise KeyError("""ERROR: Data for year {} is not available.
                        Please choose a year from the following: {}
-                       """.format(year, available_years))  
+                       """.format(year, available_years))
     else:
         # Read in dataset based on provided year
-        car_df = pd.read_excel(data_in('regional', 
+        car_df = pd.read_excel(data_in('regional',
                                        'Cars_byTechnology_byYear.xlsx'),
                                sheet_name=str(year),
                                header=0)
         # Set index to nuts 3 column
         if 'nuts3' not in car_df.columns:
-            raise KeyError("nuts3 is not a column name. The following are column names: {}".format(car_df.columns))
+            raise KeyError(f"`nuts3` cannot be found in the columns. The "
+                           f"following are column names: {car_df.columns}")
         else:
-            car_df = car_df.set_index('nuts3') # Set index to nuts3 classification
+            car_df = car_df.set_index('nuts3')  # index -> nuts3 classification
         # Drop unnecessary columns
         try:
-            car_df = car_df.drop(["Land", "Statistische Kennziffer und Zulassungsbezirk"], axis = 1) #Drop unnecessary columns
+            car_df = car_df.drop(
+                ["Land", "Statistische Kennziffer und Zulassungsbezirk"],
+                axis=1)  # Drop unnecessary columns
         except KeyError:
-            logger.info("The column names of this dataset are different than expected. All non-numeric columns were removed.")
+            logger.info("The column names of this dataset are different than "
+                        "expected. All non-numeric columns were removed.")
             car_df = car_df.select_dtypes(['number'])
     available_tech = car_df.columns.values
     if technology not in available_tech:
-        raise KeyError("ERROR: The technology you chose does not exist" +
-                       " in the dataset. Please choose one of the following" + 
+        raise KeyError("ERROR: The technology you chose does not exist"
+                       " in the dataset. Please choose one of the following"
                        " technologies: {}".format(available_tech))
     print(available_tech)
     return car_df[technology]
-    
 
 
 # --- Temporal data -----------------------------------------------------------
@@ -2490,4 +2493,3 @@ def is_real_iterable(obj):
         return True
     else:
         return False
-

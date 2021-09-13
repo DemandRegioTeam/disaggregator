@@ -374,7 +374,7 @@ def disagg_CTS_industry(source, sector,
     cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
     [spez_sv, spez_gv] = generate_specific_consumption_per_branch_and_district(
-                                                  8, 8, no_self_gen, year=year)
+        8, 8, no_self_gen, year=year)
     if source == 'power':
         spez_vb = spez_sv
     else:
