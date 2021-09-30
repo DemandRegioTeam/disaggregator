@@ -23,7 +23,7 @@ Provides functions for spatial disaggregation
 from .data import (elc_consumption_HH, heat_consumption_HH, gas_consumption_HH,
                    population, households_per_size, income, stove_assumptions,
                    living_space, hotwater_shares, heat_demand_buildings,
-                   employees_per_branch_district, efficiency_enhancement,
+                   employees_per_branch, efficiency_enhancement,
                    generate_specific_consumption_per_branch_and_district)
 from .config import (dict_region_code, get_config)
 import numpy as np
@@ -392,8 +392,7 @@ def disagg_CTS_industry(source, sector,
 
     spez_vb = spez_vb.loc[wz]
     df = (pd.DataFrame(
-        data=(employees_per_branch_district(year=year).loc[spez_vb.index]
-                                                      .values
+        data=(employees_per_branch(year=year).loc[spez_vb.index].values
               * spez_vb.values),
         index=spez_vb.index,
         columns=spez_vb.columns))

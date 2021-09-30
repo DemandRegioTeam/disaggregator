@@ -355,7 +355,7 @@ def generate_specific_consumption_per_branch(**kwargs):
         gv_wz_real.loc['20'] = 88759166.67
 
     # get number of employees (bze) from database
-    bze_je_lk_wz = pd.DataFrame(employees_per_branch_district(year=year1))
+    bze_je_lk_wz = pd.DataFrame(employees_per_branch(year=year1))
     bze_lk_wz = (pd.DataFrame(0.0, index=bze_je_lk_wz.columns,
                               columns=wz_dict().values()))
     # arrange employees DataFrame accordingly to energy consumption statistics
@@ -839,7 +839,7 @@ def generate_specific_consumption_per_branch_and_district(iterations_power=8,
     return spez_sv_lk.sort_index(axis=1), spez_gv_lk.sort_index(axis=1)
 
 
-# --- Spatial data ------------------------------------------------------------
+# %% Spatial data
 
 
 def population(**kwargs):
@@ -1454,7 +1454,7 @@ def get_WZ_for_sector(sector):
     return df.loc[lambda x: x['Sektor'] == sector]['WZ'].to_list()
 
 
-def employees_per_branch_district(region_code='ags_lk', **kwargs):
+def employees_per_branch(region_code='ags_lk', **kwargs):
     """
     Return the number of employees per NUTS-3 area and branch.
 
@@ -1473,8 +1473,8 @@ def employees_per_branch_district(region_code='ags_lk', **kwargs):
     """
     cfg = kwargs.get('cfg', get_config())
     year = kwargs.get('year', cfg['base_year'])
-    scenario = kwargs.get('scenario', cfg['scenario'])
-    assert scenario in ['Basis', 'Digital', 'Predefined']
+    scenario = kwargs.get('scenario', cfg['employees']['scenario'])
+    assert scenario in ['Basis', 'Digital', 'Predefined', 'Direct']
 
     if scenario == 'Predefined':
         fn = data_in('regional', cfg['employees']['filename'])
@@ -1489,6 +1489,9 @@ def employees_per_branch_district(region_code='ags_lk', **kwargs):
               .pivot_table(values='value', index='region_code', fill_value=0,
                            columns='WZ', dropna=False))
         return df
+    elif scenario == 'Direct':
+        fn = data_in('regional', cfg['employees']['filename'])
+        return pd.read_csv(fn, index_col=0, engine='c')
 
     if year in range(2000, 2018):
         if year < 2008:
