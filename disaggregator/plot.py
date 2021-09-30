@@ -18,6 +18,7 @@
 """
 Provides functions for plotting
 """
+# %% Imports
 
 import math
 import logging
@@ -32,6 +33,9 @@ from .config import get_config
 from .data import database_shapes, transpose_spatiotemporal
 logger = logging.getLogger(__name__)
 ScaMap = plt.cm.ScalarMappable
+
+
+# %% Main functions
 
 
 def choropleth_map(df, cmap=None, interval=None, annotate=None,
@@ -476,7 +480,7 @@ def multireg_generic(df, **kwargs):
     return fig, ax
 
 
-# --- HELPER FUNCTIONS --------------------------------------------------------
+# %% Utility functions
 
 
 def gather_nrows_ncols(x, orientation='landscape'):

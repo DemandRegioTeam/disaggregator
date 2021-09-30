@@ -18,6 +18,7 @@
 """
 Provides functions for spatial disaggregation
 """
+# %% Imports
 
 from .data import (elc_consumption_HH, heat_consumption_HH, gas_consumption_HH,
                    population, households_per_size, income, stove_assumptions,
@@ -31,7 +32,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# --- Generic definitions -----------------------------------------------------
+# %%  Generic functions
 
 
 def disagg_topdown(total, keys1, keys2=None, names=None):
@@ -102,7 +103,7 @@ def disagg_topdown(total, keys1, keys2=None, names=None):
     return df
 
 
-# --- Sector-specific definitions ---------------------------------------------
+# %%  Sector-specific functions
 
 
 def disagg_households_power(by, weight_by_income=False, scale_by_pop=False,
@@ -404,7 +405,7 @@ def disagg_CTS_industry(source, sector,
     return df
 
 
-# --- Utility definitions -----------------------------------------------------
+# %% Utility functions
 
 
 def adjust_by_income(df, **kwargs):

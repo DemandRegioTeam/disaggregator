@@ -18,6 +18,7 @@
 """
 Provides functions for temporal disaggregations.
 """
+# %% Imports
 
 from .config import (get_config, data_out, bl_dict, shift_profile_industry,
                      slp_branch_cts_gas as slp_wz_g, data_in,
@@ -38,6 +39,9 @@ import xarray as xr
 import geopandas as gpd
 import logging
 logger = logging.getLogger(__name__)
+
+
+# %% Generic functions
 
 
 def disagg_temporal(spat, temp, time_indexed=False, **kwargs):
@@ -295,7 +299,7 @@ def create_projection(df, target_year, by, **kwargs):
     return df.multiply(keys, axis='index')
 
 
-# --- Utility functions -------------------------------------------------------
+# %% Utility functions
 
 
 def getSunsetSunrise(doy, lat, lon, UTC_diff):

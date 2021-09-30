@@ -18,6 +18,7 @@
 """
 Provides functions to import all relevant data.
 """
+# %% Imports
 
 import pandas as pd
 import logging
@@ -33,7 +34,7 @@ import itertools
 logger = logging.getLogger(__name__)
 
 
-# --- Dimensionless data ------------------------------------------------------
+# %% Dimensionless data
 
 
 def elc_consumption_HH(by_HH_size=False, **kwargs):
@@ -1616,7 +1617,7 @@ def vehicle_count(year, technology):
     return car_df[technology]
 
 
-# --- Temporal data -----------------------------------------------------------
+# %% Temporal data
 
 
 def elc_consumption_HH_temporal(**kwargs):
@@ -1669,7 +1670,7 @@ def reshape_temporal(freq=None, key=None, **kwargs):
     return df_exp
 
 
-# --- Spatiotemporal data -----------------------------------------------------
+# %% Spatiotemporal data
 
 
 def standard_load_profile_elc(which='H0', freq='1H', **kwargs):
@@ -2148,7 +2149,7 @@ def reshape_spatiotemporal(freq=None, key=None, **kwargs):
     return df_exp.pipe(transpose_spatiotemporal, year=year, freq=freq)
 
 
-# --- Utility functions -------------------------------------------------------
+# %% Utility functions
 
 
 def database_description(dimension='spatial', short=True, only_active=True,
