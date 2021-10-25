@@ -1586,37 +1586,24 @@ def grid_operator(carrier, level, name=None):
 
 def vehicle_count(year, technology):
     available_years = [2018, 2019, 2020, 2021]
-    if year not in available_years:
-        raise KeyError("""ERROR: Data for year {} is not available.
-                       Please choose a year from the following: {}
-                       """.format(year, available_years))
-    else:
-        # Read in dataset based on provided year
-        car_df = pd.read_excel(data_in('regional',
-                                       'Cars_byTechnology_byYear.xlsx'),
-                               sheet_name=str(year),
-                               header=0)
-        # Set index to nuts 3 column
-        if 'nuts3' not in car_df.columns:
-            raise KeyError(f"`nuts3` cannot be found in the columns. The "
-                           f"following are column names: {car_df.columns}")
-        else:
-            car_df = car_df.set_index('nuts3')  # index -> nuts3 classification
-        # Drop unnecessary columns
-        try:
-            car_df = car_df.drop(
-                ["Land", "Statistische Kennziffer und Zulassungsbezirk"],
-                axis=1)  # Drop unnecessary columns
-        except KeyError:
-            logger.info("The column names of this dataset are different than "
-                        "expected. All non-numeric columns were removed.")
-            car_df = car_df.select_dtypes(['number'])
-    available_tech = car_df.columns.values
-    if technology not in available_tech:
-        raise KeyError("ERROR: The technology you chose does not exist"
-                       " in the dataset. Please choose one of the following"
-                       " technologies: {}".format(available_tech))
-    print(available_tech)
+    assert year in available_years, (
+        f"Data for year {year} is not available. Please choose a year "
+        f"from the following: {available_years}")
+
+    # Read in dataset based on provided year
+    logger.warn("In these datasets, data for the city 'Trier' might be wrong "
+                "and data for district 'Trier-Saarburg' is non-existent.")
+    car_df = (pd.read_excel(data_in('regional',
+                                    'Cars_bytechnology_byyear.xlsx'),
+                            sheet_name=str(year), header=0)
+                .set_index('nuts3')  # index -> nuts3 classification
+                .drop(["Land", "Statistische Kennziffer und Zulassungsbezirk"],
+                      axis=1))  # Drop unnecessary columns
+
+    techs = car_df.columns
+    assert technology in techs, (
+        f"The technology you chose does not exist in the dataset. Please "
+        f"choose one of the following technologies: {techs}")
     return car_df[technology]
 
 
