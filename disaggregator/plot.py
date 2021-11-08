@@ -120,7 +120,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
     # Derive lat/lon tuple as representative point for each shape
     DF['coords'] = DF.geometry.apply(
         lambda x: x.representative_point().coords[:][0])
-    DF['coords_WGS84'] = DF.to_crs({'init': 'epsg:4326'}).geometry.apply(
+    DF['coords_WGS84'] = DF.to_crs('EPSG:4326').geometry.apply(
         lambda x: x.representative_point().coords[:][0])
 
     if reg_filter is not None:
