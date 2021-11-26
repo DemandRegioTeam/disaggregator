@@ -155,7 +155,6 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
         else:
             unit = '[${}$]'.format(unit)
         mod_units.append(unit)
-    units = mod_units
 
     # Try to get cmap from config file, by default use viridis
     if cmap is None:
@@ -304,7 +303,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
                     orientation='horizontal', anchor=(0.5, 1.0),
                     format=mticker.StrMethodFormatter('{x:n}'),
                     extend=extend)
-                cbar.set_label(units[a])
+                cbar.set_label(mod_units[a])
             if len(cols) > 1:
                 fig.tight_layout()
         else:
@@ -318,7 +317,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
                 orientation='horizontal', anchor=(0.5, 1.0),
                 format=mticker.StrMethodFormatter('{x:n}'),
                 extend=extend)
-            cbar.set_label(units[0])
+            cbar.set_label(mod_units[0])
         # if len(cols) > 1:
         #     fig.tight_layout()
 
@@ -666,7 +665,7 @@ def cmap_handler(cmap, **kwargs):
         f_cmaps = cfg['userdef_colors']['file']
         sheet_name = cfg['userdef_colors']['sheet_cbars']
         ser_cmap = (pd.read_excel(f_cmaps, sheet_name=sheet_name,
-                                   index_col='order')
+                                  index_col='order')
                        .dropna(axis=0, how='all')
                        .loc[lambda x: x['cmap'] == cmap])['hex']
         if len(ser_cmap) == 0:
