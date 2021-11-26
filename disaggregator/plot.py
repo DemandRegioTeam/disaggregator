@@ -37,7 +37,6 @@ locale.setlocale(locale.LC_ALL, 'de')
 plt.rcParams['axes.formatter.use_locale'] = True
 ScaMap = plt.cm.ScalarMappable
 
-
 # %% Main functions
 
 
@@ -54,24 +53,36 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
     Parameters
     ----------
     df : pd.DataFrame or pd.Series
-        Holding the values (required index: NUTS-3 codes)
+        Table holding the values (required index: NUTS-3 codes)
     cmap : str or list or Colormap instance, optional
         matplotlib colormap code(s)
     interval : <tuple> or <str> or <list of tuples> or <list of str>, optional
-        if tuple: min/max-range e.g. (0, 1) | if str: find min/max autom.
+        Defines the interval(s) set on the colorbar.
+        If `tuple`: min/max-range e.g. (0, 100) for all
+        If `str`: find min/max autom.
+        If `list of tuples`: min/max-range for each subplot.
     annotate: None, str or list
         If `str` or `list` used to write annotation on map, valid values are:
             'nuts3': annonate the nuts3-code
             `name` or `names`: annonate the name of the region
             `value` or `values`: annotate the passed values
             `percentage` or `percentages`: annonate the percentage of values
+    annotate_zeros : bool, optional
+        Flag to annotate regions whose values is zero (default False)
     relative : bool, optional
         Flag if to use relative values in <unit>/(km²) (default True) or
         to use absolutes values if False.
     colorbar_each_subplot : bool, optional
         Flag if to show a colorbar for each subplot (default False)
+    hide_colorbar : bool, default False
+        Flag to hide (True) or show (False) the colorbar below the plot.
     add_percentages : bool, optional
-        Flag if to add the percentage share into the axtitle (default True)
+        Flag if to add the percentage share into the axtitle (default False)
+    license_tag : bool, optional
+        Flag if to write a license_tag into the figure (default True)
+    background : bool, optional
+        Flag if to plot a grey'ish background layer with all regions, so that
+        regions that are NaN do still appear on the chart (default True)
     """
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
