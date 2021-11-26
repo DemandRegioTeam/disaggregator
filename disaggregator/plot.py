@@ -43,7 +43,7 @@ ScaMap = plt.cm.ScalarMappable
 def choropleth_map(df, cmap=None, interval=None, annotate=None,
                    annotate_zeros=False, relative=True,
                    colorbar_each_subplot=False, hide_colorbar=False,
-                   add_percentages=False, license_tag=True,
+                   add_percentages=False, add_sums=False, license_tag=True,
                    background=True, **kwargs):
     """
     Plot a choropleth map* for each column of data in passed df.
@@ -78,6 +78,8 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
         Flag to hide (True) or show (False) the colorbar below the plot.
     add_percentages : bool, optional
         Flag if to add the percentage share into the axtitle (default False)
+    add_sums : bool, optional
+        Flag if to add the sum of all values into the axtitle (default False)
     license_tag : bool, optional
         Flag if to write a license_tag into the figure (default True)
     background : bool, optional
@@ -227,17 +229,20 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
         if not shape_source_api:
             ax[i, j].set_xlim(5.5, 15.3)
             ax[i, j].set_ylim(47.0, 55.3)
+
         # Deal with axes titles
-        if isinstance(axtitle, str):
-            if len(cols) == 1:
-                ax[i, j].set_title('{}'.format(axtitle))
-            else:
-                if add_percentages:
-                    ratio = '{:.1f}'.format(df[col].sum()/df.sum().sum()*100.)
-                    ax[i, j].set_title('{} {} ({}%)'.format(axtitle, col,
-                                                            ratio))
-                else:
-                    ax[i, j].set_title('{} {}'.format(axtitle, col))
+        if len(cols) == 1:
+            axt = axtitle
+        else:
+            axt = '{} {}'.format(axtitle, col)
+        if add_percentages:
+            ratio = '{:.1f}'.format(df[col].sum()/df.sum().sum()*100.)
+            axt = '{} {}'.format(axt, ratio)
+        if add_sums:
+            sums = '{:.0f} {}'.format(df[col].sum(), units[a])
+            axt = '{} {}'.format(axt, sums)
+        ax[i, j].set_title(axt)
+
         ax[i, j].get_xaxis().set_visible(False)
         ax[i, j].get_yaxis().set_visible(False)
 
