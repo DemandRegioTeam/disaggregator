@@ -21,6 +21,7 @@ Provides functions for plotting
 # %% Imports
 
 import math
+import locale
 import logging
 import numpy as np
 import pandas as pd
@@ -32,6 +33,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from .config import get_config
 from .data import database_shapes, transpose_spatiotemporal
 logger = logging.getLogger(__name__)
+locale.setlocale(locale.LC_ALL, 'de')
+plt.rcParams['axes.formatter.use_locale'] = True
 ScaMap = plt.cm.ScalarMappable
 
 
@@ -299,7 +302,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
                 cbar = fig.colorbar(
                     sm, cax=cax, shrink=1.0, pad=0.01, fraction=0.046,
                     orientation='horizontal', anchor=(0.5, 1.0),
-                    format=mticker.StrMethodFormatter('{x:,g}'),
+                    format=mticker.StrMethodFormatter('{x:n}'),
                     extend=extend)
                 cbar.set_label(units[a])
             if len(cols) > 1:
@@ -313,7 +316,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
             cbar = fig.colorbar(
                 sm, ax=ax.ravel().tolist(), shrink=shr, pad=0.01,
                 orientation='horizontal', anchor=(0.5, 1.0),
-                format=mticker.StrMethodFormatter('{x:,g}'),
+                format=mticker.StrMethodFormatter('{x:n}'),
                 extend=extend)
             cbar.set_label(units[0])
         # if len(cols) > 1:
