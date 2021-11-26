@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.patheffects as PathEffects
 from matplotlib.colors import LinearSegmentedColormap
-from .config import get_config
+from .config import get_config, data_in
 from .data import database_shapes, transpose_spatiotemporal
 logger = logging.getLogger(__name__)
 locale.setlocale(locale.LC_ALL, 'de')
@@ -44,7 +44,7 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
                    annotate_zeros=False, relative=True,
                    colorbar_each_subplot=False, hide_colorbar=False,
                    add_percentages=False, add_sums=False, license_tag=True,
-                   background=True, **kwargs):
+                   background=True, show_cities=False, **kwargs):
     """
     Plot a choropleth map* for each column of data in passed df.
 
@@ -85,6 +85,12 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
     background : bool, optional
         Flag if to plot a grey'ish background layer with all regions, so that
         regions that are NaN do still appear on the chart (default True)
+    show_cities : bool, optional
+        Flag if to plot dots with annotated cities to the map (default False)
+
+    Returns
+    -------
+    fig, ax
     """
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -114,6 +120,12 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
     rem = nrows * ncols - len(df.columns)
     shape_source_api = kwargs.get('shape_source_api', True)
     reg_filter = kwargs.get('reg_filter', None)
+    default_cities = kwargs.get('default_cities', cfg.get(
+        'default_cities',  # If not provided, use those from ARD Wetterkarte
+        ['Kiel', 'Rostock', 'Hamburg', 'Hannover', 'Dresden', 'Berlin', 'Köln',
+         'Frankfurt', 'Stuttgart', 'München']))
+    highlight_cities = kwargs.get('highlight_cities',
+                                  cfg.get('highlight_cities', []))
     extend = kwargs.get('extend', 'neither')
     mode = kwargs.get('mode', 'a4screen')
     plt.rcParams.update({'font.size': fontsize})
@@ -130,6 +142,13 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
             nuts = 'NUTS_RG_01M_2013'
         DE = (gpd.read_file(gpd.datasets.get_path(nuts))
                  .set_index('NUTS_ID'))
+
+    if show_cities or any(highlight_cities):
+        CI = get_cities()
+        if show_cities:
+            CI_default = CI.loc[lambda x: x['name'].isin(default_cities)]
+        if any(highlight_cities):
+            CI_high = CI.loc[lambda x: x['name'].isin(highlight_cities)]
 
     assert(isinstance(DE, gpd.GeoDataFrame))
     DF = pd.concat([DE, df], axis=1, join='inner')
@@ -226,6 +245,23 @@ def choropleth_map(df, cmap=None, interval=None, annotate=None,
         (DF.dropna(subset=[col], axis=0)
            .plot(ax=ax[i, j], column=col, cmap=cmap[a], edgecolor=edgecolor,
                  vmin=intervals[a][0], vmax=intervals[a][1]))
+        # Third layer: cities
+        if show_cities:
+            fs = {1: 14, 2: 12}.get(len(cols), 11)
+            CI_default.plot(ax=ax[i, j], color=color)
+            for idx, row in CI_default.iterrows():
+                txt = ax[i, j].annotate(text=row['name'], xy=row['coords'],
+                                        fontsize=fs, color=color,
+                                        horizontalalignment='center',
+                                        verticalalignment='bottom')
+        if any(highlight_cities):
+            fs = {1: 14, 2: 12}.get(len(cols), 11)
+            CI_high.plot(ax=ax[i, j], color='red', marker='s')
+            for idx, row in CI_high.iterrows():
+                txt = ax[i, j].annotate(text=row['name'], xy=row['coords'],
+                                        fontsize=fs, color='red',
+                                        horizontalalignment='center',
+                                        verticalalignment='top')
         if not shape_source_api:
             ax[i, j].set_xlim(5.5, 15.3)
             ax[i, j].set_ylim(47.0, 55.3)
@@ -499,6 +535,18 @@ def multireg_generic(df, **kwargs):
 
 
 # %% Utility functions
+
+
+def get_cities(types=['city', 'town']):
+    CI = (gpd.read_file(data_in('regional', 'shapes', 'germany_places',
+                                'places.shp'), encoding='utf-8')
+          .loc[lambda x: x['type'].isin(types)]
+          .dropna(subset=['name'])
+          .sort_values(by='name')
+          .to_crs('EPSG:25832'))
+    CI['coords'] = CI.geometry.apply(
+        lambda x: x.representative_point().coords[:][0])
+    return CI
 
 
 def gather_nrows_ncols(x, orientation='landscape'):
