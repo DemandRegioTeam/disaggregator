@@ -1491,7 +1491,13 @@ def employees_per_branch(region_code='ags_lk', **kwargs):
         return df
     elif scenario == 'Direct':
         fn = data_in('regional', cfg['employees']['filename'])
-        return pd.read_csv(fn, index_col=0, engine='c')
+        df = pd.read_csv(fn, index_col=0, engine='c')
+        # 'XX' is sometimes used for statistical differences -> not a real WZ.
+        if 'XX' in df:
+            df = df.drop('XX', axis=1)
+        cols = [int(c) for c in df.columns]
+        df.columns = cols
+        return df
 
     if year in range(2000, 2018):
         if year < 2008:
