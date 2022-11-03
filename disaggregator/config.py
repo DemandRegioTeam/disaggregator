@@ -24,6 +24,7 @@ import requests
 import pandas as pd
 import logging
 import hashlib
+from io import BytesIO
 from ast import literal_eval as lit_eval
 logger = logging.getLogger(__name__)
 
@@ -123,10 +124,10 @@ def database_raw(query, force_update=False):
         host = get_config()['database_host']
         logger.info('Querying from:\n' + host + query)
         try:
-            df = pd.read_json(requests.get(host + query).content,
+            df = pd.read_json(BytesIO(requests.get(host + query).content),
                               dtype=get_config()['dtypes'])
         except ValueError:
-            ser = pd.read_json(requests.get(host + query).content,
+            ser = pd.read_json(BytesIO(requests.get(host + query).content),
                                dtype=get_config()['dtypes'], typ='series')
             logger.error(ser)
             raise ValueError('Query returned a series:\n{}'.format(ser))
